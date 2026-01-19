@@ -122,119 +122,134 @@ export default function SignUpPage() {
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl animate-pulse-glow" style={{ animationDelay: '1s' }}></div>
       </div>
 
-      {/* Content */}
-      <div className="relative z-10 w-full max-w-md">
-        {/* Logo/Brand */}
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
-            <Home className="w-8 h-8 text-primary" />
-            <span>MarketMap Homes</span>
-          </Link>
-          <p className="text-muted-foreground font-medium">Create your account</p>
-        </div>
-
-        {/* Sign Up Card */}
-        <Card className="border-2 shadow-xl backdrop-blur-sm bg-card/95">
-          <CardHeader className="space-y-2 text-center pb-4">
-            <CardTitle className="text-3xl font-bold">Sign Up</CardTitle>
-            <CardDescription className="text-base">
-              Enter your information to create an account
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {error && (
-                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                  <p className="text-sm text-destructive font-medium">{error}</p>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <label htmlFor="name" className="text-sm font-semibold text-foreground">
-                  Full Name
-                </label>
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="John Doe"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  disabled={loading}
-                  className="h-12 text-base"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-semibold text-foreground">
-                  Email Address
-                </label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  disabled={loading}
-                  className="h-12 text-base"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-semibold text-foreground">
-                  Password
-                </label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  disabled={loading}
-                  className="h-12 text-base"
-                />
-                <p className="text-xs text-muted-foreground">Must be at least 6 characters</p>
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="confirmPassword" className="text-sm font-semibold text-foreground">
-                  Confirm Password
-                </label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  disabled={loading}
-                  className="h-12 text-base"
-                />
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full h-12 text-base font-semibold"
-                disabled={loading}
-              >
-                {loading ? "Creating account..." : "Sign Up"}
-              </Button>
-            </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-sm text-muted-foreground">
-                Already have an account?{" "}
-                <Link
-                  href="/signin"
-                  className="font-semibold text-primary hover:underline transition-colors"
-                >
-                  Sign in
-                </Link>
-              </p>
+      {/* Main Panel Container */}
+      <div className="relative z-10 w-full max-w-6xl">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 bg-card rounded-2xl shadow-2xl overflow-hidden border-2 border-border">
+          {/* Left Side - Sign Up Form */}
+          <div className="flex flex-col justify-center p-8 lg:p-12">
+            {/* Logo/Brand */}
+            <div className="text-center mb-8">
+              <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
+                <Home className="w-8 h-8 text-primary" />
+                <span>MarketMap Homes</span>
+              </Link>
+              <p className="text-muted-foreground font-medium">Create your account</p>
             </div>
-          </CardContent>
-        </Card>
+
+            {/* Sign Up Card */}
+            <Card className="border-0 shadow-none bg-transparent">
+              <CardHeader className="space-y-2 text-center pb-4">
+                <CardTitle className="text-3xl font-bold">Sign Up</CardTitle>
+                <CardDescription className="text-base">
+                  Enter your information to create an account
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  {error && (
+                    <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                      <p className="text-sm text-destructive font-medium">{error}</p>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <label htmlFor="name" className="text-sm font-semibold text-foreground">
+                      Full Name
+                    </label>
+                    <Input
+                      id="name"
+                      type="text"
+                      placeholder="John Doe"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      disabled={loading}
+                      className="h-12 text-base"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="email" className="text-sm font-semibold text-foreground">
+                      Email Address
+                    </label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      disabled={loading}
+                      className="h-12 text-base"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="password" className="text-sm font-semibold text-foreground">
+                      Password
+                    </label>
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      disabled={loading}
+                      className="h-12 text-base"
+                    />
+                    <p className="text-xs text-muted-foreground">Must be at least 6 characters</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="confirmPassword" className="text-sm font-semibold text-foreground">
+                      Confirm Password
+                    </label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      disabled={loading}
+                      className="h-12 text-base"
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full h-12 text-base font-semibold"
+                    disabled={loading}
+                  >
+                    {loading ? "Creating account..." : "Sign Up"}
+                  </Button>
+                </form>
+
+                <div className="mt-6 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Already have an account?{" "}
+                    <Link
+                      href="/signin"
+                      className="font-semibold text-primary hover:underline transition-colors"
+                    >
+                      Sign in
+                    </Link>
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Side - Image */}
+          <div className="relative bg-muted min-h-[300px] lg:min-h-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/auth/bg_image1.png"
+              alt="Sign Up"
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
       </div>
     </div>
   )

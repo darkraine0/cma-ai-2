@@ -120,37 +120,53 @@ function ResetPasswordForm() {
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl animate-pulse-glow" style={{ animationDelay: '1s' }}></div>
         </div>
 
-        <div className="relative z-10 w-full max-w-md">
-          <div className="text-center mb-8">
-            <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
-              <Home className="w-8 h-8 text-primary" />
-              <span>MarketMap Homes</span>
-            </Link>
-          </div>
-
-          <Card className="border-2 shadow-xl backdrop-blur-sm bg-card/95">
-            <CardHeader className="space-y-2 text-center pb-4">
-              <div className="mx-auto w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
-                <AlertCircle className="w-8 h-8 text-destructive" />
-              </div>
-              <CardTitle className="text-3xl font-bold">Invalid Token</CardTitle>
-              <CardDescription className="text-base">
-                {error || "This password reset link is invalid or has expired"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Link href="/forgot-password">
-                <Button className="w-full h-12 text-base font-semibold">
-                  Request New Reset Link
-                </Button>
-              </Link>
-              <div className="mt-4 text-center">
-                <Link href="/signin" className="text-sm font-semibold text-primary hover:underline">
-                  Back to Sign In
+        {/* Main Panel Container */}
+        <div className="relative z-10 w-full max-w-6xl">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 bg-card rounded-2xl shadow-2xl overflow-hidden border-2 border-border">
+            {/* Left Side - Invalid Token Message */}
+            <div className="flex flex-col justify-center p-8 lg:p-12">
+              <div className="text-center mb-8">
+                <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
+                  <Home className="w-8 h-8 text-primary" />
+                  <span>MarketMap Homes</span>
                 </Link>
               </div>
-            </CardContent>
-          </Card>
+
+              <Card className="border-0 shadow-none bg-transparent">
+                <CardHeader className="space-y-2 text-center pb-4">
+                  <div className="mx-auto w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+                    <AlertCircle className="w-8 h-8 text-destructive" />
+                  </div>
+                  <CardTitle className="text-3xl font-bold">Invalid Token</CardTitle>
+                  <CardDescription className="text-base">
+                    {error || "This password reset link is invalid or has expired"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Link href="/forgot-password">
+                    <Button className="w-full h-12 text-base font-semibold">
+                      Request New Reset Link
+                    </Button>
+                  </Link>
+                  <div className="mt-4 text-center">
+                    <Link href="/signin" className="text-sm font-semibold text-primary hover:underline">
+                      Back to Sign In
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Right Side - Image */}
+            <div className="relative bg-muted min-h-[300px] lg:min-h-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/auth/bg_image.png"
+                alt="Reset Password"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -165,32 +181,48 @@ function ResetPasswordForm() {
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl animate-pulse-glow" style={{ animationDelay: '1s' }}></div>
         </div>
 
-        <div className="relative z-10 w-full max-w-md">
-          <div className="text-center mb-8">
-            <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
-              <Home className="w-8 h-8 text-primary" />
-              <span>MarketMap Homes</span>
-            </Link>
-          </div>
-
-          <Card className="border-2 shadow-xl backdrop-blur-sm bg-card/95">
-            <CardHeader className="space-y-2 text-center pb-4">
-              <div className="mx-auto w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4">
-                <CheckCircle2 className="w-8 h-8 text-success" />
+        {/* Main Panel Container */}
+        <div className="relative z-10 w-full max-w-6xl">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 bg-card rounded-2xl shadow-2xl overflow-hidden border-2 border-border">
+            {/* Left Side - Success Message */}
+            <div className="flex flex-col justify-center p-8 lg:p-12">
+              <div className="text-center mb-8">
+                <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
+                  <Home className="w-8 h-8 text-primary" />
+                  <span>MarketMap Homes</span>
+                </Link>
               </div>
-              <CardTitle className="text-3xl font-bold">Password Reset!</CardTitle>
-              <CardDescription className="text-base">
-                Your password has been successfully reset. Redirecting to sign in...
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Link href="/signin">
-                <Button className="w-full h-12 text-base font-semibold">
-                  Go to Sign In
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+
+              <Card className="border-0 shadow-none bg-transparent">
+                <CardHeader className="space-y-2 text-center pb-4">
+                  <div className="mx-auto w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4">
+                    <CheckCircle2 className="w-8 h-8 text-success" />
+                  </div>
+                  <CardTitle className="text-3xl font-bold">Password Reset!</CardTitle>
+                  <CardDescription className="text-base">
+                    Your password has been successfully reset. Redirecting to sign in...
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Link href="/signin">
+                    <Button className="w-full h-12 text-base font-semibold">
+                      Go to Sign In
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Right Side - Image */}
+            <div className="relative bg-muted min-h-[300px] lg:min-h-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/auth/bg_image.png"
+                alt="Password Reset Success"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -204,76 +236,92 @@ function ResetPasswordForm() {
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl animate-pulse-glow" style={{ animationDelay: '1s' }}></div>
       </div>
 
-      <div className="relative z-10 w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
-            <Home className="w-8 h-8 text-primary" />
-            <span>MarketMap Homes</span>
-          </Link>
-          <p className="text-muted-foreground font-medium">Create a new password</p>
-        </div>
-
-        <Card className="border-2 shadow-xl backdrop-blur-sm bg-card/95">
-          <CardHeader className="space-y-2 text-center pb-4">
-            <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <Lock className="w-8 h-8 text-primary" />
+      {/* Main Panel Container */}
+      <div className="relative z-10 w-full max-w-6xl">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 bg-card rounded-2xl shadow-2xl overflow-hidden border-2 border-border">
+          {/* Left Side - Reset Password Form */}
+          <div className="flex flex-col justify-center p-8 lg:p-12">
+            <div className="text-center mb-8">
+              <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
+                <Home className="w-8 h-8 text-primary" />
+                <span>MarketMap Homes</span>
+              </Link>
+              <p className="text-muted-foreground font-medium">Create a new password</p>
             </div>
-            <CardTitle className="text-3xl font-bold">Reset Password</CardTitle>
-            <CardDescription className="text-base">
-              Enter your new password below
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {error && (
-                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                  <p className="text-sm text-destructive font-medium">{error}</p>
+
+            <Card className="border-0 shadow-none bg-transparent">
+              <CardHeader className="space-y-2 text-center pb-4">
+                <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                  <Lock className="w-8 h-8 text-primary" />
                 </div>
-              )}
+                <CardTitle className="text-3xl font-bold">Reset Password</CardTitle>
+                <CardDescription className="text-base">
+                  Enter your new password below
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  {error && (
+                    <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                      <p className="text-sm text-destructive font-medium">{error}</p>
+                    </div>
+                  )}
 
-              <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-semibold text-foreground">
-                  New Password
-                </label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  disabled={loading}
-                  className="h-12 text-base"
-                />
-                <p className="text-xs text-muted-foreground">Must be at least 6 characters</p>
-              </div>
+                  <div className="space-y-2">
+                    <label htmlFor="password" className="text-sm font-semibold text-foreground">
+                      New Password
+                    </label>
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      disabled={loading}
+                      className="h-12 text-base"
+                    />
+                    <p className="text-xs text-muted-foreground">Must be at least 6 characters</p>
+                  </div>
 
-              <div className="space-y-2">
-                <label htmlFor="confirmPassword" className="text-sm font-semibold text-foreground">
-                  Confirm New Password
-                </label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  disabled={loading}
-                  className="h-12 text-base"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <label htmlFor="confirmPassword" className="text-sm font-semibold text-foreground">
+                      Confirm New Password
+                    </label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      disabled={loading}
+                      className="h-12 text-base"
+                    />
+                  </div>
 
-              <Button
-                type="submit"
-                className="w-full h-12 text-base font-semibold"
-                disabled={loading}
-              >
-                {loading ? "Resetting..." : "Reset Password"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+                  <Button
+                    type="submit"
+                    className="w-full h-12 text-base font-semibold"
+                    disabled={loading}
+                  >
+                    {loading ? "Resetting..." : "Reset Password"}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Side - Image */}
+          <div className="relative bg-muted min-h-[300px] lg:min-h-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/auth/bg_image.png"
+              alt="Reset Password"
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
       </div>
     </div>
   )

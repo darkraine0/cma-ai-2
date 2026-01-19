@@ -176,129 +176,145 @@ function VerifyEmailForm() {
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl animate-pulse-glow" style={{ animationDelay: '1s' }}></div>
       </div>
 
-      <div className="relative z-10 w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
-            <Home className="w-8 h-8 text-primary" />
-            <span>MarketMap Homes</span>
-          </Link>
-        </div>
+      {/* Main Panel Container */}
+      <div className="relative z-10 w-full max-w-6xl">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 bg-card rounded-2xl shadow-2xl overflow-hidden border-2 border-border">
+          {/* Left Side - Verification Form */}
+          <div className="flex flex-col justify-center p-8 lg:p-12">
+            <div className="text-center mb-8">
+              <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
+                <Home className="w-8 h-8 text-primary" />
+                <span>MarketMap Homes</span>
+              </Link>
+            </div>
 
-        <Card className="border-2 shadow-xl backdrop-blur-sm bg-card/95">
-          <CardHeader className="space-y-2 text-center pb-4">
-            {status === "success" ? (
-              <>
-                <div className="mx-auto w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4">
-                  <CheckCircle2 className="w-8 h-8 text-success" />
-                </div>
-                <CardTitle className="text-3xl font-bold">Email Verified!</CardTitle>
-                <CardDescription className="text-base">
-                  {message}
-                </CardDescription>
-              </>
-            ) : status === "error" ? (
-              <>
-                <div className="mx-auto w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
-                  <AlertCircle className="w-8 h-8 text-destructive" />
-                </div>
-                <CardTitle className="text-3xl font-bold">Verification Failed</CardTitle>
-                <CardDescription className="text-base">
-                  {message}
-                </CardDescription>
-              </>
-            ) : (
-              <>
-                <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                  <Mail className="w-8 h-8 text-primary" />
-                </div>
-                <CardTitle className="text-3xl font-bold">Verify Your Email</CardTitle>
-                <CardDescription className="text-base">
-                  {message || "Please enter the 4-digit verification code sent to your email."}
-                </CardDescription>
-              </>
-            )}
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {status === "success" ? (
-              <div className="p-4 rounded-lg bg-muted/50 border border-border">
-                <p className="text-sm text-muted-foreground text-center">
-                  Your account is pending admin approval. You'll be able to access the application once approved.
-                </p>
-              </div>
-            ) : status === "error" ? (
-              <div className="space-y-3">
-                <Button
-                  onClick={() => {
-                    setStatus("input")
-                    setCode(["", "", "", ""])
-                    inputRefs.current[0]?.focus()
-                  }}
-                  className="w-full h-12 text-base font-semibold"
-                >
-                  Try Again
-                </Button>
-                <Button
-                  onClick={resendVerification}
-                  disabled={isResending}
-                  variant="outline"
-                  className="w-full h-12 text-base font-semibold"
-                >
-                  <RefreshCw className={`w-4 h-4 mr-2 ${isResending ? 'animate-spin' : ''}`} />
-                  {isResending ? "Sending..." : "Resend Code"}
-                </Button>
-                <Link href="/signin">
-                  <Button variant="outline" className="w-full h-12 text-base font-semibold">
-                    Back to Sign In
-                  </Button>
-                </Link>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="flex justify-center gap-3">
-                  {code.map((digit, index) => (
-                    <Input
-                      key={index}
-                      ref={(el) => { inputRefs.current[index] = el }}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={1}
-                      value={digit}
-                      onChange={(e) => handleCodeChange(index, e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(index, e)}
-                      onPaste={index === 0 ? handlePaste : undefined}
-                      className="w-16 h-16 text-center text-2xl font-bold border-2 focus:border-primary focus:ring-2 focus:ring-primary/20"
-                      autoFocus={index === 0}
-                    />
-                  ))}
-                </div>
-
-                <div className="space-y-3">
-                  <Button
-                    type="button"
-                    onClick={resendVerification}
-                    disabled={isResending}
-                    variant="outline"
-                    className="w-full h-12 text-base font-semibold"
-                  >
-                    <RefreshCw className={`w-4 h-4 mr-2 ${isResending ? 'animate-spin' : ''}`} />
-                    {isResending ? "Sending..." : "Resend Code"}
-                  </Button>
-                  <Link href="/signin">
-                    <Button type="button" variant="outline" className="w-full h-12 text-base font-semibold">
-                      Back to Sign In
+            <Card className="border-0 shadow-none bg-transparent">
+              <CardHeader className="space-y-2 text-center pb-4">
+                {status === "success" ? (
+                  <>
+                    <div className="mx-auto w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4">
+                      <CheckCircle2 className="w-8 h-8 text-success" />
+                    </div>
+                    <CardTitle className="text-3xl font-bold">Email Verified!</CardTitle>
+                    <CardDescription className="text-base">
+                      {message}
+                    </CardDescription>
+                  </>
+                ) : status === "error" ? (
+                  <>
+                    <div className="mx-auto w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+                      <AlertCircle className="w-8 h-8 text-destructive" />
+                    </div>
+                    <CardTitle className="text-3xl font-bold">Verification Failed</CardTitle>
+                    <CardDescription className="text-base">
+                      {message}
+                    </CardDescription>
+                  </>
+                ) : (
+                  <>
+                    <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                      <Mail className="w-8 h-8 text-primary" />
+                    </div>
+                    <CardTitle className="text-3xl font-bold">Verify Your Email</CardTitle>
+                    <CardDescription className="text-base">
+                      {message || "Please enter the 4-digit verification code sent to your email."}
+                    </CardDescription>
+                  </>
+                )}
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {status === "success" ? (
+                  <div className="p-4 rounded-lg bg-muted/50 border border-border">
+                    <p className="text-sm text-muted-foreground text-center">
+                      Your account is pending admin approval. You'll be able to access the application once approved.
+                    </p>
+                  </div>
+                ) : status === "error" ? (
+                  <div className="space-y-3">
+                    <Button
+                      onClick={() => {
+                        setStatus("input")
+                        setCode(["", "", "", ""])
+                        inputRefs.current[0]?.focus()
+                      }}
+                      className="w-full h-12 text-base font-semibold"
+                    >
+                      Try Again
                     </Button>
-                  </Link>
-                </div>
+                    <Button
+                      onClick={resendVerification}
+                      disabled={isResending}
+                      variant="outline"
+                      className="w-full h-12 text-base font-semibold"
+                    >
+                      <RefreshCw className={`w-4 h-4 mr-2 ${isResending ? 'animate-spin' : ''}`} />
+                      {isResending ? "Sending..." : "Resend Code"}
+                    </Button>
+                    <Link href="/signin">
+                      <Button variant="outline" className="w-full h-12 text-base font-semibold">
+                        Back to Sign In
+                      </Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="flex justify-center gap-3">
+                      {code.map((digit, index) => (
+                        <Input
+                          key={index}
+                          ref={(el) => { inputRefs.current[index] = el }}
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={1}
+                          value={digit}
+                          onChange={(e) => handleCodeChange(index, e.target.value)}
+                          onKeyDown={(e) => handleKeyDown(index, e)}
+                          onPaste={index === 0 ? handlePaste : undefined}
+                          className="w-16 h-16 text-center text-2xl font-bold border-2 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                          autoFocus={index === 0}
+                        />
+                      ))}
+                    </div>
 
-                <div className="p-4 rounded-lg bg-muted/50 border border-border">
-                  <p className="text-xs text-muted-foreground text-center">
-                    In development mode, check the server console for the verification code.
-                  </p>
-                </div>
-              </form>
-            )}
-          </CardContent>
-        </Card>
+                    <div className="space-y-3">
+                      <Button
+                        type="button"
+                        onClick={resendVerification}
+                        disabled={isResending}
+                        variant="outline"
+                        className="w-full h-12 text-base font-semibold"
+                      >
+                        <RefreshCw className={`w-4 h-4 mr-2 ${isResending ? 'animate-spin' : ''}`} />
+                        {isResending ? "Sending..." : "Resend Code"}
+                      </Button>
+                      <Link href="/signin">
+                        <Button type="button" variant="outline" className="w-full h-12 text-base font-semibold">
+                          Back to Sign In
+                        </Button>
+                      </Link>
+                    </div>
+
+                    <div className="p-4 rounded-lg bg-muted/50 border border-border">
+                      <p className="text-xs text-muted-foreground text-center">
+                        In development mode, check the server console for the verification code.
+                      </p>
+                    </div>
+                  </form>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Side - Image */}
+          <div className="relative bg-muted min-h-[300px] lg:min-h-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/auth/bg_image.png"
+              alt="Verify Email"
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
       </div>
     </div>
   )

@@ -13,7 +13,7 @@ const Navbar = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  const publicRoutes = ["/signin", "/signup"];
+  const publicRoutes = ["/signin", "/signup", "/forgot-password", "/reset-password", "/verify-email"];
 
   useEffect(() => {
     if (!publicRoutes.includes(pathname)) {
