@@ -7,6 +7,7 @@ import { Badge } from "../components/ui/badge";
 import Loader from "../components/Loader";
 import ErrorMessage from "../components/ErrorMessage";
 import AddCompanyModal from "../components/AddCompanyModal";
+import PendingApprovalBanner from "../components/PendingApprovalBanner";
 import { ExternalLink, Trash2 } from "lucide-react";
 import API_URL from '../config';
 
@@ -26,6 +27,7 @@ export default function CompaniesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [deletingCompanyId, setDeletingCompanyId] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
 
   const fetchCompanies = async () => {
     setLoading(true);
@@ -44,7 +46,20 @@ export default function CompaniesPage() {
 
   useEffect(() => {
     fetchCompanies();
+    fetchUser();
   }, []);
+
+  const fetchUser = async () => {
+    try {
+      const response = await fetch("/api/auth/me");
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+      }
+    } catch (error) {
+      // User not authenticated
+    }
+  };
 
 
   const handleDeleteCompany = async (companyId: string, companyName: string) => {
@@ -75,11 +90,24 @@ export default function CompaniesPage() {
 
   if (loading) return <Loader />;
 
+  const isPending = user?.status === "pending";
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-4">
+        {/* Show pending approval banner if user is pending */}
+        {isPending && <PendingApprovalBanner />}
 
-        <div className="mb-6 flex items-center justify-between">
+        {/* Hide all content if user is pending */}
+        {isPending ? (
+          <div className="text-center py-12">
+            <p className="text-lg text-muted-foreground">
+              Your account is pending admin approval. Please wait for an admin to approve your account.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="mb-6 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold leading-none tracking-tight">Companies</h2>
             <p className="text-sm text-muted-foreground">Manage home building companies</p>
@@ -161,6 +189,8 @@ export default function CompaniesPage() {
               </div>
             </CardContent>
           </Card>
+        )}
+          </>
         )}
       </div>
     </div>

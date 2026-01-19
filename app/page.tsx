@@ -156,23 +156,32 @@ export default function Communities() {
         {/* Show pending approval banner if user is pending */}
         {isPending && <PendingApprovalBanner />}
 
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold leading-none tracking-tight">Communities</h1>
-            <p className="text-sm text-muted-foreground">Explore home plans by community</p>
+        {/* Hide all content if user is pending */}
+        {isPending ? (
+          <div className="text-center py-12">
+            <p className="text-lg text-muted-foreground">
+              Your account is pending admin approval. Please wait for an admin to approve your account.
+            </p>
           </div>
-          {/* Only show Add Community button for editors/admins */}
-          {isEditor && (
-            <AddCommunityModal 
-              onSuccess={() => {
-                fetchCommunities();
-              }}
-            />
-          )}
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {communities.map((community) => (
+        ) : (
+          <>
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-semibold leading-none tracking-tight">Communities</h1>
+                <p className="text-sm text-muted-foreground">Explore home plans by community</p>
+              </div>
+              {/* Only show Add Community button for editors/admins */}
+              {isEditor && (
+                <AddCommunityModal 
+                  onSuccess={() => {
+                    fetchCommunities();
+                  }}
+                />
+              )}
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {communities.map((community) => (
             <Card
               key={community.name}
               onClick={() => handleCommunityClick(community)}
@@ -258,18 +267,20 @@ export default function Communities() {
                   </div>
                 </div>
               </CardContent>
-            </Card>
-          ))}
-        </div>
-        
-        {communities.length === 0 && (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center py-12">
-                <p className="text-lg text-muted-foreground">No communities found.</p>
-              </div>
-            </CardContent>
-          </Card>
+              </Card>
+              ))}
+            </div>
+            
+            {communities.length === 0 && (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center py-12">
+                    <p className="text-lg text-muted-foreground">No communities found.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
       </div>
     </div>

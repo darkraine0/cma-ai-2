@@ -66,30 +66,35 @@ const Navbar = () => {
             </Link>
           </div>
           <div className="flex gap-2 items-center">
-            <Link href="/">
-              <Button
-                variant="outline"
-                className="bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground font-semibold"
-              >
-                Communities
-              </Button>
-            </Link>
-            <Link href="/companies">
-              <Button 
-                variant="outline"
-                className="bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground font-semibold"
-              >
-                Companies
-              </Button>
-            </Link>
-            <Link href="/manage">
-              <Button 
-                variant="outline"
-                className="bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground font-semibold"
-              >
-                Manage
-              </Button>
-            </Link>
+            {/* Hide Communities, Companies, Manage buttons if user is pending */}
+            {user?.status !== "pending" && (
+              <>
+                <Link href="/">
+                  <Button
+                    variant="outline"
+                    className="bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground font-semibold"
+                  >
+                    Communities
+                  </Button>
+                </Link>
+                <Link href="/companies">
+                  <Button 
+                    variant="outline"
+                    className="bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground font-semibold"
+                  >
+                    Companies
+                  </Button>
+                </Link>
+                <Link href="/manage">
+                  <Button 
+                    variant="outline"
+                    className="bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground font-semibold"
+                  >
+                    Manage
+                  </Button>
+                </Link>
+              </>
+            )}
             {user && (
               <div className="flex items-center gap-3 ml-2 pl-3 border-l border-border">
                 <span className="text-sm text-muted-foreground hidden sm:inline">

@@ -8,6 +8,7 @@ import Loader from "../components/Loader";
 import ErrorMessage from "../components/ErrorMessage";
 import AddCommunityModal from "../components/AddCommunityModal";
 import SelectCompanyModal from "../components/SelectCompanyModal";
+import PendingApprovalBanner from "../components/PendingApprovalBanner";
 import { Plus, X, Trash2, Loader2 } from "lucide-react";
 import API_URL from '../config';
 import { getCompanyColor } from '../utils/colors';
@@ -41,6 +42,7 @@ export default function ManagePage() {
   const [loading, setLoading] = useState(true);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
   const [error, setError] = useState("");
+  const [user, setUser] = useState<any>(null);
   
   const [deletingCommunityId, setDeletingCommunityId] = useState<string | null>(null);
   const [deletingAll, setDeletingAll] = useState(false);
@@ -77,7 +79,20 @@ export default function ManagePage() {
   useEffect(() => {
     fetchCommunities();
     fetchCompanies();
+    fetchUser();
   }, []);
+
+  const fetchUser = async () => {
+    try {
+      const response = await fetch("/api/auth/me");
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+      }
+    } catch (error) {
+      // User not authenticated
+    }
+  };
 
 
 
@@ -186,10 +201,24 @@ export default function ManagePage() {
 
   if (loading || loadingCompanies) return <Loader />;
 
+  const isPending = user?.status === "pending";
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-4">
-        <div className="mb-6">
+        {/* Show pending approval banner if user is pending */}
+        {isPending && <PendingApprovalBanner />}
+
+        {/* Hide all content if user is pending */}
+        {isPending ? (
+          <div className="text-center py-12">
+            <p className="text-lg text-muted-foreground">
+              Your account is pending admin approval. Please wait for an admin to approve your account.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="mb-6">
           <h1 className="text-2xl font-semibold leading-none tracking-tight">Manage Communities & Companies</h1>
           <p className="text-sm text-muted-foreground">Add communities and manage companies in each community</p>
         </div>
@@ -359,6 +388,8 @@ export default function ManagePage() {
             ))
           )}
         </div>
+          </>
+        )}
       </div>
     </div>
   );
