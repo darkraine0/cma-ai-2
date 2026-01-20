@@ -241,20 +241,33 @@ function VerifyEmailForm() {
                     >
                       Try Again
                     </Button>
-                    <Button
-                      onClick={resendVerification}
-                      disabled={isResending}
-                      variant="outline"
-                      className="w-full h-12 text-base font-semibold"
-                    >
-                      <RefreshCw className={`w-4 h-4 mr-2 ${isResending ? 'animate-spin' : ''}`} />
-                      {isResending ? "Sending..." : "Resend Code"}
-                    </Button>
-                    <Link href="/signin">
-                      <Button variant="outline" className="w-full h-12 text-base font-semibold">
-                        Back to Sign In
-                      </Button>
-                    </Link>
+                    <div className="text-center space-y-2">
+                      <div>
+                        <span className="text-sm text-foreground">
+                          Didn't receive code?{" "}
+                          <button
+                            type="button"
+                            onClick={resendVerification}
+                            disabled={isResending}
+                            className="text-sm font-semibold text-primary hover:underline transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isResending ? (
+                              <span className="inline-flex items-center">
+                                <RefreshCw className={`w-4 h-4 mr-1 inline animate-spin`} />
+                                Sending...
+                              </span>
+                            ) : (
+                              "Resend Code"
+                            )}
+                          </button>
+                        </span>
+                      </div>
+                      <div>
+                        <Link href="/signin" className="text-sm font-semibold text-primary hover:underline transition-colors">
+                          Back to Sign In
+                        </Link>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-6">
@@ -270,28 +283,41 @@ function VerifyEmailForm() {
                           onChange={(e) => handleCodeChange(index, e.target.value)}
                           onKeyDown={(e) => handleKeyDown(index, e)}
                           onPaste={index === 0 ? handlePaste : undefined}
-                          className="w-16 h-16 text-center text-2xl font-bold border-2 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                          placeholder="-"
+                          className="w-16 h-16 rounded-full text-center text-2xl font-bold border focus:border-primary focus:ring-2 focus:ring-primary/20"
                           autoFocus={index === 0}
                         />
                       ))}
                     </div>
 
                     <div className="space-y-3">
-                      <Button
-                        type="button"
-                        onClick={resendVerification}
-                        disabled={isResending}
-                        variant="outline"
-                        className="w-full h-12 text-base font-semibold"
-                      >
-                        <RefreshCw className={`w-4 h-4 mr-2 ${isResending ? 'animate-spin' : ''}`} />
-                        {isResending ? "Sending..." : "Resend Code"}
-                      </Button>
-                      <Link href="/signin">
-                        <Button type="button" variant="outline" className="w-full h-12 text-base font-semibold">
-                          Back to Sign In
-                        </Button>
-                      </Link>
+                      <div className="text-center space-y-2">
+                        <div>
+                          <span className="text-sm text-foreground">
+                            Didn't receive code?{" "}
+                            <button
+                              type="button"
+                              onClick={resendVerification}
+                              disabled={isResending}
+                              className="text-sm font-semibold text-primary hover:underline transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {isResending ? (
+                                <span className="inline-flex items-center">
+                                  <RefreshCw className={`w-4 h-4 mr-1 inline animate-spin`} />
+                                  Sending...
+                                </span>
+                              ) : (
+                                "Resend Code"
+                              )}
+                            </button>
+                          </span>
+                        </div>
+                        <div>
+                          <Link href="/signin" className="text-sm font-semibold text-primary hover:underline transition-colors">
+                            Back to Sign In
+                          </Link>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="p-4 rounded-lg bg-muted/50 border border-border">
