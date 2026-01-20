@@ -9,6 +9,22 @@ const publicRoutes = ["/signin", "/signup", "/forgot-password", "/reset-password
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
+  
+  // Get pathname immediately - use window.location as fallback for client-side initial render
+  const getCurrentPath = () => {
+    if (pathname) return pathname
+    if (typeof window !== 'undefined') return window.location.pathname
+    return ''
+  }
+  
+  const currentPath = getCurrentPath()
+  const isPublicRoute = publicRoutes.includes(currentPath)
+  
+  // For public routes, immediately show content without any loading state
+  if (isPublicRoute) {
+    return <>{children}</>
+  }
+  
   const [isLoading, setIsLoading] = useState(true)
   const [shouldShowContent, setShouldShowContent] = useState(false)
 
@@ -17,8 +33,8 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [pathname])
 
   const checkAuth = async () => {
-    // Allow access to public routes immediately
-    if (publicRoutes.includes(pathname)) {
+    // This shouldn't be reached for public routes, but just in case
+    if (publicRoutes.includes(pathname || getCurrentPath())) {
       setShouldShowContent(true)
       setIsLoading(false)
       return

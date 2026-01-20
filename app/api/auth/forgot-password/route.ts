@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/app/lib/mongodb';
 import User from '@/app/models/User';
-import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,32 +20,30 @@ export async function POST(request: NextRequest) {
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     
     // Always return success (security best practice - don't reveal if email exists)
-    // But only generate token if user exists
+    // But only generate code if user exists
     if (user) {
-      // Generate reset token
-      const resetToken = crypto.randomBytes(32).toString('hex');
-      const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
+      // Generate 4-digit verification code (1000-9999)
+      const verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
+      const codeExpiry = new Date(Date.now() + 3600000); // 1 hour from now
 
-      // Save reset token to user
-      user.resetPasswordToken = resetToken;
-      user.resetPasswordExpires = resetTokenExpiry;
+      // Save verification code to user
+      user.resetPasswordCode = verificationCode;
+      user.resetPasswordCodeExpires = codeExpiry;
       await user.save();
 
-      // In production, send email with reset link
+      // In production, send email with verification code
       // For now, log it to console (you'll need to integrate email service)
-      const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
-      
-      console.log('=== PASSWORD RESET LINK ===');
-      console.log(`Reset link for ${user.email}:`);
-      console.log(resetUrl);
-      console.log('==========================');
+      console.log('=== PASSWORD RESET VERIFICATION CODE ===');
+      console.log(`Verification code for ${user.email}:`);
+      console.log(verificationCode);
+      console.log('==========================================');
 
       // TODO: Integrate email service (SendGrid, AWS SES, Nodemailer, etc.)
       // Example:
       // await sendEmail({
       //   to: user.email,
-      //   subject: 'Password Reset Request',
-      //   html: `Click here to reset your password: ${resetUrl}`
+      //   subject: 'Password Reset Verification Code',
+      //   html: `Your password reset verification code is: ${verificationCode}`
       // });
     }
 

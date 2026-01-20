@@ -7,7 +7,7 @@ import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Input } from "@/app/components/ui/input"
 import Loader from "@/app/components/Loader"
-import { Home, Mail, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react"
+import { CheckCircle2, AlertCircle, RefreshCw } from "lucide-react"
 
 function VerifyEmailForm() {
   const [code, setCode] = useState(["", "", "", ""])
@@ -21,7 +21,7 @@ function VerifyEmailForm() {
 
   useEffect(() => {
     if (messageParam === "check-email") {
-      setMessage("Please check your email for the 4-digit verification code. Check the console for the code (in development).")
+      setMessage("Please check your email for the 4-digit verification code.")
     } else {
       setMessage("Please enter the 4-digit verification code sent to your email.")
     }
@@ -163,60 +163,52 @@ function VerifyEmailForm() {
 
   if (status === "verifying") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4">
+      <div className="min-h-screen flex items-center justify-center">
         <Loader />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4 relative overflow-hidden">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl animate-pulse-glow"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl animate-pulse-glow" style={{ animationDelay: '1s' }}></div>
-      </div>
-
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
       {/* Main Panel Container */}
-      <div className="relative z-10 w-full max-w-6xl">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 bg-card rounded-2xl shadow-2xl overflow-hidden border-2 border-border">
+      <div className="relative z-10 w-full h-screen">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 h-full">
           {/* Left Side - Verification Form */}
-          <div className="flex flex-col justify-center p-8 lg:p-12">
-            <div className="text-center mb-8">
-              <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
-                <Home className="w-8 h-8 text-primary" />
-                <span>MarketMap Homes</span>
-              </Link>
-            </div>
+          <div className="flex flex-col justify-center p-8 lg:p-12 bg-white">
+            <div className="max-w-md mx-auto w-full">
+              <div className="text-center mb-8 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
+                <Link href="/" className="inline-block text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
+                  MarketMap Homes
+                </Link>
+              </div>
 
-            <Card className="border-0 shadow-none bg-transparent">
+              <Card className="border-0 shadow-none bg-transparent">
               <CardHeader className="space-y-2 text-center pb-4">
                 {status === "success" ? (
                   <>
-                    <div className="mx-auto w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4">
+                    <div className="mx-auto w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4 animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
                       <CheckCircle2 className="w-8 h-8 text-success" />
                     </div>
-                    <CardTitle className="text-3xl font-bold">Email Verified!</CardTitle>
-                    <CardDescription className="text-base">
+                    <CardTitle className="text-3xl font-bold animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Email Verified!</CardTitle>
+                    <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.4s' }}>
                       {message}
                     </CardDescription>
                   </>
                 ) : status === "error" ? (
                   <>
-                    <div className="mx-auto w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+                    <div className="mx-auto w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4 animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
                       <AlertCircle className="w-8 h-8 text-destructive" />
                     </div>
-                    <CardTitle className="text-3xl font-bold">Verification Failed</CardTitle>
-                    <CardDescription className="text-base">
+                    <CardTitle className="text-3xl font-bold animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Verification Failed</CardTitle>
+                    <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.4s' }}>
                       {message}
                     </CardDescription>
                   </>
                 ) : (
                   <>
-                    <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                      <Mail className="w-8 h-8 text-primary" />
-                    </div>
-                    <CardTitle className="text-3xl font-bold">Verify Your Email</CardTitle>
-                    <CardDescription className="text-base">
+                    <CardTitle className="text-3xl font-bold animate-fade-in-down" style={{ animationDelay: '0.2s' }}>Verify Your Email</CardTitle>
+                    <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.3s' }}>
                       {message || "Please enter the 4-digit verification code sent to your email."}
                     </CardDescription>
                   </>
@@ -224,7 +216,7 @@ function VerifyEmailForm() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {status === "success" ? (
-                  <div className="p-4 rounded-lg bg-muted/50 border border-border">
+                  <div className="p-4 rounded-lg bg-muted/50 border border-border animate-fade-in-down" style={{ animationDelay: '0.5s' }}>
                     <p className="text-sm text-muted-foreground text-center">
                       Your account is pending admin approval. You'll be able to access the application once approved.
                     </p>
@@ -237,11 +229,12 @@ function VerifyEmailForm() {
                         setCode(["", "", "", ""])
                         inputRefs.current[0]?.focus()
                       }}
-                      className="w-full h-12 text-base font-semibold"
+                      className="w-full h-12 text-base font-semibold animate-fade-in-down"
+                      style={{ animationDelay: '0.5s' }}
                     >
                       Try Again
                     </Button>
-                    <div className="text-center space-y-2">
+                    <div className="text-center space-y-2 animate-fade-in-down" style={{ animationDelay: '0.6s' }}>
                       <div>
                         <span className="text-sm text-foreground">
                           Didn't receive code?{" "}
@@ -271,7 +264,7 @@ function VerifyEmailForm() {
                   </div>
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="flex justify-center gap-3">
+                    <div className="flex justify-center gap-3 animate-fade-in-down" style={{ animationDelay: '0.5s' }}>
                       {code.map((digit, index) => (
                         <Input
                           key={index}
@@ -291,7 +284,7 @@ function VerifyEmailForm() {
                     </div>
 
                     <div className="space-y-3">
-                      <div className="text-center space-y-2">
+                      <div className="text-center space-y-2 animate-fade-in-down" style={{ animationDelay: '0.6s' }}>
                         <div>
                           <span className="text-sm text-foreground">
                             Didn't receive code?{" "}
@@ -320,19 +313,15 @@ function VerifyEmailForm() {
                       </div>
                     </div>
 
-                    <div className="p-4 rounded-lg bg-muted/50 border border-border">
-                      <p className="text-xs text-muted-foreground text-center">
-                        In development mode, check the server console for the verification code.
-                      </p>
-                    </div>
                   </form>
                 )}
               </CardContent>
             </Card>
+            </div>
           </div>
 
           {/* Right Side - Image */}
-          <div className="relative bg-muted min-h-[300px] lg:min-h-0">
+          <div className="relative bg-muted min-h-[300px] lg:min-h-screen">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/auth/bg_image.png"
