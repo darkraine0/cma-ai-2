@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Input } from "@/app/components/ui/input"
@@ -118,15 +119,23 @@ export default function SignUpPage() {
             <div className="max-w-md mx-auto w-full">
               {/* Logo/Brand */}
               <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
-                <Link href="/" className="inline-block text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
-                  MarketMap Homes
+                <Link href="/" className="inline-flex items-center gap-3 text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
+                  <Image 
+                    src="/logo.jpg" 
+                    alt="UnionMainHomes Logo" 
+                    width={0}
+                    height={0}
+                    sizes="100vw"
+                    className="h-[1.5em] w-auto object-contain"
+                  />
+                  UnionMainHomes CMA Tool
                 </Link>
               </div>
 
               {/* Sign Up Card */}
               <Card className="border-0 shadow-none bg-transparent">
               <CardHeader className="space-y-2 text-left pb-4">
-                <CardTitle className="text-3xl font-bold animate-fade-in-down" style={{ animationDelay: '0.2s' }}>Sign Up</CardTitle>
+                <CardTitle className="text-4xl font-bold animate-fade-in-down" style={{ animationDelay: '0.2s' }}>Sign Up</CardTitle>
                 <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Create your account</CardDescription>
               </CardHeader>
               <CardContent>
@@ -228,12 +237,12 @@ export default function SignUpPage() {
           </div>
 
           {/* Right Side - Image */}
-          <div className="relative bg-muted min-h-[300px] lg:min-h-screen">
+          <div className="relative bg-muted min-h-[300px] lg:min-h-screen overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/auth/bg_image1.png"
               alt="Sign Up"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover animate-cross-fade"
             />
             <PageIndicator />
             <TestimonialBox />

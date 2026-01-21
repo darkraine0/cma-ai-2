@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link";
+import Image from "next/image";
 import { Fragment, useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "./ui/button";
@@ -61,8 +62,16 @@ const Navbar = () => {
       <div className="bg-card border-b border-border shadow-card">
         <nav className="container mx-auto py-4 px-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/" className="text-2xl font-bold text-foreground tracking-tight select-none cursor-pointer">
-              MarketMap Homes
+            <Link href="/" className="flex items-center gap-3 text-2xl font-bold text-foreground tracking-tight select-none cursor-pointer">
+              <Image 
+                src="/logo.jpg" 
+                alt="UnionMainHomes Logo" 
+                width={0}
+                height={0}
+                sizes="100vw"
+                className="h-[1.5em] w-auto object-contain"
+              />
+              UnionMainHomes CMA Tool
             </Link>
           </div>
           <div className="flex gap-2 items-center">

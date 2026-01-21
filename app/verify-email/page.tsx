@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Input } from "@/app/components/ui/input"
@@ -180,8 +181,16 @@ function VerifyEmailForm() {
           <div className="flex flex-col justify-center p-8 lg:p-12 bg-white">
             <div className="max-w-md mx-auto w-full">
               <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
-                <Link href="/" className="inline-block text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
-                  MarketMap Homes
+                <Link href="/" className="inline-flex items-center gap-3 text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
+                  <Image 
+                    src="/logo.jpg" 
+                    alt="UnionMainHomes Logo" 
+                    width={0}
+                    height={0}
+                    sizes="100vw"
+                    className="h-[1.5em] w-auto object-contain"
+                  />
+                  UnionMainHomes CMA Tool
                 </Link>
               </div>
 
@@ -192,7 +201,7 @@ function VerifyEmailForm() {
                     <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4 animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
                       <CheckCircle2 className="w-8 h-8 text-success" />
                     </div>
-                    <CardTitle className="text-3xl font-bold animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Email Verified!</CardTitle>
+                    <CardTitle className="text-4xl font-bold animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Email Verified!</CardTitle>
                     <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.4s' }}>
                       {message}
                     </CardDescription>
@@ -202,14 +211,14 @@ function VerifyEmailForm() {
                     <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4 animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
                       <AlertCircle className="w-8 h-8 text-destructive" />
                     </div>
-                    <CardTitle className="text-3xl font-bold animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Verification Failed</CardTitle>
+                    <CardTitle className="text-4xl font-bold animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Verification Failed</CardTitle>
                     <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.4s' }}>
                       {message}
                     </CardDescription>
                   </>
                 ) : (
                   <>
-                    <CardTitle className="text-3xl font-bold animate-fade-in-down" style={{ animationDelay: '0.2s' }}>Verify Your Email</CardTitle>
+                    <CardTitle className="text-4xl font-bold animate-fade-in-down" style={{ animationDelay: '0.2s' }}>Verify Your Email</CardTitle>
                     <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.3s' }}>
                       {message || "Please enter the 4-digit verification code sent to your email."}
                     </CardDescription>
@@ -323,12 +332,12 @@ function VerifyEmailForm() {
           </div>
 
           {/* Right Side - Image */}
-          <div className="relative bg-muted min-h-[300px] lg:min-h-screen">
+          <div className="relative bg-muted min-h-[300px] lg:min-h-screen overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/auth/bg_image.png"
               alt="Verify Email"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover animate-cross-fade"
             />
             <PageIndicator />
             <TestimonialBox />

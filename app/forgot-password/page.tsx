@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Input } from "@/app/components/ui/input"
@@ -59,8 +60,16 @@ export default function ForgotPasswordPage() {
               <div className="max-w-md mx-auto w-full">
                 {/* Logo/Brand */}
                 <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
-                  <Link href="/" className="inline-block text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
-                    MarketMap Homes
+                  <Link href="/" className="inline-flex items-center gap-3 text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
+                    <Image 
+                      src="/logo.jpg" 
+                      alt="UnionMainHomes Logo" 
+                      width={0}
+                      height={0}
+                      sizes="100vw"
+                      className="h-[1.5em] w-auto object-contain"
+                    />
+                    UnionMainHomes CMA Tool
                   </Link>
                 </div>
 
@@ -70,7 +79,7 @@ export default function ForgotPasswordPage() {
                   <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4 animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
                     <CheckCircle2 className="w-8 h-8 text-success" />
                   </div>
-                  <CardTitle className="text-3xl font-bold animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Verification Code Sent</CardTitle>
+                  <CardTitle className="text-4xl font-bold animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Verification Code Sent</CardTitle>
                   <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.4s' }}>
                     We've sent a verification code to <strong>{email}</strong>
                   </CardDescription>
@@ -104,12 +113,12 @@ export default function ForgotPasswordPage() {
             </div>
 
             {/* Right Side - Image */}
-            <div className="relative bg-muted min-h-[300px] lg:min-h-screen">
+            <div className="relative bg-muted min-h-[300px] lg:min-h-screen overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/auth/bg_image2.png"
                 alt="Password Reset"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover animate-slide-in-right"
               />
               <PageIndicator />
               <TestimonialBox />
@@ -130,15 +139,23 @@ export default function ForgotPasswordPage() {
             <div className="max-w-md mx-auto w-full">
               {/* Logo/Brand */}
               <div className="text-left pl-6 mb-8 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
-                <Link href="/" className="inline-block text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
-                  MarketMap Homes
+                <Link href="/" className="inline-flex items-center gap-3 text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
+                  <Image 
+                    src="/logo.jpg" 
+                    alt="UnionMainHomes Logo" 
+                    width={0}
+                    height={0}
+                    sizes="100vw"
+                    className="h-[1.5em] w-auto object-contain"
+                  />
+                  UnionMainHomes CMA Tool
                 </Link>
               </div>
 
               {/* Forgot Password Card */}
               <Card className="border-0 shadow-none bg-transparent">
               <CardHeader className="space-y-2 text-left pb-4">
-                <CardTitle className="text-3xl font-bold animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Forgot Password?</CardTitle>
+                <CardTitle className="text-4xl font-bold animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Forgot Password?</CardTitle>
                 <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.4s' }}>
                   Enter your email address and we'll send you instructions to reset your password
                 </CardDescription>
@@ -194,12 +211,12 @@ export default function ForgotPasswordPage() {
           </div>
 
           {/* Right Side - Image */}
-          <div className="relative bg-muted min-h-[300px] lg:min-h-screen">
+          <div className="relative bg-muted min-h-[300px] lg:min-h-screen overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/auth/bg_image2.png"
               alt="Forgot Password"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover animate-slide-in-right"
             />
             <PageIndicator />
             <TestimonialBox />

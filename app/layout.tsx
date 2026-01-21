@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MarketMap Homes",
+  title: "UnionMainHomes CMA Tool",
   description: "Home plans and pricing information",
 };
 
