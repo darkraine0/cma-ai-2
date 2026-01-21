@@ -16,21 +16,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TEST VERSION: Allow "1234" as universal test code for any user
-    let user;
-    if (code === "1234") {
-      // For test version, find user by email only
-      user = await User.findOne({
-        email: email.toLowerCase().trim(),
-      });
-    } else {
-      // Find user with matching email and code that hasn't expired
-      user = await User.findOne({
-        email: email.toLowerCase().trim(),
-        resetPasswordCode: code,
-        resetPasswordCodeExpires: { $gt: new Date() }, // Code not expired
-      });
-    }
+    // Find user with matching email and code that hasn't expired
+    const user = await User.findOne({
+      email: email.toLowerCase().trim(),
+      resetPasswordCode: code,
+      resetPasswordCodeExpires: { $gt: new Date() }, // Code not expired
+    });
 
     if (!user) {
       return NextResponse.json(

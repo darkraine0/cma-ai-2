@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/app/lib/mongodb';
 import User from '@/app/models/User';
+import { sendPasswordResetEmail } from '@/app/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,20 +32,20 @@ export async function POST(request: NextRequest) {
       user.resetPasswordCodeExpires = codeExpiry;
       await user.save();
 
-      // In production, send email with verification code
-      // For now, log it to console (you'll need to integrate email service)
-      console.log('=== PASSWORD RESET VERIFICATION CODE ===');
-      console.log(`Verification code for ${user.email}:`);
-      console.log(verificationCode);
-      console.log('==========================================');
-
-      // TODO: Integrate email service (SendGrid, AWS SES, Nodemailer, etc.)
-      // Example:
-      // await sendEmail({
-      //   to: user.email,
-      //   subject: 'Password Reset Verification Code',
-      //   html: `Your password reset verification code is: ${verificationCode}`
-      // });
+      // Send email with verification code
+      try {
+        await sendPasswordResetEmail(user.email, verificationCode);
+      } catch (emailError: any) {
+        console.error('Failed to send password reset email:', emailError);
+        // Log the code for debugging in development
+        if (process.env.NODE_ENV === 'development') {
+          console.log('=== PASSWORD RESET VERIFICATION CODE (Email failed, logged for dev) ===');
+          console.log(`Verification code for ${user.email}:`);
+          console.log(verificationCode);
+          console.log('======================================================================');
+        }
+        // Still return success to user (security best practice - don't reveal if email exists)
+      }
     }
 
     // Always return success message (security best practice)

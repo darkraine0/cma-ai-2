@@ -29,63 +29,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TEST VERSION: Allow "1234" as universal test code for any unverified user
-    let user;
-    if (code === "1234") {
-      // For test version, get user from auth token (user is logged in after signup)
-      try {
-        const userPayload = getCurrentUserFromRequest(request);
-        if (userPayload) {
-          user = await User.findById(userPayload.userId);
-          if (user && user.emailVerified) {
-            return NextResponse.json(
-              { error: 'Email already verified' },
-              { status: 400 }
-            );
-          }
-        }
-      } catch (e) {
-        // If we can't get user from token, try to find any unverified user (for testing)
-      }
-      
-      // If no user found from token, find any unverified user (for testing)
-      if (!user) {
-        user = await User.findOne({ emailVerified: false });
-      }
-      
-      if (!user) {
-        return NextResponse.json(
-          { error: 'No unverified user found' },
-          { status: 400 }
-        );
-      }
-    } else {
-      // Production code: Find user with matching code that hasn't expired
-      // Original code (commented for testing):
-      // user = await User.findOne({
-      //   emailVerificationToken: code,
-      //   emailVerificationExpires: { $gt: new Date() },
-      // });
-      
-      // For now, still check the token but allow expired codes in test mode
-      user = await User.findOne({
-        emailVerificationToken: code,
-      });
-      
-      if (!user) {
-        return NextResponse.json(
-          { error: 'Invalid verification code' },
-          { status: 400 }
-        );
-      }
-      
-      // Check expiration (commented for testing)
-      // if (user.emailVerificationExpires && user.emailVerificationExpires < new Date()) {
-      //   return NextResponse.json(
-      //     { error: 'Verification code has expired' },
-      //     { status: 400 }
-      //   );
-      // }
+    // Find user with matching code that hasn't expired
+    const user = await User.findOne({
+      emailVerificationToken: code,
+      emailVerificationExpires: { $gt: new Date() },
+    });
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Invalid or expired verification code' },
+        { status: 400 }
+      );
+    }
+    
+    if (user.emailVerified) {
+      return NextResponse.json(
+        { error: 'Email already verified' },
+        { status: 400 }
+      );
     }
 
     // Verify email and set status to pending

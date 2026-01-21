@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/app/lib/mongodb';
 import User from '@/app/models/User';
 import { getCurrentUserFromRequest } from '@/app/lib/auth';
+import { sendVerificationEmail } from '@/app/lib/email';
 
 /**
  * Resend email verification
@@ -36,22 +37,27 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate new 4-digit verification code
-    // TEST VERSION: Use "1234" as verification code for all users
-    const verificationCode = "1234";
-    // Production code (commented for testing):
-    // const verificationCode = Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit code (1000-9999)
+    const verificationCode = Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit code (1000-9999)
     const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     user.emailVerificationToken = verificationCode;
     user.emailVerificationExpires = verificationExpiry;
     await user.save();
 
-    // TODO: Send email with verification code
-    // For now, log to console
-    console.log('=== EMAIL VERIFICATION CODE ===');
-    console.log(`Verification code for ${user.email}:`);
-    console.log(verificationCode);
-    console.log('==============================');
+    // Send email with verification code
+    try {
+      await sendVerificationEmail(user.email, verificationCode);
+    } catch (emailError: any) {
+      console.error('Failed to send verification email:', emailError);
+      // Log the code for debugging in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('=== EMAIL VERIFICATION CODE (Email failed, logged for dev) ===');
+        console.log(`Verification code for ${user.email}:`);
+        console.log(verificationCode);
+        console.log('===============================================================');
+      }
+      // Still return success to user (they can request resend if needed)
+    }
 
     return NextResponse.json(
       {

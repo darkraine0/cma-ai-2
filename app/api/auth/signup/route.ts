@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/app/lib/mongodb';
 import User, { UserRole, UserStatus, UserPermission } from '@/app/models/User';
 import { hashPassword, generateToken } from '@/app/lib/auth';
+import { sendVerificationEmail } from '@/app/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,10 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate 4-digit email verification code
-    // TEST VERSION: Use "1234" as verification code for all users
-    const emailVerificationToken = "1234";
-    // Production code (commented for testing):
-    // const emailVerificationToken = Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit code (1000-9999)
+    const emailVerificationToken = Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit code (1000-9999)
     const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     // Create user with appropriate role and status
@@ -83,13 +81,21 @@ export async function POST(request: NextRequest) {
 
       await user.save();
 
-      // TODO: Send verification email with code
-      // For now, log to console
-      console.log('=== EMAIL VERIFICATION CODE ===');
-      console.log(`New user: ${user.email}`);
-      console.log(`Role: ${user.role} | Status: ${user.status}`);
-      console.log(`Verification code: ${emailVerificationToken}`);
-      console.log('==============================');
+      // Send verification email with code
+      try {
+        await sendVerificationEmail(user.email, emailVerificationToken);
+      } catch (emailError: any) {
+        console.error('Failed to send verification email:', emailError);
+        // Don't fail the signup if email fails - user can request resend
+        // Log the code for debugging in development
+        if (process.env.NODE_ENV === 'development') {
+          console.log('=== EMAIL VERIFICATION CODE (Email failed, logged for dev) ===');
+          console.log(`New user: ${user.email}`);
+          console.log(`Role: ${user.role} | Status: ${user.status}`);
+          console.log(`Verification code: ${emailVerificationToken}`);
+          console.log('===============================================================');
+        }
+      }
 
       // Generate token (user can sign in but needs email verification and approval)
       const token = generateToken({
