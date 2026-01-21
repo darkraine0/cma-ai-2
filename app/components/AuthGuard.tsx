@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Loader from "./Loader"
 
@@ -9,6 +9,13 @@ const publicRoutes = ["/signin", "/signup", "/forgot-password", "/reset-password
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
+  const checkingRef = useRef(false)
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // All hooks must be called before any early returns
+  // Start with loading false - only show spinner if check takes > 150ms
+  const [isLoading, setIsLoading] = useState(false)
+  const [shouldShowContent, setShouldShowContent] = useState(false)
   
   // Get pathname immediately - use window.location as fallback for client-side initial render
   const getCurrentPath = () => {
@@ -19,29 +26,63 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   
   const currentPath = getCurrentPath()
   const isPublicRoute = publicRoutes.includes(currentPath)
-  
-  // For public routes, immediately show content without any loading state
-  if (isPublicRoute) {
-    return <>{children}</>
-  }
-  
-  const [isLoading, setIsLoading] = useState(true)
-  const [shouldShowContent, setShouldShowContent] = useState(false)
 
   useEffect(() => {
-    checkAuth()
+    const currentPathname = pathname || getCurrentPath()
+    const isCurrentRoutePublic = publicRoutes.includes(currentPathname)
+    
+    // Skip auth check for public routes
+    if (isCurrentRoutePublic) {
+      setShouldShowContent(true)
+      return
+    }
+    
+    // Prevent duplicate calls
+    if (checkingRef.current) return
+    
+    // Ensure we have a valid pathname before checking
+    if (!currentPathname) {
+      // Wait for pathname to be available
+      return
+    }
+    
+    checkingRef.current = true
+    
+    // Delay showing loading spinner - only show if check takes more than 150ms
+    loadingTimeoutRef.current = setTimeout(() => {
+      setIsLoading(true)
+    }, 150)
+    
+    checkAuth().finally(() => {
+      checkingRef.current = false
+      // Clear the timeout if check completed quickly
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current)
+        loadingTimeoutRef.current = null
+      }
+      setIsLoading(false)
+    })
+    
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current)
+        loadingTimeoutRef.current = null
+      }
+    }
   }, [pathname])
 
   const checkAuth = async () => {
+    const currentPathname = pathname || getCurrentPath()
+    
     // This shouldn't be reached for public routes, but just in case
-    if (publicRoutes.includes(pathname || getCurrentPath())) {
+    if (publicRoutes.includes(currentPathname)) {
       setShouldShowContent(true)
       setIsLoading(false)
       return
     }
 
     // Admin routes - check admin access separately
-    if (pathname.startsWith("/admin")) {
+    if (currentPathname.startsWith("/admin")) {
       try {
         const response = await fetch("/api/auth/me")
         if (response.ok) {
@@ -62,8 +103,6 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       } catch (error) {
         router.replace("/signin")
         return
-      } finally {
-        setIsLoading(false)
       }
       return
     }
@@ -105,11 +144,23 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Show loading while checking auth
-  if (isLoading || !shouldShowContent) {
+  // For public routes, immediately show content without any loading state
+  if (isPublicRoute) {
+    return <>{children}</>
+  }
+
+  // Show loading only if explicitly loading
+  // This prevents showing loader on fast auth checks (< 150ms)
+  if (isLoading) {
     return <Loader />
   }
 
-  // Show the content
-  return <>{children}</>
+  // Show content once auth is verified
+  if (shouldShowContent) {
+    return <>{children}</>
+  }
+
+  // While checking (but not showing loader yet), show a minimal placeholder
+  // This prevents flash of content before auth check completes
+  return <div style={{ minHeight: '100vh' }} />
 }

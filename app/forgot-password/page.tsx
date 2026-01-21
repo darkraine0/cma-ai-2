@@ -7,6 +7,8 @@ import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Input } from "@/app/components/ui/input"
 import { ArrowLeft, CheckCircle2 } from "lucide-react"
+import PageIndicator from "@/app/components/PageIndicator"
+import TestimonialBox from "@/app/components/TestimonialBox"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -56,7 +58,7 @@ export default function ForgotPasswordPage() {
             <div className="flex flex-col justify-center p-8 lg:p-12 bg-white">
               <div className="max-w-md mx-auto w-full">
                 {/* Logo/Brand */}
-                <div className="text-center mb-8 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
+                <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
                   <Link href="/" className="inline-block text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
                     MarketMap Homes
                   </Link>
@@ -64,8 +66,8 @@ export default function ForgotPasswordPage() {
 
                 {/* Success Card */}
                 <Card className="border-0 shadow-none bg-transparent">
-                <CardHeader className="space-y-2 text-center pb-4">
-                  <div className="mx-auto w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4 animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
+                <CardHeader className="space-y-2 text-left pb-4">
+                  <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4 animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
                     <CheckCircle2 className="w-8 h-8 text-success" />
                   </div>
                   <CardTitle className="text-3xl font-bold animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Verification Code Sent</CardTitle>
@@ -109,6 +111,8 @@ export default function ForgotPasswordPage() {
                 alt="Password Reset"
                 className="w-full h-full object-cover"
               />
+              <PageIndicator />
+              <TestimonialBox />
             </div>
           </div>
         </div>
@@ -125,7 +129,7 @@ export default function ForgotPasswordPage() {
           <div className="flex flex-col justify-center p-8 lg:p-12 bg-white">
             <div className="max-w-md mx-auto w-full">
               {/* Logo/Brand */}
-              <div className="text-center mb-8 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
+              <div className="text-left pl-6 mb-8 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
                 <Link href="/" className="inline-block text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
                   MarketMap Homes
                 </Link>
@@ -133,7 +137,7 @@ export default function ForgotPasswordPage() {
 
               {/* Forgot Password Card */}
               <Card className="border-0 shadow-none bg-transparent">
-              <CardHeader className="space-y-2 text-center pb-4">
+              <CardHeader className="space-y-2 text-left pb-4">
                 <CardTitle className="text-3xl font-bold animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Forgot Password?</CardTitle>
                 <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.4s' }}>
                   Enter your email address and we'll send you instructions to reset your password
@@ -197,6 +201,8 @@ export default function ForgotPasswordPage() {
               alt="Forgot Password"
               className="w-full h-full object-cover"
             />
+            <PageIndicator />
+            <TestimonialBox />
           </div>
         </div>
       </div>

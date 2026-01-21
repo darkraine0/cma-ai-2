@@ -7,6 +7,8 @@ import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Input } from "@/app/components/ui/input"
 import ErrorMessage from "@/app/components/ErrorMessage"
+import PageIndicator from "@/app/components/PageIndicator"
+import TestimonialBox from "@/app/components/TestimonialBox"
 
 export default function SignInPage() {
   const [email, setEmail] = useState("")
@@ -81,17 +83,17 @@ export default function SignInPage() {
           <div className="flex flex-col justify-center p-8 lg:p-12 bg-white">
             <div className="max-w-md mx-auto w-full">
               {/* Logo/Brand */}
-              <div className="text-center mb-8 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
+              <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
                 <Link href="/" className="inline-block text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
                   MarketMap Homes
                 </Link>
-                <p className="text-muted-foreground font-medium">Welcome back</p>
               </div>
 
               {/* Sign In Card */}
               <Card className="border-0 shadow-none bg-transparent">
-              <CardHeader className="space-y-2 text-center pb-4">
+              <CardHeader className="space-y-2 text-left pb-4">
                 <CardTitle className="text-3xl font-bold animate-fade-in-down" style={{ animationDelay: '0.2s' }}>Sign In</CardTitle>
+                <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Welcome back</CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-5" key="signin-form" autoComplete="off">
@@ -179,6 +181,8 @@ export default function SignInPage() {
               alt="Sign In"
               className="w-full h-full object-cover"
             />
+            <PageIndicator />
+            <TestimonialBox />
           </div>
         </div>
       </div>

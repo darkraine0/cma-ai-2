@@ -7,6 +7,8 @@ import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Input } from "@/app/components/ui/input"
 import { CheckCircle2, AlertCircle } from "lucide-react"
+import PageIndicator from "@/app/components/PageIndicator"
+import TestimonialBox from "@/app/components/TestimonialBox"
 
 function ResetPasswordForm() {
   const [step, setStep] = useState<"verify" | "reset" | "success">("verify")
@@ -191,15 +193,15 @@ function ResetPasswordForm() {
             {/* Left Side - Success Message */}
             <div className="flex flex-col justify-center p-8 lg:p-12 bg-white">
               <div className="max-w-md mx-auto w-full">
-                <div className="text-center mb-8 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
+                <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
                   <Link href="/" className="inline-block text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
                     MarketMap Homes
                   </Link>
                 </div>
 
                 <Card className="border-0 shadow-none bg-transparent">
-                <CardHeader className="space-y-2 text-center pb-4">
-                  <div className="mx-auto w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4 animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
+                <CardHeader className="space-y-2 text-left pb-4">
+                  <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4 animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
                     <CheckCircle2 className="w-8 h-8 text-success" />
                   </div>
                   <CardTitle className="text-3xl font-bold animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Password Reset!</CardTitle>
@@ -226,6 +228,8 @@ function ResetPasswordForm() {
                 alt="Password Reset Success"
                 className="w-full h-full object-cover"
               />
+              <PageIndicator />
+              <TestimonialBox />
             </div>
           </div>
         </div>
@@ -242,18 +246,17 @@ function ResetPasswordForm() {
             {/* Left Side - Verification Code Form */}
             <div className="flex flex-col justify-center p-8 lg:p-12 bg-white">
               <div className="max-w-md mx-auto w-full">
-                <div className="text-center mb-8 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
+                <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
                   <Link href="/" className="inline-block text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
                     MarketMap Homes
                   </Link>
-                  <p className="text-muted-foreground font-medium">Verify your code</p>
                 </div>
 
                 <Card className="border-0 shadow-none bg-transparent">
-                <CardHeader className="space-y-2 text-center pb-4">
+                <CardHeader className="space-y-2 text-left pb-4">
                   <CardTitle className="text-3xl font-bold animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Enter Verification Code</CardTitle>
                   <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.4s' }}>
-                    Enter the verification code sent to your email
+                    Verify your code
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -330,6 +333,8 @@ function ResetPasswordForm() {
                 alt="Reset Password"
                 className="w-full h-full object-cover"
               />
+              <PageIndicator />
+              <TestimonialBox />
             </div>
           </div>
         </div>
@@ -346,14 +351,14 @@ function ResetPasswordForm() {
           {/* Left Side - Reset Password Form */}
           <div className="flex flex-col justify-center p-8 lg:p-12 bg-white">
             <div className="max-w-md mx-auto w-full">
-              <div className="text-center mb-8 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
+              <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
                 <Link href="/" className="inline-block text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
                   MarketMap Homes
                 </Link>
               </div>
 
               <Card className="border-0 shadow-none bg-transparent">
-              <CardHeader className="space-y-2 text-center pb-4">
+              <CardHeader className="space-y-2 text-left pb-4">
                 <CardTitle className="text-3xl font-bold animate-fade-in-down" style={{ animationDelay: '0.2s' }}>Reset Password</CardTitle>
                 <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.4s' }}>
                   Must be at least 6 characters
@@ -421,6 +426,8 @@ function ResetPasswordForm() {
               alt="Reset Password"
               className="w-full h-full object-cover"
             />
+            <PageIndicator />
+            <TestimonialBox />
           </div>
         </div>
       </div>
