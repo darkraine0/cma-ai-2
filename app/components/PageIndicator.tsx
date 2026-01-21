@@ -39,7 +39,7 @@ export default function PageIndicator() {
               <div
                 className={`h-1 rounded-full transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
                   isActive
-                    ? "bg-primary h-1.5 page-indicator-active"
+                    ? "bg-primary h-1 page-indicator-active"
                     : "bg-white/30"
                 }`}
               >

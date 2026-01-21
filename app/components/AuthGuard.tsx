@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import Loader from "./Loader"
 
 const publicRoutes = ["/signin", "/signup", "/forgot-password", "/reset-password", "/verify-email"]
 
@@ -10,11 +9,8 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const checkingRef = useRef(false)
-  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   
   // All hooks must be called before any early returns
-  // Start with loading false - only show spinner if check takes > 150ms
-  const [isLoading, setIsLoading] = useState(false)
   const [shouldShowContent, setShouldShowContent] = useState(false)
   
   // Get pathname immediately - use window.location as fallback for client-side initial render
@@ -48,26 +44,12 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     
     checkingRef.current = true
     
-    // Delay showing loading spinner - only show if check takes more than 150ms
-    loadingTimeoutRef.current = setTimeout(() => {
-      setIsLoading(true)
-    }, 150)
-    
     checkAuth().finally(() => {
       checkingRef.current = false
-      // Clear the timeout if check completed quickly
-      if (loadingTimeoutRef.current) {
-        clearTimeout(loadingTimeoutRef.current)
-        loadingTimeoutRef.current = null
-      }
-      setIsLoading(false)
     })
     
     return () => {
-      if (loadingTimeoutRef.current) {
-        clearTimeout(loadingTimeoutRef.current)
-        loadingTimeoutRef.current = null
-      }
+      // Cleanup
     }
   }, [pathname])
 
@@ -77,7 +59,6 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     // This shouldn't be reached for public routes, but just in case
     if (publicRoutes.includes(currentPathname)) {
       setShouldShowContent(true)
-      setIsLoading(false)
       return
     }
 
@@ -139,8 +120,6 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       // Error checking auth, redirect to signin
       router.replace("/signin")
       return
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -149,18 +128,12 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     return <>{children}</>
   }
 
-  // Show loading only if explicitly loading
-  // This prevents showing loader on fast auth checks (< 150ms)
-  if (isLoading) {
-    return <Loader />
-  }
-
   // Show content once auth is verified
   if (shouldShowContent) {
     return <>{children}</>
   }
 
-  // While checking (but not showing loader yet), show a minimal placeholder
+  // While checking, show a minimal placeholder (no loading animation)
   // This prevents flash of content before auth check completes
   return <div style={{ minHeight: '100vh' }} />
 }

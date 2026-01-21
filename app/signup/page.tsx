@@ -116,10 +116,10 @@ export default function SignUpPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 h-full">
           {/* Left Side - Sign Up Form */}
           <div className="flex flex-col justify-center p-8 lg:p-12 bg-white">
-            <div className="max-w-md mx-auto w-full">
+            <div className="max-w-[80%] mx-auto w-full">
               {/* Logo/Brand */}
               <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
-                <Link href="/" className="inline-flex items-center gap-3 text-2xl font-bold text-foreground mb-2 hover:opacity-80 transition-opacity">
+                <Link href="/" className="inline-flex items-center gap-3 text-2xl font-bold text-foreground mb-0.5 hover:opacity-80 transition-opacity">
                   <Image 
                     src="/logo.jpg" 
                     alt="UnionMainHomes Logo" 
@@ -133,7 +133,7 @@ export default function SignUpPage() {
               </div>
 
               {/* Sign Up Card */}
-              <Card className="border-0 shadow-none bg-transparent">
+              <Card className="border-0 shadow-none bg-transparent -mt-5">
               <CardHeader className="space-y-2 text-left pb-4">
                 <CardTitle className="text-4xl font-bold animate-fade-in-down" style={{ animationDelay: '0.2s' }}>Sign Up</CardTitle>
                 <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Create your account</CardDescription>
