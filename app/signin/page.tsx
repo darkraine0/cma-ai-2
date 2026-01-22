@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import Image from "next/image"
 import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Input } from "@/app/components/ui/input"
@@ -11,6 +10,7 @@ import { Eye, EyeOff } from "lucide-react"
 import ErrorMessage from "@/app/components/ErrorMessage"
 import PageIndicator from "@/app/components/PageIndicator"
 import TestimonialBox from "@/app/components/TestimonialBox"
+import AuthBrand from "@/app/components/AuthBrand"
 
 export default function SignInPage() {
   const [email, setEmail] = useState("")
@@ -86,25 +86,13 @@ export default function SignInPage() {
           <div className="flex flex-col justify-center p-8 lg:p-12 bg-white">
             <div className="max-w-[80%] mx-auto w-full">
               {/* Logo/Brand */}
-              <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
-                <div className="inline-flex items-center gap-3 text-[18px] font-bold text-foreground mb-1">
-                  <Image 
-                    src="/logo.jpg" 
-                    alt="UnionMainHomes Logo" 
-                    width={0}
-                    height={0}
-                    sizes="100vw"
-                    className="h-[1.125em] w-auto object-contain"
-                  />
-                  UnionMainHomes CMA Tool
-                </div>
-              </div>
+              <AuthBrand />
 
               {/* Sign In Card */}
               <Card className="border-0 shadow-none bg-transparent">
               <CardHeader className="space-y-2 text-left pb-4">
-                <CardTitle className="text-4xl font-bold animate-fade-in-down" style={{ animationDelay: '0.2s' }}>Sign In</CardTitle>
-                <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Welcome back</CardDescription>
+                <CardTitle className="text-4xl font-bold mb-1 animate-fade-in-down" style={{ animationDelay: '0.2s' }}>Sign In</CardTitle>
+                <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Welcome back to your account</CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-5" key="signin-form" autoComplete="off">

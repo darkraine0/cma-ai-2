@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import Image from "next/image"
 import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Input } from "@/app/components/ui/input"
@@ -180,25 +179,11 @@ function VerifyEmailForm() {
           {/* Left Side - Verification Form */}
           <div className="flex flex-col justify-center p-8 lg:p-12 bg-white">
             <div className="max-w-[80%] mx-auto w-full">
-              <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
-                <div className="inline-flex items-center gap-3 text-[18px] font-bold text-foreground mb-1">
-                  <Image 
-                    src="/logo.jpg" 
-                    alt="UnionMainHomes Logo" 
-                    width={0}
-                    height={0}
-                    sizes="100vw"
-                    className="h-[1.125em] w-auto object-contain"
-                  />
-                  UnionMainHomes CMA Tool
-                </div>
-              </div>
-
               <Card className="border-0 shadow-none bg-transparent">
-              <CardHeader className="space-y-2 text-left pb-4">
+              <CardHeader className="space-y-2 text-center pb-4">
                 {status === "success" ? (
                   <>
-                    <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4 animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
+                    <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4 mx-auto animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
                       <CheckCircle2 className="w-8 h-8 text-success" />
                     </div>
                     <CardTitle className="text-4xl font-bold animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Email Verified!</CardTitle>
@@ -208,7 +193,7 @@ function VerifyEmailForm() {
                   </>
                 ) : status === "error" ? (
                   <>
-                    <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4 animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
+                    <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4 mx-auto animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
                       <AlertCircle className="w-8 h-8 text-destructive" />
                     </div>
                     <CardTitle className="text-4xl font-bold animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Verification Failed</CardTitle>

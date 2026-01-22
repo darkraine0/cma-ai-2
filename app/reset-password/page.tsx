@@ -10,6 +10,7 @@ import { Input } from "@/app/components/ui/input"
 import { CheckCircle2, AlertCircle, Eye, EyeOff } from "lucide-react"
 import PageIndicator from "@/app/components/PageIndicator"
 import TestimonialBox from "@/app/components/TestimonialBox"
+import AuthBrand from "@/app/components/AuthBrand"
 
 function ResetPasswordForm() {
   const [step, setStep] = useState<"verify" | "reset" | "success">("verify")
@@ -196,19 +197,7 @@ function ResetPasswordForm() {
             {/* Left Side - Success Message */}
             <div className="flex flex-col justify-center p-8 lg:p-12 bg-white">
               <div className="max-w-[80%] mx-auto w-full">
-                <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
-                  <div className="inline-flex items-center gap-3 text-[18px] font-bold text-foreground mb-1">
-                    <Image 
-                      src="/logo.jpg" 
-                      alt="UnionMainHomes Logo" 
-                      width={0}
-                      height={0}
-                      sizes="100vw"
-                      className="h-[1.125em] w-auto object-contain"
-                    />
-                    UnionMainHomes CMA Tool
-                  </div>
-                </div>
+                <AuthBrand />
 
                 <Card className="border-0 shadow-none bg-transparent">
                 <CardHeader className="space-y-2 text-left pb-4">
@@ -257,19 +246,7 @@ function ResetPasswordForm() {
             {/* Left Side - Verification Code Form */}
             <div className="flex flex-col justify-center p-8 lg:p-12 bg-white">
               <div className="max-w-[80%] mx-auto w-full">
-                <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
-                  <div className="inline-flex items-center gap-3 text-[18px] font-bold text-foreground mb-1">
-                    <Image 
-                      src="/logo.jpg" 
-                      alt="UnionMainHomes Logo" 
-                      width={0}
-                      height={0}
-                      sizes="100vw"
-                      className="h-[1.125em] w-auto object-contain"
-                    />
-                    UnionMainHomes CMA Tool
-                  </div>
-                </div>
+                <AuthBrand />
 
                 <Card className="border-0 shadow-none bg-transparent">
                 <CardHeader className="space-y-2 text-left pb-4">

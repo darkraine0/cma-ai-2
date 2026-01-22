@@ -3,13 +3,13 @@
 import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import Image from "next/image"
 import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Input } from "@/app/components/ui/input"
 import { ArrowLeft, CheckCircle2 } from "lucide-react"
 import PageIndicator from "@/app/components/PageIndicator"
 import TestimonialBox from "@/app/components/TestimonialBox"
+import AuthBrand from "@/app/components/AuthBrand"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -59,19 +59,7 @@ export default function ForgotPasswordPage() {
             <div className="flex flex-col justify-center p-8 lg:p-12 bg-white">
               <div className="max-w-[80%] mx-auto w-full">
                 {/* Logo/Brand */}
-                <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
-                  <div className="inline-flex items-center gap-3 text-[18px] font-bold text-foreground mb-1">
-                    <Image 
-                      src="/logo.jpg" 
-                      alt="UnionMainHomes Logo" 
-                      width={0}
-                      height={0}
-                      sizes="100vw"
-                      className="h-[1.125em] w-auto object-contain"
-                    />
-                    UnionMainHomes CMA Tool
-                  </div>
-                </div>
+                <AuthBrand />
 
                 {/* Success Card */}
                 <Card className="border-0 shadow-none bg-transparent">
@@ -118,7 +106,7 @@ export default function ForgotPasswordPage() {
               <img
                 src="/auth/bg.jpg"
                 alt="Password Reset"
-                className="w-full h-full object-cover animate-slide-in-right"
+                className="w-full h-full object-cover animate-fade-in"
               />
               <PageIndicator />
               <TestimonialBox />
@@ -136,48 +124,38 @@ export default function ForgotPasswordPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 h-full">
           {/* Left Side - Forgot Password Form */}
           <div className="flex flex-col justify-center p-8 lg:p-12 bg-white">
-            <div className="max-w-md mx-auto w-full">
+            <div className="max-w-[80%] mx-auto w-full">
               {/* Logo/Brand */}
-              <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
-                <div className="inline-flex items-center gap-3 text-[18px] font-bold text-foreground mb-1">
-                  <Image 
-                    src="/logo.jpg" 
-                    alt="UnionMainHomes Logo" 
-                    width={0}
-                    height={0}
-                    sizes="100vw"
-                    className="h-[1.125em] w-auto object-contain"
-                  />
-                  UnionMainHomes CMA Tool
-                </div>
-              </div>
+              <AuthBrand />
 
               {/* Forgot Password Card */}
               <Card className="border-0 shadow-none bg-transparent">
               <CardHeader className="space-y-2 text-left pb-4">
-                <CardTitle className="text-4xl font-bold animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Forgot Password?</CardTitle>
-                <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.4s' }}>
+                <CardTitle className="text-4xl font-bold mb-1 animate-fade-in-down" style={{ animationDelay: '0.2s' }}>Forgot Password?</CardTitle>
+                <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.3s' }}>
                   Enter your email address and we'll send you instructions to reset your password
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-5">
+                <form onSubmit={handleSubmit} className="space-y-5" key="forgot-password-form" autoComplete="off">
                   {error && (
-                    <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 animate-fade-in-down" style={{ animationDelay: '0.5s' }}>
+                    <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 animate-fade-in-down" style={{ animationDelay: '0.4s' }}>
                       <p className="text-sm text-destructive font-medium">{error}</p>
                     </div>
                   )}
 
-                  <div className="space-y-2 animate-fade-in-down" style={{ animationDelay: '0.5s' }}>
+                  <div className="space-y-2 animate-fade-in-down" style={{ animationDelay: '0.4s' }}>
                     <label htmlFor="email" className="text-sm font-semibold text-foreground">
                       Email*
                     </label>
                     <Input
                       id="email"
+                      name="email"
                       type="email"
-                      placeholder="you@example.com"
+                      placeholder="name@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      autoComplete="email"
                       required
                       disabled={loading}
                       className="h-12 text-base"
@@ -187,23 +165,23 @@ export default function ForgotPasswordPage() {
                   <Button
                     type="submit"
                     className="w-full h-12 text-base font-semibold animate-fade-in-down"
-                    style={{ animationDelay: '0.6s' }}
+                    style={{ animationDelay: '0.5s' }}
                     disabled={loading}
                   >
                     {loading ? "Sending..." : "Submit"}
                   </Button>
                 </form>
 
-                <div className="mt-6 text-center animate-fade-in-down" style={{ animationDelay: '0.7s' }}>
-                  <span className="text-sm font-semibold text-foreground">
+                <div className="mt-6 text-center animate-fade-in-down" style={{ animationDelay: '0.6s' }}>
+                  <p className="text-sm text-muted-foreground">
                     Remember Password?{" "}
                     <Link
                       href="/signin"
-                      className="text-primary hover:underline transition-colors"
+                      className="font-semibold text-primary hover:underline transition-colors"
                     >
                       Sign In
                     </Link>
-                  </span>
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -216,7 +194,7 @@ export default function ForgotPasswordPage() {
             <img
               src="/auth/bg.jpg"
               alt="Forgot Password"
-              className="w-full h-full object-cover animate-slide-in-right"
+              className="w-full h-full object-cover animate-fade-in"
             />
             <PageIndicator />
             <TestimonialBox />

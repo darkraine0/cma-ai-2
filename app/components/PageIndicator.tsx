@@ -48,11 +48,7 @@ export default function PageIndicator() {
                   <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
                 )}
               </div>
-              
-              {/* Pulse ring effect */}
-              {isActive && (
-                <div className="absolute inset-0 -m-1.5 rounded-full border-2 border-primary/50 animate-pulse-ring" />
-              )}
+                           
               
               {/* Glow effect */}
               {isActive && (

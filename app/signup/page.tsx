@@ -3,13 +3,13 @@
 import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import Image from "next/image"
 import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Input } from "@/app/components/ui/input"
 import { Eye, EyeOff } from "lucide-react"
 import PageIndicator from "@/app/components/PageIndicator"
 import TestimonialBox from "@/app/components/TestimonialBox"
+import AuthBrand from "@/app/components/AuthBrand"
 
 export default function SignUpPage() {
   const [name, setName] = useState("")
@@ -121,19 +121,7 @@ export default function SignUpPage() {
           <div className="flex flex-col justify-center p-8 lg:p-12 bg-white">
             <div className="max-w-[80%] mx-auto w-full">
               {/* Logo/Brand */}
-              <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
-                <div className="inline-flex items-center gap-3 text-[18px] font-bold text-foreground mb-1">
-                  <Image 
-                    src="/logo.jpg" 
-                    alt="UnionMainHomes Logo" 
-                    width={0}
-                    height={0}
-                    sizes="100vw"
-                    className="h-[1.125em] w-auto object-contain"
-                  />
-                  UnionMainHomes CMA Tool
-                </div>
-              </div>
+              <AuthBrand />
 
               {/* Sign Up Card */}
               <Card className="border-0 shadow-none bg-transparent">
