@@ -7,7 +7,9 @@ import ErrorMessage from "./components/ErrorMessage";
 import PendingApprovalBanner from "./components/PendingApprovalBanner";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Badge } from "./components/ui/badge";
+import { Button } from "./components/ui/button";
 import AddCommunityModal from "./components/AddCommunityModal";
+import { LogOut } from "lucide-react";
 import API_URL from './config';
 import { getCompanyColor } from './utils/colors';
 import { getCommunityImage } from './utils/communityImages';
@@ -159,20 +161,54 @@ export default function Communities() {
   const isEditor = user?.permission === "editor" || user?.role === "admin";
   const isPending = user?.status === "pending";
 
+  const handleSignOut = async () => {
+    try {
+      await fetch("/api/auth/signout", { method: "POST" });
+      router.push("/signin");
+      router.refresh();
+    } catch (error) {
+      console.error("Sign out error:", error);
+    }
+  };
+
+  // If user is pending, show full-screen centered card without header
+  if (isPending) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-[40vw] animate-fade-in-scale">
+          <Card className="bg-primary/95 text-white border-0 shadow-2xl min-h-[40vh] flex flex-col backdrop-blur-sm" style={{ boxShadow: '0 20px 60px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)' }}>
+            <CardContent className="flex-grow flex flex-col justify-center items-center space-y-6 px-8 py-8">
+              <div className="text-center space-y-4 max-w-xl mx-auto animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
+                <CardTitle className="text-xl md:text-2xl font-bold text-white mb-2">
+                  Account Pending Approval
+                </CardTitle>
+                <p className="text-sm md:text-base text-white/90">
+                  Your account is pending admin approval.
+                </p>
+                <p className="text-xs md:text-sm text-white/80">
+                  Please wait for an admin to approve your account. You'll be able to access the application once approved.
+                </p>
+              </div>
+              
+              <div className="pt-6 border-t border-white/20 mt-auto w-full max-w-sm mx-auto animate-fade-in-down" style={{ animationDelay: '0.4s' }}>
+                <Button
+                  onClick={handleSignOut}
+                  variant="outline"
+                  className="w-full bg-white text-primary hover:bg-white/90 border-white"
+                >
+                  Sign Out
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-4">
-        {/* Show pending approval banner if user is pending */}
-        {isPending && <PendingApprovalBanner />}
-
-        {/* Hide all content if user is pending */}
-        {isPending ? (
-          <div className="text-center py-12">
-            <p className="text-lg text-muted-foreground">
-              Your account is pending admin approval. Please wait for an admin to approve your account.
-            </p>
-          </div>
-        ) : (
           <>
             <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
@@ -290,7 +326,6 @@ export default function Communities() {
               </Card>
             )}
           </>
-        )}
       </div>
     </div>
   );

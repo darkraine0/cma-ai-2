@@ -57,6 +57,11 @@ const Navbar = () => {
     return null;
   }
 
+  // Don't show navbar if user is pending (they'll see a special pending page)
+  if (user?.status === "pending") {
+    return null;
+  }
+
   return (
     <Fragment>
       <div className="bg-card border-b border-border shadow-card">
