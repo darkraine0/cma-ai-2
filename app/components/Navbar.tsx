@@ -6,7 +6,7 @@ import { Fragment, useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "./ui/button";
 import { ThemeToggle } from "./theme-toggle";
-import { LogOut, Shield } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 const Navbar = () => {
   const router = useRouter();
@@ -122,7 +122,6 @@ const Navbar = () => {
                       size="sm"
                       className="bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground font-semibold"
                     >
-                      <Shield className="w-4 h-4 mr-2" />
                       Admin
                     </Button>
                   </Link>

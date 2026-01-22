@@ -47,47 +47,41 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b border-border bg-card">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Shield className="w-5 h-5 text-primary" />
-              <h1 className="text-xl font-bold">Admin Panel</h1>
-            </div>
-            <Link href="/">
-              <Button variant="outline" size="sm">
-                Back to Home
+    <div className="min-h-screen bg-background flex">
+      {/* Left Sidebar */}
+      <aside className="w-64 bg-card border-r border-border flex-shrink-0">
+        <div className="p-6">
+          <div className="flex items-center gap-2 mb-8">
+            <h2 className="text-xl font-bold text-foreground">Admin Panel</h2>
+          </div>
+          
+          <nav className="space-y-2">
+            <Link href="/admin/dashboard">
+              <Button
+                variant={pathname === "/admin/dashboard" ? "default" : "ghost"}
+                className={`w-full justify-start ${pathname === "/admin/dashboard" ? "" : "hover:bg-muted"}`}
+              >
+                <LayoutDashboard className="w-4 h-4 mr-2" />
+                Dashboard
               </Button>
             </Link>
-          </div>
+            <Link href="/admin/users">
+              <Button
+                variant={pathname === "/admin/users" ? "default" : "ghost"}
+                className={`w-full justify-start ${pathname === "/admin/users" ? "" : "hover:bg-muted"}`}
+              >
+                <Users className="w-4 h-4 mr-2" />
+                Users
+              </Button>
+            </Link>
+          </nav>
         </div>
-      </div>
+      </aside>
 
-      <div className="container mx-auto px-6 py-6">
-        <div className="flex gap-4 mb-6">
-          <Link href="/admin/dashboard">
-            <Button
-              variant={pathname === "/admin/dashboard" ? "default" : "outline"}
-              size="sm"
-            >
-              <LayoutDashboard className="w-4 h-4 mr-2" />
-              Dashboard
-            </Button>
-          </Link>
-          <Link href="/admin/users">
-            <Button
-              variant={pathname === "/admin/users" ? "default" : "outline"}
-              size="sm"
-            >
-              <Users className="w-4 h-4 mr-2" />
-              Users
-            </Button>
-          </Link>
-        </div>
-
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-x-hidden">
         {children}
-      </div>
+      </main>
     </div>
   )
 }

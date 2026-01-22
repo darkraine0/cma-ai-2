@@ -124,7 +124,7 @@ export default function AdminUsersPage() {
 
   return (
     <div className="min-h-screen bg-background p-6">
-      <div className="container mx-auto max-w-7xl">
+      <div className="max-w-7xl mx-auto">
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground">User Management</h1>
@@ -138,7 +138,6 @@ export default function AdminUsersPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>All Users</CardTitle>
             <CardDescription>Approve users and assign permissions</CardDescription>
           </CardHeader>
           <CardContent>
