@@ -91,7 +91,7 @@ export default function SignInPage() {
       <div className="relative z-10 w-full h-screen">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 h-full">
           {/* Left Side - Sign In Form */}
-          <div className="flex flex-col justify-center p-8 lg:p-12 bg-white">
+          <div className="flex flex-col justify-center p-8 lg:p-12 bg-background">
             <div className="max-w-[80%] mx-auto w-full">
               {/* Logo/Brand */}
               <AuthBrand />

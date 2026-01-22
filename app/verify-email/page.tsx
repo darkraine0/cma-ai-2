@@ -229,7 +229,7 @@ function VerifyEmailForm() {
       <div className="relative z-10 w-full h-screen">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 h-full">
           {/* Left Side - Verification Form */}
-          <div className="flex flex-col justify-center p-8 lg:p-12 bg-white">
+          <div className="flex flex-col justify-center p-8 lg:p-12 bg-background">
             <div className="max-w-[80%] mx-auto w-full">
               <Card className="border-0 shadow-none bg-transparent">
               <CardHeader className="space-y-2 text-center pb-4">
