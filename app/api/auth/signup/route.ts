@@ -72,9 +72,9 @@ export async function POST(request: NextRequest) {
         password: hashedPassword,
         name: name?.trim(),
         role: isFirstUser ? UserRole.ADMIN : UserRole.USER,
-        permission: UserPermission.VIEWER, // Default permission
+        permission: isFirstUser ? UserPermission.EDITOR : UserPermission.VIEWER, // First user gets editor permission
         status: isFirstUser ? UserStatus.APPROVED : UserStatus.PENDING, // First user auto-approved
-        emailVerified: false,
+        emailVerified: false, // All users must verify email
         emailVerificationToken,
         emailVerificationExpires,
       });
