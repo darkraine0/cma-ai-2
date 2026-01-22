@@ -181,20 +181,20 @@ function VerifyEmailForm() {
           <div className="flex flex-col justify-center p-8 lg:p-12 bg-white">
             <div className="max-w-[80%] mx-auto w-full">
               <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
-                <Link href="/" className="inline-flex items-center gap-3 text-2xl font-bold text-foreground mb-0.5 hover:opacity-80 transition-opacity">
+                <div className="inline-flex items-center gap-3 text-[18px] font-bold text-foreground mb-1">
                   <Image 
                     src="/logo.jpg" 
                     alt="UnionMainHomes Logo" 
                     width={0}
                     height={0}
                     sizes="100vw"
-                    className="h-[1.5em] w-auto object-contain"
+                    className="h-[1.125em] w-auto object-contain"
                   />
                   UnionMainHomes CMA Tool
-                </Link>
+                </div>
               </div>
 
-              <Card className="border-0 shadow-none bg-transparent -mt-5">
+              <Card className="border-0 shadow-none bg-transparent">
               <CardHeader className="space-y-2 text-left pb-4">
                 {status === "success" ? (
                   <>
@@ -335,7 +335,7 @@ function VerifyEmailForm() {
           <div className="relative bg-muted min-h-[300px] lg:min-h-screen overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/auth/bg_image.png"
+              src="/auth/bg.jpg"
               alt="Verify Email"
               className="w-full h-full object-cover animate-cross-fade"
             />

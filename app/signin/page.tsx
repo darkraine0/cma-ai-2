@@ -7,6 +7,7 @@ import Image from "next/image"
 import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Input } from "@/app/components/ui/input"
+import { Eye, EyeOff } from "lucide-react"
 import ErrorMessage from "@/app/components/ErrorMessage"
 import PageIndicator from "@/app/components/PageIndicator"
 import TestimonialBox from "@/app/components/TestimonialBox"
@@ -14,6 +15,7 @@ import TestimonialBox from "@/app/components/TestimonialBox"
 export default function SignInPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
@@ -85,21 +87,21 @@ export default function SignInPage() {
             <div className="max-w-[80%] mx-auto w-full">
               {/* Logo/Brand */}
               <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
-                <Link href="/" className="inline-flex items-center gap-3 text-2xl font-bold text-foreground mb-0.5 hover:opacity-80 transition-opacity">
+                <div className="inline-flex items-center gap-3 text-[18px] font-bold text-foreground mb-1">
                   <Image 
                     src="/logo.jpg" 
                     alt="UnionMainHomes Logo" 
                     width={0}
                     height={0}
                     sizes="100vw"
-                    className="h-[1.5em] w-auto object-contain"
+                    className="h-[1.125em] w-auto object-contain"
                   />
                   UnionMainHomes CMA Tool
-                </Link>
+                </div>
               </div>
 
               {/* Sign In Card */}
-              <Card className="border-0 shadow-none bg-transparent -mt-5">
+              <Card className="border-0 shadow-none bg-transparent">
               <CardHeader className="space-y-2 text-left pb-4">
                 <CardTitle className="text-4xl font-bold animate-fade-in-down" style={{ animationDelay: '0.2s' }}>Sign In</CardTitle>
                 <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Welcome back</CardDescription>
@@ -134,18 +136,32 @@ export default function SignInPage() {
                     <label htmlFor="password" className="text-sm font-semibold text-foreground">
                       Password*
                     </label>
-                    <Input
-                      id="password"
-                      name="password"
-                      type="password"
-                      placeholder="Enter your password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      autoComplete="current-password"
-                      required
-                      disabled={loading}
-                      className="h-12 text-base"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        name="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Enter your password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        autoComplete="current-password"
+                        required
+                        disabled={loading}
+                        className="h-12 text-base pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-5 w-5" />
+                        ) : (
+                          <Eye className="h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
                     <div className="text-right">
                       <Link
                         href="/forgot-password"
@@ -186,9 +202,9 @@ export default function SignInPage() {
           <div className="relative bg-muted min-h-[300px] lg:min-h-screen overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/auth/bg_image.png"
+              src="/auth/bg.jpg"
               alt="Sign In"
-              className="w-full h-full object-cover animate-slide-up"
+              className="w-full h-full object-cover animate-fade-in"
             />
             <PageIndicator />
             <TestimonialBox />

@@ -60,21 +60,21 @@ export default function ForgotPasswordPage() {
               <div className="max-w-[80%] mx-auto w-full">
                 {/* Logo/Brand */}
                 <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
-                  <Link href="/" className="inline-flex items-center gap-3 text-2xl font-bold text-foreground mb-0.5 hover:opacity-80 transition-opacity">
+                  <div className="inline-flex items-center gap-3 text-[18px] font-bold text-foreground mb-1">
                     <Image 
                       src="/logo.jpg" 
                       alt="UnionMainHomes Logo" 
                       width={0}
                       height={0}
                       sizes="100vw"
-                      className="h-[1.5em] w-auto object-contain"
+                      className="h-[1.125em] w-auto object-contain"
                     />
                     UnionMainHomes CMA Tool
-                  </Link>
+                  </div>
                 </div>
 
                 {/* Success Card */}
-                <Card className="border-0 shadow-none bg-transparent -mt-5">
+                <Card className="border-0 shadow-none bg-transparent">
                 <CardHeader className="space-y-2 text-left pb-4">
                   <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4 animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
                     <CheckCircle2 className="w-8 h-8 text-success" />
@@ -116,7 +116,7 @@ export default function ForgotPasswordPage() {
             <div className="relative bg-muted min-h-[300px] lg:min-h-screen overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/auth/bg_image2.png"
+                src="/auth/bg.jpg"
                 alt="Password Reset"
                 className="w-full h-full object-cover animate-slide-in-right"
               />
@@ -139,21 +139,21 @@ export default function ForgotPasswordPage() {
             <div className="max-w-md mx-auto w-full">
               {/* Logo/Brand */}
               <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
-                <Link href="/" className="inline-flex items-center gap-3 text-2xl font-bold text-foreground mb-0.5 hover:opacity-80 transition-opacity">
+                <div className="inline-flex items-center gap-3 text-[18px] font-bold text-foreground mb-1">
                   <Image 
                     src="/logo.jpg" 
                     alt="UnionMainHomes Logo" 
                     width={0}
                     height={0}
                     sizes="100vw"
-                    className="h-[1.5em] w-auto object-contain"
+                    className="h-[1.125em] w-auto object-contain"
                   />
                   UnionMainHomes CMA Tool
-                </Link>
+                </div>
               </div>
 
               {/* Forgot Password Card */}
-              <Card className="border-0 shadow-none bg-transparent -mt-5">
+              <Card className="border-0 shadow-none bg-transparent">
               <CardHeader className="space-y-2 text-left pb-4">
                 <CardTitle className="text-4xl font-bold animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Forgot Password?</CardTitle>
                 <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.4s' }}>
@@ -214,7 +214,7 @@ export default function ForgotPasswordPage() {
           <div className="relative bg-muted min-h-[300px] lg:min-h-screen overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/auth/bg_image2.png"
+              src="/auth/bg.jpg"
               alt="Forgot Password"
               className="w-full h-full object-cover animate-slide-in-right"
             />

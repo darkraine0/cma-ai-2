@@ -7,7 +7,7 @@ import Image from "next/image"
 import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Input } from "@/app/components/ui/input"
-import { CheckCircle2, AlertCircle } from "lucide-react"
+import { CheckCircle2, AlertCircle, Eye, EyeOff } from "lucide-react"
 import PageIndicator from "@/app/components/PageIndicator"
 import TestimonialBox from "@/app/components/TestimonialBox"
 
@@ -17,6 +17,8 @@ function ResetPasswordForm() {
   const [verificationCode, setVerificationCode] = useState(["", "", "", ""])
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
@@ -195,20 +197,20 @@ function ResetPasswordForm() {
             <div className="flex flex-col justify-center p-8 lg:p-12 bg-white">
               <div className="max-w-[80%] mx-auto w-full">
                 <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
-                  <Link href="/" className="inline-flex items-center gap-3 text-2xl font-bold text-foreground mb-0.5 hover:opacity-80 transition-opacity">
+                  <div className="inline-flex items-center gap-3 text-[18px] font-bold text-foreground mb-1">
                     <Image 
                       src="/logo.jpg" 
                       alt="UnionMainHomes Logo" 
                       width={0}
                       height={0}
                       sizes="100vw"
-                      className="h-[1.5em] w-auto object-contain"
+                      className="h-[1.125em] w-auto object-contain"
                     />
                     UnionMainHomes CMA Tool
-                  </Link>
+                  </div>
                 </div>
 
-                <Card className="border-0 shadow-none bg-transparent -mt-5">
+                <Card className="border-0 shadow-none bg-transparent">
                 <CardHeader className="space-y-2 text-left pb-4">
                   <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4 animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
                     <CheckCircle2 className="w-8 h-8 text-success" />
@@ -233,7 +235,7 @@ function ResetPasswordForm() {
             <div className="relative bg-muted min-h-[300px] lg:min-h-screen overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/auth/bg_image2.png"
+                src="/auth/bg.jpg"
                 alt="Password Reset Success"
                 className="w-full h-full object-cover animate-slide-up"
               />
@@ -256,20 +258,20 @@ function ResetPasswordForm() {
             <div className="flex flex-col justify-center p-8 lg:p-12 bg-white">
               <div className="max-w-[80%] mx-auto w-full">
                 <div className="text-left pl-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
-                  <Link href="/" className="inline-flex items-center gap-3 text-2xl font-bold text-foreground mb-0.5 hover:opacity-80 transition-opacity">
+                  <div className="inline-flex items-center gap-3 text-[18px] font-bold text-foreground mb-1">
                     <Image 
                       src="/logo.jpg" 
                       alt="UnionMainHomes Logo" 
                       width={0}
                       height={0}
                       sizes="100vw"
-                      className="h-[1.5em] w-auto object-contain"
+                      className="h-[1.125em] w-auto object-contain"
                     />
                     UnionMainHomes CMA Tool
-                  </Link>
+                  </div>
                 </div>
 
-                <Card className="border-0 shadow-none bg-transparent -mt-5">
+                <Card className="border-0 shadow-none bg-transparent">
                 <CardHeader className="space-y-2 text-left pb-4">
                   <CardTitle className="text-4xl font-bold animate-fade-in-down" style={{ animationDelay: '0.3s' }}>Enter Verification Code</CardTitle>
                   <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.4s' }}>
@@ -346,7 +348,7 @@ function ResetPasswordForm() {
             <div className="relative bg-muted min-h-[300px] lg:min-h-screen overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/auth/bg_image2.png"
+                src="/auth/bg.jpg"
                 alt="Reset Password"
                 className="w-full h-full object-cover animate-cross-fade"
               />
@@ -401,32 +403,60 @@ function ResetPasswordForm() {
                     <label htmlFor="password" className="text-sm font-semibold text-foreground">
                       New Password*
                     </label>
-                    <Input
-                      id="password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      disabled={loading}
-                      className="h-12 text-base"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        disabled={loading}
+                        className="h-12 text-base pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-5 w-5" />
+                        ) : (
+                          <Eye className="h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-2 animate-fade-in-down" style={{ animationDelay: '0.6s' }}>
                     <label htmlFor="confirmPassword" className="text-sm font-semibold text-foreground">
                       Confirm New Password*
                     </label>
-                    <Input
-                      id="confirmPassword"
-                      type="password"
-                      placeholder="••••••••"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                      disabled={loading}
-                      className="h-12 text-base"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="confirmPassword"
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                        disabled={loading}
+                        className="h-12 text-base pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-5 w-5" />
+                        ) : (
+                          <Eye className="h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   <Button
@@ -447,7 +477,7 @@ function ResetPasswordForm() {
           <div className="relative bg-muted min-h-[300px] lg:min-h-screen overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/auth/bg_image.png"
+              src="/auth/bg.jpg"
               alt="Reset Password"
               className="w-full h-full object-cover animate-slide-up"
             />
