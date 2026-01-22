@@ -6,7 +6,7 @@
 /* Primary color: #818254 (olive green) - hsl(61, 22%, 42%) */
 /* Light background: #d3d2ca - hsl(55, 9%, 81%) */
 :root {
-  --background: 55 9% 81%;
+  --background: 61 12% 96%;
   --foreground: 61 15% 15%;
 
   --card: 0 0% 100%;
