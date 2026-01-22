@@ -16,10 +16,29 @@ function VerifyEmailForm() {
   const [message, setMessage] = useState("")
   const [isResending, setIsResending] = useState(false)
   const [hasAutoSent, setHasAutoSent] = useState(false)
+  const [userEmail, setUserEmail] = useState<string>("")
   const router = useRouter()
   const searchParams = useSearchParams()
   const messageParam = searchParams.get("message")
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+
+  // Fetch user email on component mount
+  useEffect(() => {
+    const fetchUserEmail = async () => {
+      try {
+        const response = await fetch("/api/auth/me")
+        if (response.ok) {
+          const data = await response.json()
+          if (data.user?.email) {
+            setUserEmail(data.user.email)
+          }
+        }
+      } catch (error) {
+        // User not authenticated or error fetching
+      }
+    }
+    fetchUserEmail()
+  }, [])
 
   useEffect(() => {
     if (messageParam === "check-email") {
@@ -237,6 +256,11 @@ function VerifyEmailForm() {
                 ) : (
                   <>
                     <CardTitle className="text-4xl font-bold animate-fade-in-down" style={{ animationDelay: '0.2s' }}>Verify Your Email</CardTitle>
+                    {userEmail && (
+                      <p className="text-sm text-muted-foreground animate-fade-in-down" style={{ animationDelay: '0.25s' }}>
+                        {userEmail}
+                      </p>
+                    )}
                     <CardDescription className="text-base animate-fade-in-down" style={{ animationDelay: '0.3s' }}>
                       {message || "Please enter the 4-digit verification code sent to your email."}
                     </CardDescription>

@@ -97,8 +97,14 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Don't set token on signup - user must verify email first
-      // Token will be set after email verification in verify-email route
+      // Generate token so user can access verify-email page and resend verification
+      // Token is set even if email not verified, similar to signin flow
+      const token = generateToken({
+        userId: user._id.toString(),
+        email: user.email,
+        role: user.role,
+      });
+
       const response = NextResponse.json(
         {
           message: isFirstUser 
@@ -116,6 +122,15 @@ export async function POST(request: NextRequest) {
         },
         { status: 201 }
       );
+
+      // Set token so user can access verify-email page and resend verification
+      response.cookies.set('auth-token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        path: '/',
+      });
 
       return response;
     } catch (saveError: any) {

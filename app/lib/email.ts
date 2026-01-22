@@ -19,7 +19,7 @@ const createTransporter = () => {
     );
   }
 
-  // Create transporter with IONOS SMTP settings
+  // Create transporter - keep it simple like the working code
   // Port 587 uses STARTTLS, Port 465 uses SSL
   const useSSL = smtpPort === 465;
   
@@ -31,16 +31,8 @@ const createTransporter = () => {
       user: smtpUser,
       pass: smtpPassword,
     },
-    tls: {
-      rejectUnauthorized: false, // 🔥 important for IONOS
-    },
-  
-    // Connection timeout settings to prevent hanging
-    connectionTimeout: 10000, // 10 seconds
-    socketTimeout: 10000, // 10 seconds
-    greetingTimeout: 10000, // 10 seconds
-    // For port 587, STARTTLS is automatically enabled by nodemailer
-    // No additional TLS configuration needed
+    // No additional TLS/timeout settings - let nodemailer handle defaults
+    // IONOS works better with minimal configuration
   });
 };
 
@@ -74,8 +66,8 @@ export async function sendVerificationEmail(
     console.log("📧 Creating transporter...");
     transporter = createTransporter();
 
-    console.log("📧 Verifying SMTP...");
-    await transporter.verify();
+    // Don't verify connection - IONOS sometimes closes connection during verify
+    // Just try to send directly like the working code
 
     const smtpFrom = process.env.SMTP_FROM || process.env.SMTP_USER;
 
@@ -129,9 +121,9 @@ If you didn't create an account, please ignore this email.
       `,
     };
 
-    // Use timeout wrapper to prevent hanging
+    // Send email directly without timeout wrapper (like the working code)
     console.log("📧 Sending email...");
-    await sendMailWithTimeout(transporter, mailOptions, 15000);
+    await transporter.sendMail(mailOptions);
     console.log(`Verification email sent successfully to ${to}`);
   } catch (error: any) {
     console.error('Error sending verification email:', error);
@@ -207,8 +199,8 @@ If you didn't request a password reset, please ignore this email and your passwo
       `,
     };
 
-    // Use timeout wrapper to prevent hanging
-    await sendMailWithTimeout(transporter, mailOptions, 15000);
+    // Send email directly without timeout wrapper (like the working code)
+    await transporter.sendMail(mailOptions);
     console.log(`Password reset email sent successfully to ${to}`);
   } catch (error: any) {
     console.error('Error sending password reset email:', error);
