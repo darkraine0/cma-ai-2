@@ -44,7 +44,7 @@ function VerifyEmailForm() {
     if (messageParam === "check-email") {
       setMessage("Please check your email for the 4-digit verification code.")
     } else {
-      setMessage("Please enter the 4-digit verification code sent to your email.")
+      setMessage("A verification code has been sent to your email. Please check your inbox.")
     }
   }, [messageParam])
 

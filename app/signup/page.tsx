@@ -104,8 +104,8 @@ export default function SignUpPage() {
       }
 
       // Successfully signed up - redirect to email verification page
-      // The verification code will be in console for now (email service needed)
-      router.push("/verify-email?message=check-email")
+      // Email was already sent during signup, so don't trigger auto-send
+      router.push("/verify-email")
       router.refresh()
     } catch (err: any) {
       if (err.name === 'AbortError') {

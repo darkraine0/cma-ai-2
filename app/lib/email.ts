@@ -74,82 +74,50 @@ export async function sendVerificationEmail(
     const mailOptions = {
       from: smtpFrom,
       to: to,
-      subject: `Verification Code: ${verificationCode}`,
+      subject: 'Verify Your Email Address',
       html: `
         <!DOCTYPE html>
         <html>
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Verification Code</title>
+          <title>Email Verification</title>
         </head>
-        <body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;">
-          <table width="100%" cellpadding="0" cellspacing="0" style="padding: 40px 20px;">
-            <tr>
-              <td align="center">
-                <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 500px; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                  
-                  <!-- Header with primary color -->
-                  <tr>
-                    <td style="background-color: #818254; padding: 30px 40px; text-align: center;">
-                      <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">Verification Code</h1>
-                    </td>
-                  </tr>
-                  
-                  <!-- Content -->
-                  <tr>
-                    <td style="padding: 40px;">
-                      <p style="margin: 0 0 24px 0; color: #333333; font-size: 16px; line-height: 1.6;">
-                        Thank you for signing up! Please use the verification code below to complete your registration:
-                      </p>
-                      
-                      <!-- Verification Code Box -->
-                      <table width="100%" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
-                        <tr>
-                          <td style="background-color: #f8f9f5; border: 2px solid #818254; border-radius: 6px; padding: 24px; text-align: center;">
-                            <div style="color: #818254; font-size: 36px; font-weight: 700; letter-spacing: 8px; font-family: 'Courier New', monospace;">${verificationCode}</div>
-                          </td>
-                        </tr>
-                      </table>
-                      
-                      <p style="margin: 24px 0 0 0; color: #666666; font-size: 14px; line-height: 1.5;">
-                        This code will expire in 24 hours.
-                      </p>
-                      
-                      <p style="margin: 24px 0 0 0; color: #999999; font-size: 13px; line-height: 1.5;">
-                        If you didn't create an account, please ignore this email.
-                      </p>
-                    </td>
-                  </tr>
-                  
-                  <!-- Footer -->
-                  <tr>
-                    <td style="background-color: #f8f9f5; padding: 20px 40px; text-align: center; border-top: 1px solid #e5e5e5;">
-                      <p style="margin: 0; color: #999999; font-size: 12px;">
-                        This is an automated message, please do not reply.
-                      </p>
-                    </td>
-                  </tr>
-                  
-                </table>
-              </td>
-            </tr>
-          </table>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f4f4f4; padding: 20px; border-radius: 5px; margin-bottom: 20px;">
+            <h1 style="color: #333; margin-top: 0;">Email Verification</h1>
+          </div>
+          
+          <div style="background-color: #fff; padding: 20px; border-radius: 5px; border: 1px solid #ddd;">
+            <p>Thank you for signing up! Please verify your email address by entering the following verification code:</p>
+            
+            <div style="background-color: #f8f9fa; border: 2px solid #007bff; border-radius: 5px; padding: 20px; text-align: center; margin: 20px 0;">
+              <h2 style="color: #007bff; margin: 0; font-size: 32px; letter-spacing: 5px;">${verificationCode}</h2>
+            </div>
+            
+            <p>This code will expire in 24 hours.</p>
+            
+            <p style="color: #666; font-size: 14px; margin-top: 30px;">
+              If you didn't create an account, please ignore this email.
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
+            <p>This is an automated message, please do not reply.</p>
+          </div>
         </body>
         </html>
       `,
       text: `
-Verification Code: ${verificationCode}
+Email Verification
 
-Thank you for signing up! Please use the verification code below to complete your registration:
+Thank you for signing up! Please verify your email address by entering the following verification code:
 
 ${verificationCode}
 
 This code will expire in 24 hours.
 
 If you didn't create an account, please ignore this email.
-
-This is an automated message, please do not reply.
       `,
     };
 
@@ -186,82 +154,48 @@ export async function sendPasswordResetEmail(
     const mailOptions = {
       from: smtpFrom,
       to: to,
-      subject: `Password Reset Code: ${verificationCode}`,
+      subject: 'Password Reset Verification Code',
       html: `
         <!DOCTYPE html>
         <html>
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Password Reset Code</title>
+          <title>Password Reset</title>
         </head>
-        <body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;">
-          <table width="100%" cellpadding="0" cellspacing="0" style="padding: 40px 20px;">
-            <tr>
-              <td align="center">
-                <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 500px; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                  
-                  <!-- Header with primary color -->
-                  <tr>
-                    <td style="background-color: #818254; padding: 30px 40px; text-align: center;">
-                      <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">Password Reset Code</h1>
-                    </td>
-                  </tr>
-                  
-                  <!-- Content -->
-                  <tr>
-                    <td style="padding: 40px;">
-                      <p style="margin: 0 0 24px 0; color: #333333; font-size: 16px; line-height: 1.6;">
-                        You requested to reset your password. Please use the verification code below to proceed:
-                      </p>
-                      
-                      <!-- Verification Code Box -->
-                      <table width="100%" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
-                        <tr>
-                          <td style="background-color: #f8f9f5; border: 2px solid #818254; border-radius: 6px; padding: 24px; text-align: center;">
-                            <div style="color: #818254; font-size: 36px; font-weight: 700; letter-spacing: 8px; font-family: 'Courier New', monospace;">${verificationCode}</div>
-                          </td>
-                        </tr>
-                      </table>
-                      
-                      <p style="margin: 24px 0 0 0; color: #666666; font-size: 14px; line-height: 1.5;">
-                        This code will expire in 1 hour.
-                      </p>
-                      
-                      <p style="margin: 24px 0 0 0; color: #dc3545; font-size: 14px; line-height: 1.5; font-weight: 600;">
-                        If you didn't request a password reset, please ignore this email and your password will remain unchanged.
-                      </p>
-                    </td>
-                  </tr>
-                  
-                  <!-- Footer -->
-                  <tr>
-                    <td style="background-color: #f8f9f5; padding: 20px 40px; text-align: center; border-top: 1px solid #e5e5e5;">
-                      <p style="margin: 0; color: #999999; font-size: 12px;">
-                        This is an automated message, please do not reply.
-                      </p>
-                    </td>
-                  </tr>
-                  
-                </table>
-              </td>
-            </tr>
-          </table>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f4f4f4; padding: 20px; border-radius: 5px; margin-bottom: 20px;">
+            <h1 style="color: #333; margin-top: 0;">Password Reset</h1>
+          </div>
+          
+          <div style="background-color: #fff; padding: 20px; border-radius: 5px; border: 1px solid #ddd;">
+            <p>You requested to reset your password. Please use the following verification code to proceed:</p>
+            
+            <div style="background-color: #f8f9fa; border: 2px solid #dc3545; border-radius: 5px; padding: 20px; text-align: center; margin: 20px 0;">
+              <h2 style="color: #dc3545; margin: 0; font-size: 32px; letter-spacing: 5px;">${verificationCode}</h2>
+            </div>
+            
+            <p>This code will expire in 1 hour.</p>
+            
+            <p style="color: #dc3545; font-weight: bold;">If you didn't request a password reset, please ignore this email and your password will remain unchanged.</p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
+            <p>This is an automated message, please do not reply.</p>
+          </div>
         </body>
         </html>
       `,
       text: `
-Password Reset Code: ${verificationCode}
+Password Reset
 
-You requested to reset your password. Please use the verification code below to proceed:
+You requested to reset your password. Please use the following verification code to proceed:
 
 ${verificationCode}
 
 This code will expire in 1 hour.
 
 If you didn't request a password reset, please ignore this email and your password will remain unchanged.
-
-This is an automated message, please do not reply.
       `,
     };
 
