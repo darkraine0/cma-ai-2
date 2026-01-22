@@ -8,8 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app
 import { Input } from "@/app/components/ui/input"
 import Loader from "@/app/components/Loader"
 import { CheckCircle2, AlertCircle, RefreshCw } from "lucide-react"
-import PageIndicator from "@/app/components/PageIndicator"
-import TestimonialBox from "@/app/components/TestimonialBox"
+import AuthRightPanel from "@/app/components/AuthRightPanel"
 
 function VerifyEmailForm() {
   const [code, setCode] = useState(["", "", "", ""])
@@ -351,16 +350,7 @@ function VerifyEmailForm() {
           </div>
 
           {/* Right Side - Image */}
-          <div className="relative bg-muted min-h-[300px] lg:min-h-screen overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/auth/bg.jpg"
-              alt="Verify Email"
-              className="w-full h-full object-cover animate-cross-fade"
-            />
-            <PageIndicator />
-            <TestimonialBox />
-          </div>
+          <AuthRightPanel alt="Verify Email" />
         </div>
       </div>
     </div>

@@ -7,9 +7,8 @@ import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Input } from "@/app/components/ui/input"
 import { ArrowLeft, CheckCircle2 } from "lucide-react"
-import PageIndicator from "@/app/components/PageIndicator"
-import TestimonialBox from "@/app/components/TestimonialBox"
 import AuthBrand from "@/app/components/AuthBrand"
+import AuthRightPanel from "@/app/components/AuthRightPanel"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -101,16 +100,7 @@ export default function ForgotPasswordPage() {
             </div>
 
             {/* Right Side - Image */}
-            <div className="relative bg-muted min-h-[300px] lg:min-h-screen overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/auth/bg.jpg"
-                alt="Password Reset"
-                className="w-full h-full object-cover animate-fade-in"
-              />
-              <PageIndicator />
-              <TestimonialBox />
-            </div>
+            <AuthRightPanel alt="Password Reset" />
           </div>
         </div>
       </div>
@@ -189,16 +179,7 @@ export default function ForgotPasswordPage() {
           </div>
 
           {/* Right Side - Image */}
-          <div className="relative bg-muted min-h-[300px] lg:min-h-screen overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/auth/bg.jpg"
-              alt="Forgot Password"
-              className="w-full h-full object-cover animate-fade-in"
-            />
-            <PageIndicator />
-            <TestimonialBox />
-          </div>
+          <AuthRightPanel alt="Forgot Password" />
         </div>
       </div>
     </div>

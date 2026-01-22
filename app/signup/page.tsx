@@ -7,9 +7,8 @@ import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Input } from "@/app/components/ui/input"
 import { Eye, EyeOff } from "lucide-react"
-import PageIndicator from "@/app/components/PageIndicator"
-import TestimonialBox from "@/app/components/TestimonialBox"
 import AuthBrand from "@/app/components/AuthBrand"
+import AuthRightPanel from "@/app/components/AuthRightPanel"
 
 export default function SignUpPage() {
   const [name, setName] = useState("")
@@ -263,16 +262,7 @@ export default function SignUpPage() {
           </div>
 
           {/* Right Side - Image */}
-          <div className="relative bg-muted min-h-[300px] lg:min-h-screen overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/auth/bg.jpg"
-              alt="Sign Up"
-              className="w-full h-full object-cover animate-cross-fade"
-            />
-            <PageIndicator />
-            <TestimonialBox />
-          </div>
+          <AuthRightPanel alt="Sign Up" />
         </div>
       </div>
     </div>

@@ -8,9 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app
 import { Input } from "@/app/components/ui/input"
 import { Eye, EyeOff } from "lucide-react"
 import ErrorMessage from "@/app/components/ErrorMessage"
-import PageIndicator from "@/app/components/PageIndicator"
-import TestimonialBox from "@/app/components/TestimonialBox"
 import AuthBrand from "@/app/components/AuthBrand"
+import AuthRightPanel from "@/app/components/AuthRightPanel"
 
 export default function SignInPage() {
   const [email, setEmail] = useState("")
@@ -196,16 +195,7 @@ export default function SignInPage() {
           </div>
 
           {/* Right Side - Image */}
-          <div className="relative bg-muted min-h-[300px] lg:min-h-screen overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/auth/bg.jpg"
-              alt="Sign In"
-              className="w-full h-full object-cover animate-fade-in"
-            />
-            <PageIndicator />
-            <TestimonialBox />
-          </div>
+          <AuthRightPanel alt="Sign In" />
         </div>
       </div>
     </div>

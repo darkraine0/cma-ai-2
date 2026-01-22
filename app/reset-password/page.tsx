@@ -8,9 +8,8 @@ import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Input } from "@/app/components/ui/input"
 import { CheckCircle2, AlertCircle, Eye, EyeOff } from "lucide-react"
-import PageIndicator from "@/app/components/PageIndicator"
-import TestimonialBox from "@/app/components/TestimonialBox"
 import AuthBrand from "@/app/components/AuthBrand"
+import AuthRightPanel from "@/app/components/AuthRightPanel"
 
 function ResetPasswordForm() {
   const [step, setStep] = useState<"verify" | "reset" | "success">("verify")
@@ -221,16 +220,7 @@ function ResetPasswordForm() {
             </div>
 
             {/* Right Side - Image */}
-            <div className="relative bg-muted min-h-[300px] lg:min-h-screen overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/auth/bg.jpg"
-                alt="Password Reset Success"
-                className="w-full h-full object-cover animate-slide-up"
-              />
-              <PageIndicator />
-              <TestimonialBox />
-            </div>
+            <AuthRightPanel alt="Password Reset Success" />
           </div>
         </div>
       </div>
@@ -322,16 +312,7 @@ function ResetPasswordForm() {
             </div>
 
             {/* Right Side - Image */}
-            <div className="relative bg-muted min-h-[300px] lg:min-h-screen overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/auth/bg.jpg"
-                alt="Reset Password"
-                className="w-full h-full object-cover animate-cross-fade"
-              />
-              <PageIndicator />
-              <TestimonialBox />
-            </div>
+            <AuthRightPanel alt="Reset Password" />
           </div>
         </div>
       </div>
@@ -451,16 +432,7 @@ function ResetPasswordForm() {
           </div>
 
           {/* Right Side - Image */}
-          <div className="relative bg-muted min-h-[300px] lg:min-h-screen overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/auth/bg.jpg"
-              alt="Reset Password"
-              className="w-full h-full object-cover animate-slide-up"
-            />
-            <PageIndicator />
-            <TestimonialBox />
-          </div>
+          <AuthRightPanel alt="Reset Password" />
         </div>
       </div>
     </div>
