@@ -83,7 +83,7 @@ const Navbar = () => {
             {/* Hide Communities, Companies, Manage buttons if user is pending */}
             {user?.status !== "pending" && (
               <>
-                <Link href="/">
+                <Link href="/communities">
                   <Button
                     variant="outline"
                     className="bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground font-semibold"

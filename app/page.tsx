@@ -1,331 +1,92 @@
 "use client"
 
-import React, { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Loader from "./components/Loader";
-import ErrorMessage from "./components/ErrorMessage";
-import PendingApprovalBanner from "./components/PendingApprovalBanner";
-import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
-import { Badge } from "./components/ui/badge";
+import { Card, CardContent, CardTitle } from "./components/ui/card";
 import { Button } from "./components/ui/button";
-import AddCommunityModal from "./components/AddCommunityModal";
-import { LogOut } from "lucide-react";
-import API_URL from './config';
-import { getCompanyColor } from './utils/colors';
-import { getCommunityImage } from './utils/communityImages';
 
-interface Plan {
-  plan_name: string;
-  price: number;
-  sqft: number;
-  stories: string;
-  price_per_sqft: number;
-  last_updated: string;
-  price_changed_recently: boolean;
-  company: string;
-  community: string;
-  type: string;
-}
-
-interface Community {
-  name: string;
-  companies: string[];
-  totalPlans: number;
-  totalNow: number;
-  avgPrice: number;
-  priceRange: { min: number; max: number };
-  recentChanges: number;
-  description?: string;
-  location?: string;
-  _id?: string | null;
-  fromPlans?: boolean;
-}
-
-export default function Communities() {
-  const [communities, setCommunities] = useState<Community[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [user, setUser] = useState<any>(null);
+export default function HomePage() {
   const router = useRouter();
-  const hasFetched = useRef(false);
-
-  const fetchCommunities = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      // Fetch communities from the API (includes both database communities and plan-derived ones)
-      const communitiesRes = await fetch(API_URL + "/communities");
-      if (!communitiesRes.ok) throw new Error("Failed to fetch communities");
-      const communitiesData: any[] = await communitiesRes.json();
-      
-      // Fetch plans to calculate statistics for each community
-      const plansRes = await fetch(API_URL + "/plans");
-      if (!plansRes.ok) throw new Error("Failed to fetch plans");
-      const plans: Plan[] = await plansRes.json();
-      
-      // Group plans by community for statistics
-      const communityPlansMap = new Map<string, Plan[]>();
-      plans.forEach(plan => {
-        const communityName = typeof plan.community === 'string' ? plan.community : (plan.community as any)?.name || plan.community;
-        if (!communityPlansMap.has(communityName)) {
-          communityPlansMap.set(communityName, []);
-        }
-        communityPlansMap.get(communityName)!.push(plan);
-      });
-
-      // Map communities data to include statistics from plans
-      const communityData: Community[] = communitiesData.map(comm => {
-        const plansForCommunity = communityPlansMap.get(comm.name) || [];
-        // Extract company names from the companies array (handle both object and string formats)
-        const companyNames = (comm.companies || []).map((c: any) => {
-          if (typeof c === 'string') return c;
-          if (c && typeof c === 'object' && c.name) return c.name;
-          return '';
-        }).filter((name: string) => name);
-        // Fallback to extracting from plans if no companies in community
-        const companies = companyNames.length > 0 
-          ? companyNames 
-          : Array.from(new Set(plansForCommunity.map(p => typeof p.company === 'string' ? p.company : (p.company as any)?.name || p.company)));
-        const prices = plansForCommunity.map(p => p.price).filter(p => p > 0);
-        const recentChanges = plansForCommunity.filter(p => p.price_changed_recently).length;
-        const totalPlans = plansForCommunity.filter(p => p.type === 'plan').length;
-        const totalNow = plansForCommunity.filter(p => p.type === 'now').length;
-        
-        return {
-          name: comm.name,
-          companies: companies.length > 0 ? companies : [],
-          totalPlans,
-          totalNow,
-          avgPrice: prices.length > 0 ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : 0,
-          priceRange: {
-            min: prices.length > 0 ? Math.min(...prices) : 0,
-            max: prices.length > 0 ? Math.max(...prices) : 0
-          },
-          recentChanges,
-          description: comm.description,
-          location: comm.location,
-          _id: comm._id,
-          fromPlans: comm.fromPlans || false,
-        };
-      });
-
-      setCommunities(communityData);
-    } catch (err: any) {
-      setError(err.message || "Unknown error");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [isPending, setIsPending] = useState(false);
 
   useEffect(() => {
-    // Prevent duplicate calls in React StrictMode (development)
-    if (hasFetched.current) return;
-    hasFetched.current = true;
-    
-    fetchUser();
-    fetchCommunities();
-    // const interval = setInterval(fetchCommunities, 60 * 1000); // Refresh every 1 min
-    // return () => clearInterval(interval);
-  }, []);
-
-  const fetchUser = async () => {
-    try {
-      const response = await fetch("/api/auth/me");
-      if (response.ok) {
-        const data = await response.json();
-        const user = data.user;
-        
-        // If user is not email verified (and not admin), redirect to signin
-        // AuthGuard will handle the redirect, but this is a safeguard
-        if (user.role !== "admin" && !user.emailVerified) {
-          router.push("/signin");
-          return;
+    // Check user authentication and redirect accordingly
+    const checkAndRedirect = async () => {
+      try {
+        const response = await fetch("/api/auth/me");
+        if (response.ok) {
+          const data = await response.json();
+          const user = data.user;
+          
+          // If user is not email verified (and not admin), redirect to signin
+          if (user.role !== "admin" && !user.emailVerified) {
+            router.replace("/signin");
+            return;
+          }
+          
+          // If user is pending approval, show pending page
+          if (user.status === "pending") {
+            setIsPending(true);
+            return;
+          }
+          
+          // User is authenticated and approved - redirect to communities
+          router.replace("/communities");
+        } else {
+          // Not authenticated - redirect to signin
+          router.replace("/signin");
         }
-        
-        setUser(user);
+      } catch (error) {
+        // Error checking auth - redirect to signin
+        router.replace("/signin");
       }
-    } catch (error) {
-      // User not authenticated
-    }
-  };
+    };
 
-  const handleCommunityClick = (community: Community) => {
-    // Use the first word of the community name as the URL slug
-    const firstWord = community.name.split(' ')[0].toLowerCase();
-    router.push(`/community/${firstWord}`);
-  };
+    checkAndRedirect();
+  }, [router]);
 
-  if (loading) return <Loader />;
-  if (error) return <ErrorMessage message={error} />;
-
-  const isEditor = user?.permission === "editor" || user?.role === "admin";
-  const isPending = user?.status === "pending";
-
-  const handleSignOut = async () => {
-    try {
-      await fetch("/api/auth/signout", { method: "POST" });
-      router.push("/signin");
-      router.refresh();
-    } catch (error) {
-      console.error("Sign out error:", error);
-    }
-  };
-
-  // If user is pending, show full-screen centered card without header
-  if (isPending) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="w-full max-w-[40vw] animate-fade-in-scale">
-          <Card className="bg-primary/95 text-white border-0 shadow-2xl min-h-[40vh] flex flex-col backdrop-blur-sm" style={{ boxShadow: '0 20px 60px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)' }}>
-            <CardContent className="flex-grow flex flex-col justify-center items-center space-y-6 px-8 py-8">
-              <div className="text-center space-y-4 max-w-xl mx-auto animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
-                <CardTitle className="text-xl md:text-2xl font-bold text-white mb-2">
-                  Account Pending Approval
-                </CardTitle>
-                <p className="text-sm md:text-base text-white/90">
-                  Your account is pending admin approval.
-                </p>
-                <p className="text-xs md:text-sm text-white/80">
-                  Please wait for an admin to approve your account. You'll be able to access the application once approved.
-                </p>
-              </div>
-              
-              <div className="pt-6 border-t border-white/20 mt-auto w-full max-w-sm mx-auto animate-fade-in-down" style={{ animationDelay: '0.4s' }}>
-                <Button
-                  onClick={handleSignOut}
-                  variant="outline"
-                  className="w-full bg-white text-primary hover:bg-white/90 border-white"
-                >
-                  Sign Out
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
+  // Only show pending UI if user is confirmed to be pending
+  // Otherwise show nothing (redirecting in background)
+  if (!isPending) {
+    return null;
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-4">
-          <>
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-semibold leading-none tracking-tight">Communities</h1>
-                <p className="text-sm text-muted-foreground">Explore home plans by community</p>
-              </div>
-              {/* Only show Add Community button for editors/admins */}
-              {isEditor && (
-                <AddCommunityModal 
-                  onSuccess={() => {
-                    fetchCommunities();
-                  }}
-                />
-              )}
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="w-full max-w-[40vw] animate-fade-in-scale">
+        <Card className="bg-primary/95 text-white border-0 shadow-2xl min-h-[40vh] flex flex-col backdrop-blur-sm" style={{ boxShadow: '0 20px 60px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)' }}>
+          <CardContent className="flex-grow flex flex-col justify-center items-center space-y-6 px-8 py-8">
+            <div className="text-center space-y-4 max-w-xl mx-auto animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
+              <CardTitle className="text-xl md:text-2xl font-bold text-white mb-2">
+                Account Pending Approval
+              </CardTitle>
+              <p className="text-sm md:text-base text-white/90">
+                Your account is pending admin approval.
+              </p>
+              <p className="text-xs md:text-sm text-white/80">
+                Please wait for an admin to approve your account. You'll be able to access the application once approved.
+              </p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {communities.map((community) => (
-            <Card
-              key={community.name}
-              onClick={() => handleCommunityClick(community)}
-              className="cursor-pointer overflow-auto"
-            >
-              <div className="relative overflow-hidden h-48">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={getCommunityImage(community.name)}
-                  alt={community.name}
-                  className="w-full h-full object-cover"
-                />
-                {community.recentChanges > 0 && (
-                  <Badge variant="destructive" className="absolute">
-                    {community.recentChanges} new
-                  </Badge>
-                )}
-              </div>
-              
-              <CardHeader>
-                <CardTitle>{community.name}</CardTitle>
-              </CardHeader>
-              
-              <CardContent>
-                <div className="space-y-4">
-                  {/* Plan/Now Summary */}
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      <span className="inline-block w-3 h-3 rounded-full bg-primary"></span>
-                      <span className="text-sm font-medium text-muted-foreground">Plans</span>
-                    </div>
-                    <Badge variant="secondary">
-                      {community.totalPlans}
-                    </Badge>
-                  </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      <span className="inline-block w-3 h-3 rounded-full bg-success"></span>
-                      <span className="text-sm font-medium text-muted-foreground">Available Now</span>
-                    </div>
-                    <Badge variant="success">
-                      {community.totalNow}
-                    </Badge>
-                  </div>
-                  
-                  {/* Price Info */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Avg Price:</span>
-                      <span className="font-semibold text-primary">
-                        ${community.avgPrice.toLocaleString()}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Price Range:</span>
-                      <span className="font-semibold text-foreground text-sm">
-                        ${community.priceRange.min.toLocaleString()} - ${community.priceRange.max.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* Builders */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Builders:</span>
-                    <div className="flex gap-1">
-                      {community.companies.slice(0, 3).map((company) => {
-                        const color = getCompanyColor(company);
-                        return (
-                          <span
-                            key={company}
-                            className="inline-block w-3 h-3 rounded-full border"
-                            style={{ backgroundColor: color, borderColor: color }}
-                            title={company}
-                          />
-                        );
-                      })}
-                      {community.companies.length > 3 && (
-                        <span className="text-xs text-muted-foreground">+{community.companies.length - 3}</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-              </Card>
-              ))}
+            <div className="pt-6 border-t border-white/20 mt-auto w-full max-w-sm mx-auto animate-fade-in-down" style={{ animationDelay: '0.4s' }}>
+              <Button
+                onClick={async () => {
+                  try {
+                    await fetch("/api/auth/signout", { method: "POST" });
+                    router.push("/signin");
+                    router.refresh();
+                  } catch (error) {
+                    console.error("Sign out error:", error);
+                  }
+                }}
+                variant="outline"
+                className="w-full bg-white text-primary hover:bg-white/90 border-white"
+              >
+                Sign Out
+              </Button>
             </div>
-            
-            {communities.length === 0 && (
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="text-center py-12">
-                    <p className="text-lg text-muted-foreground">No communities found.</p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
