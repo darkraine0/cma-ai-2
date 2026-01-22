@@ -49,9 +49,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify email and set status to pending
+    // Verify email and set status to pending (unless user is already approved, e.g. first admin)
     user.emailVerified = true;
-    user.status = UserStatus.PENDING; // User must be approved by admin
+    // Only set status to pending if user is not already approved
+    // This preserves the approved status for the first admin user
+    if (user.status !== UserStatus.APPROVED) {
+      user.status = UserStatus.PENDING;
+    }
     user.emailVerificationToken = undefined;
     user.emailVerificationExpires = undefined;
     await user.save();
