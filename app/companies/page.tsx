@@ -102,6 +102,7 @@ export default function CompaniesPage() {
   if (loading) return <Loader />;
 
   const isPending = user?.status === "pending";
+  const isEditor = user?.permission === "editor" || user?.role === "admin";
 
   return (
     <div className="min-h-screen bg-background">
@@ -121,14 +122,16 @@ export default function CompaniesPage() {
             <div className="mb-6 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold leading-none tracking-tight">Companies</h2>
-            <p className="text-sm text-muted-foreground">Manage home building companies</p>
+            <p className="text-sm text-muted-foreground">{isEditor ? 'Manage' : 'View'} home building companies</p>
           </div>
-          <AddCompanyModal 
-            onSuccess={() => {
-              fetchCompanies();
-              setError("");
-            }}
-          />
+          {isEditor && (
+            <AddCompanyModal 
+              onSuccess={() => {
+                fetchCompanies();
+                setError("");
+              }}
+            />
+          )}
         </div>
 
         {error && (
@@ -156,15 +159,17 @@ export default function CompaniesPage() {
                         <ExternalLink className="h-4 w-4" />
                       </a>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteCompany(company._id, company.name)}
-                      disabled={deletingCompanyId === company._id}
-                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {isEditor && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteCompany(company._id, company.name)}
+                        disabled={deletingCompanyId === company._id}
+                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardHeader>

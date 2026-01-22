@@ -213,6 +213,7 @@ export default function ManagePage() {
   if (loading || loadingCompanies) return <Loader />;
 
   const isPending = user?.status === "pending";
+  const isEditor = user?.permission === "editor" || user?.role === "admin";
 
   return (
     <div className="min-h-screen bg-background">
@@ -230,8 +231,8 @@ export default function ManagePage() {
         ) : (
           <>
             <div className="mb-6">
-          <h1 className="text-2xl font-semibold leading-none tracking-tight">Manage Communities & Companies</h1>
-          <p className="text-sm text-muted-foreground">Add communities and manage companies in each community</p>
+          <h1 className="mt-2 text-2xl font-semibold leading-none tracking-tight">{isEditor ? 'Manage' : 'View'} Communities & Companies</h1>
+          <p className="text-sm text-muted-foreground">{isEditor ? 'Add communities and manage companies in each community' : 'View communities and their companies'}</p>
         </div>
 
         {error && (
@@ -241,39 +242,38 @@ export default function ManagePage() {
         )}
 
         {/* Add Community Section */}
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold leading-none tracking-tight">Communities</h2>
-            <p className="text-sm text-muted-foreground">Manage communities and their companies</p>
-          </div>
-          <div className="flex gap-2">
-            <AddCommunityModal 
-              onSuccess={() => {
-                fetchCommunities();
-                setError("");
-              }}
-            />
-            {communities.filter(c => c._id && !c.fromPlans).length > 0 && (
-              <Button
-                onClick={handleDeleteAllCommunities}
-                disabled={deletingAll || loading || loadingCompanies}
-                variant="destructive"
-                className="flex items-center gap-2"
-              >
-                {deletingAll ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Deleting All...
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="h-4 w-4" />
-                    Delete All
-                  </>
-                )}
-              </Button>
-            )}
-          </div>
+        <div className=" flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+
+          {isEditor && (
+            <div className="flex gap-2">
+              <AddCommunityModal 
+                onSuccess={() => {
+                  fetchCommunities();
+                  setError("");
+                }}
+              />
+              {communities.filter(c => c._id && !c.fromPlans).length > 0 && (
+                <Button
+                  onClick={handleDeleteAllCommunities}
+                  disabled={deletingAll || loading || loadingCompanies}
+                  variant="destructive"
+                  className="flex items-center gap-2"
+                >
+                  {deletingAll ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Deleting All...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4" />
+                      Delete All
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Communities List */}
@@ -307,7 +307,7 @@ export default function ManagePage() {
                         <p className="text-sm text-muted-foreground">📍 {community.location}</p>
                       )}
                     </div>
-                    {!community.fromPlans && community._id && (
+                    {isEditor && !community.fromPlans && community._id && (
                       <Button
                         variant="ghost"
                         size="icon"
@@ -357,14 +357,16 @@ export default function ManagePage() {
                                   />
                                   <span className="text-sm font-medium">{companyName}</span>
                                 </div>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleRemoveCompanyFromCommunity(community, companyName)}
-                                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
+                                {isEditor && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleRemoveCompanyFromCommunity(community, companyName)}
+                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                )}
                               </div>
                             );
                           })}
@@ -373,26 +375,28 @@ export default function ManagePage() {
                     </div>
 
                     {/* Add Company to Community */}
-                    <div className="pt-4 border-t">
-                      <div className="flex items-center justify-between">
-                        <label className="block text-sm font-medium">Add Company to {community.name}</label>
-                        <SelectCompanyModal
-                          communityId={community._id || undefined}
-                          communityName={community.name}
-                          existingCompanies={community.companies.map(c => typeof c === 'string' ? c : c.name)}
-                          onSuccess={() => {
-                            fetchCommunities();
-                            setError("");
-                          }}
-                          trigger={
-                            <Button variant="outline" size="sm" className="flex items-center gap-2">
-                              <Plus className="h-4 w-4" />
-                              Add Company
-                            </Button>
-                          }
-                        />
+                    {isEditor && (
+                      <div className="pt-4 border-t">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-sm font-medium">Add Company to {community.name}</label>
+                          <SelectCompanyModal
+                            communityId={community._id || undefined}
+                            communityName={community.name}
+                            existingCompanies={community.companies.map(c => typeof c === 'string' ? c : c.name)}
+                            onSuccess={() => {
+                              fetchCommunities();
+                              setError("");
+                            }}
+                            trigger={
+                              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                                <Plus className="h-4 w-4" />
+                                Add Company
+                              </Button>
+                            }
+                          />
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

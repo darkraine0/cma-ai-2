@@ -3,12 +3,19 @@ import connectDB from '@/app/lib/mongodb';
 import Community from '@/app/models/Community';
 import Company from '@/app/models/Company';
 import mongoose from 'mongoose';
+import { requirePermission } from '@/app/lib/admin';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
+    // Check editor permission (async)
+    const permissionCheck = await requirePermission(request, 'editor');
+    if (permissionCheck instanceof NextResponse) {
+      return permissionCheck;
+    }
+
     await connectDB();
     const body = await request.json();
     const { companyId, companyName } = body; // Accept both ID and name for backward compatibility
@@ -137,6 +144,12 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
+    // Check editor permission (async)
+    const permissionCheck = await requirePermission(request, 'editor');
+    if (permissionCheck instanceof NextResponse) {
+      return permissionCheck;
+    }
+
     await connectDB();
     const { searchParams } = new URL(request.url);
     const companyId = searchParams.get('companyId');
