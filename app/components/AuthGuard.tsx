@@ -88,22 +88,29 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       return
     }
 
-    // For protected routes, check authentication and approval status
+    // For protected routes, check authentication, email verification, and approval status
     try {
       const response = await fetch("/api/auth/me")
       if (response.ok) {
         const data = await response.json()
         const user = data.user
 
-        // Check if user is approved (admins are always approved)
+        // First check: Email must be verified (admins can bypass)
+        // If not verified, redirect to signin (user needs to sign in first)
+        if (user.role !== "admin" && !user.emailVerified) {
+          // Email not verified, redirect to signin
+          router.replace("/signin")
+          return
+        }
+
+        // Second check: User must be approved (admins are always approved)
         if (user.role === "admin" || user.status === "approved") {
-          // Authenticated and approved, show content
+          // Authenticated, verified, and approved, show content
           setShouldShowContent(true)
         } else {
           // Not approved, show pending message or redirect
-          // For now, redirect to a pending page or show message
           if (user.status === "pending") {
-            // User is pending approval
+            // User is pending approval but email is verified
             setShouldShowContent(true) // Allow access but show pending message
           } else {
             // Rejected or other status

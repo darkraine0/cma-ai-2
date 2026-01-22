@@ -97,14 +97,8 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Generate token (user can sign in but needs email verification and approval)
-      const token = generateToken({
-        userId: user._id.toString(),
-        email: user.email,
-        role: user.role,
-      });
-
-      // Set token in cookie
+      // Don't set token on signup - user must verify email first
+      // Token will be set after email verification in verify-email route
       const response = NextResponse.json(
         {
           message: isFirstUser 
@@ -122,14 +116,6 @@ export async function POST(request: NextRequest) {
         },
         { status: 201 }
       );
-
-      response.cookies.set('auth-token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7, // 7 days
-        path: '/',
-      });
 
       return response;
     } catch (saveError: any) {

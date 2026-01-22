@@ -35,27 +35,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check email verification (admins can bypass)
-    if (user.role !== 'admin' && !user.emailVerified) {
-      return NextResponse.json(
-        { 
-          error: 'Email not verified. Please check your email for the verification code.',
-          requiresVerification: true 
-        },
-        { status: 403 }
-      );
-    }
-
-    // Update last login
-    user.lastLogin = new Date();
-    await user.save();
-
-    // Generate token
+    // Generate token (set even if email not verified, so user can verify email)
     const token = generateToken({
       userId: user._id.toString(),
       email: user.email,
       role: user.role,
     });
+
+    // Check email verification (admins can bypass)
+    if (user.role !== 'admin' && !user.emailVerified) {
+      // Set token so user can access verify-email page and resend verification
+      const response = NextResponse.json(
+        { 
+          error: 'Email not verified. Please check your email for the verification code.',
+          requiresVerification: true,
+          user: {
+            id: user._id.toString(),
+            email: user.email,
+            name: user.name,
+            role: user.role,
+          },
+        },
+        { status: 403 }
+      );
+
+      response.cookies.set('auth-token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        path: '/',
+      });
+
+      return response;
+    }
+
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
 
     // Set token in cookie
     const response = NextResponse.json(

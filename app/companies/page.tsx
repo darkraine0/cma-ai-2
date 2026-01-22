@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -23,6 +24,7 @@ interface Company {
 }
 
 export default function CompaniesPage() {
+  const router = useRouter();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -54,7 +56,16 @@ export default function CompaniesPage() {
       const response = await fetch("/api/auth/me");
       if (response.ok) {
         const data = await response.json();
-        setUser(data.user);
+        const user = data.user;
+        
+        // If user is not email verified (and not admin), redirect to signin
+        // AuthGuard will handle the redirect, but this is a safeguard
+        if (user.role !== "admin" && !user.emailVerified) {
+          router.push("/signin");
+          return;
+        }
+        
+        setUser(user);
       }
     } catch (error) {
       // User not authenticated

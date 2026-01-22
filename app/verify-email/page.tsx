@@ -16,6 +16,7 @@ function VerifyEmailForm() {
   const [status, setStatus] = useState<"input" | "verifying" | "success" | "error">("input")
   const [message, setMessage] = useState("")
   const [isResending, setIsResending] = useState(false)
+  const [hasAutoSent, setHasAutoSent] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const messageParam = searchParams.get("message")
@@ -28,6 +29,39 @@ function VerifyEmailForm() {
       setMessage("Please enter the 4-digit verification code sent to your email.")
     }
   }, [messageParam])
+
+  // Automatically send verification code when page loads (if coming from signin)
+  useEffect(() => {
+    const autoSendCode = async () => {
+      // Only auto-send once and only if coming from signin (check-email message)
+      if (hasAutoSent || messageParam !== "check-email") return
+      
+      setHasAutoSent(true)
+      setIsResending(true)
+      
+      try {
+        const response = await fetch("/api/auth/resend-verification", {
+          method: "POST",
+        })
+
+        const data = await response.json()
+
+        if (response.ok) {
+          setMessage("Verification code sent! Please check your email.")
+        } else {
+          // If auto-send fails, don't show error - user can manually resend
+          console.error("Auto-send verification code failed:", data.error)
+        }
+      } catch (error) {
+        // If auto-send fails, don't show error - user can manually resend
+        console.error("Auto-send verification code error:", error)
+      } finally {
+        setIsResending(false)
+      }
+    }
+
+    autoSendCode()
+  }, [messageParam, hasAutoSent])
 
   const handleCodeChange = (index: number, value: string) => {
     // Only allow digits

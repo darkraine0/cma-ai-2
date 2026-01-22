@@ -131,7 +131,16 @@ export default function Communities() {
       const response = await fetch("/api/auth/me");
       if (response.ok) {
         const data = await response.json();
-        setUser(data.user);
+        const user = data.user;
+        
+        // If user is not email verified (and not admin), redirect to signin
+        // AuthGuard will handle the redirect, but this is a safeguard
+        if (user.role !== "admin" && !user.emailVerified) {
+          router.push("/signin");
+          return;
+        }
+        
+        setUser(user);
       }
     } catch (error) {
       // User not authenticated

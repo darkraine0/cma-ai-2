@@ -31,10 +31,17 @@ export default function SignUpPage() {
     try {
       const response = await fetch("/api/auth/me")
       if (response.ok) {
-        router.push("/")
+        const data = await response.json()
+        const user = data.user
+        // Only redirect if user is fully authenticated and approved (not pending)
+        // Don't redirect if email not verified or status is pending - let them sign up or stay on page
+        if (user && user.emailVerified && (user.role === "admin" || user.status === "approved")) {
+          router.push("/")
+        }
+        // Otherwise, allow them to stay on signup page (they might want to create another account)
       }
     } catch (error) {
-      // User is not authenticated
+      // User is not authenticated - this is fine, they can sign up
     }
   }
 

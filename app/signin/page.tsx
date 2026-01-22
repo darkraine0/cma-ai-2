@@ -32,10 +32,19 @@ export default function SignInPage() {
     try {
       const response = await fetch("/api/auth/me")
       if (response.ok) {
-        router.push("/")
+        const data = await response.json()
+        const user = data.user
+        // Only redirect if user is fully authenticated and approved (not pending)
+        // Pending users should stay on signin page - they may want to sign in again
+        // or the token might be from email verification but they're not actually signed in
+        if (user && (user.role === "admin" || user.status === "approved")) {
+          router.push("/")
+        }
+        // If user is pending or has other status, don't redirect - let them sign in
+        // This prevents showing "Pending Approval" banner when user isn't actually signed in
       }
     } catch (error) {
-      // User is not authenticated
+      // User is not authenticated - this is fine, they can sign in
     }
   }
 
@@ -58,9 +67,9 @@ export default function SignInPage() {
       if (!response.ok) {
         // Check if email verification is required
         if (data.requiresVerification) {
-          setError(data.error || "Email verification required")
-          // Optionally redirect to verification page
-          // router.push("/verify-email")
+          // Redirect to verification page - it will automatically send the code
+          router.push("/verify-email?message=check-email")
+          return
         } else {
           setError(data.error || "Failed to sign in")
         }
