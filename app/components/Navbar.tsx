@@ -69,14 +69,14 @@ const Navbar = () => {
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-3 text-2xl font-bold text-foreground tracking-tight select-none cursor-pointer">
               <Image 
-                src="/logo.jpg" 
-                alt="UnionMainHomes Logo" 
+                src="/logo2.png" 
+                alt="MarketMap Homes Logo" 
                 width={0}
                 height={0}
                 sizes="100vw"
-                className="h-[1.5em] w-auto object-contain"
+                className="h-[2.5em] w-auto object-contain"
               />
-              UnionMainHomes CMA Tool
+              MarketMap Homes
             </Link>
           </div>
           <div className="flex gap-2 items-center">
