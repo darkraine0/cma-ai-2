@@ -37,7 +37,7 @@ export default function PageIndicator() {
             >
               {/* Background bar */}
               <div
-                className={`h-1 rounded-full transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+                className={`h-1 rounded-full transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] overflow-hidden ${
                   isActive
                     ? "bg-primary h-1 page-indicator-active"
                     : "bg-white/30"
@@ -52,7 +52,7 @@ export default function PageIndicator() {
               
               {/* Glow effect */}
               {isActive && (
-                <div className="absolute inset-0 -m-2 rounded-full bg-primary/20 blur-md animate-pulse-glow" />
+                <div className="absolute inset-y-0 left-0 right-0 rounded-full bg-primary/20 blur-sm animate-pulse-glow" />
               )}
             </div>
           )
