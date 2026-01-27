@@ -9,7 +9,7 @@ import Loader from "../components/Loader";
 import ErrorMessage from "../components/ErrorMessage";
 import AddCompanyModal from "../components/AddCompanyModal";
 import PendingApprovalBanner from "../components/PendingApprovalBanner";
-import { ExternalLink, Trash2 } from "lucide-react";
+import { ExternalLink, Trash2, Search } from "lucide-react";
 import API_URL from '../config';
 
 interface Company {
@@ -26,6 +26,8 @@ interface Company {
 export default function CompaniesPage() {
   const router = useRouter();
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [deletingCompanyId, setDeletingCompanyId] = useState<string | null>(null);
@@ -39,6 +41,7 @@ export default function CompaniesPage() {
       if (!res.ok) throw new Error("Failed to fetch companies");
       const data = await res.json();
       setCompanies(data);
+      setFilteredCompanies(data);
     } catch (err: any) {
       setError(err.message || "Unknown error");
     } finally {
@@ -50,6 +53,24 @@ export default function CompaniesPage() {
     fetchCompanies();
     fetchUser();
   }, []);
+
+  // Filter companies based on search query
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredCompanies(companies);
+    } else {
+      const query = searchQuery.toLowerCase();
+      setFilteredCompanies(
+        companies.filter(
+          (company) =>
+            company.name.toLowerCase().includes(query) ||
+            company.description?.toLowerCase().includes(query) ||
+            company.headquarters?.toLowerCase().includes(query) ||
+            company.website?.toLowerCase().includes(query)
+        )
+      );
+    }
+  }, [searchQuery, companies]);
 
   const fetchUser = async () => {
     try {
@@ -119,20 +140,44 @@ export default function CompaniesPage() {
           </div>
         ) : (
           <>
-            <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold leading-none tracking-tight">Companies</h2>
-            <p className="text-sm text-muted-foreground">{isEditor ? 'Manage' : 'View'} home building companies</p>
-          </div>
-          {isEditor && (
-            <AddCompanyModal 
-              onSuccess={() => {
-                fetchCompanies();
-                setError("");
-              }}
-            />
-          )}
-        </div>
+            <div className="mb-6">
+              <div className="flex flex-col gap-4">
+                {/* Title and Button Row */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-semibold leading-none tracking-tight">Companies</h2>
+                    <p className="text-sm text-muted-foreground">{isEditor ? 'Manage' : 'View'} home building companies</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {/* Search Bar */}
+                    <div className="relative w-full sm:w-auto sm:min-w-[300px]">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <input
+                        type="text"
+                        placeholder="Search companies..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pl-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                    </div>
+                    {isEditor && (
+                      <AddCompanyModal 
+                        onSuccess={() => {
+                          fetchCompanies();
+                          setError("");
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+                {/* Results Counter */}
+                {searchQuery && (
+                  <div className="text-sm text-muted-foreground">
+                    Showing {filteredCompanies.length} of {companies.length} companies
+                  </div>
+                )}
+              </div>
+            </div>
 
         {error && (
           <div className="mb-4">
@@ -143,7 +188,7 @@ export default function CompaniesPage() {
         {/* Companies List */}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {companies.map((company) => (
+          {filteredCompanies.map((company) => (
             <Card key={company._id}>
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -197,11 +242,15 @@ export default function CompaniesPage() {
           ))}
         </div>
 
-        {companies.length === 0 && !loading && (
+        {filteredCompanies.length === 0 && !loading && (
           <Card>
             <CardContent className="pt-6">
               <div className="text-center py-12">
-                <p className="text-lg text-muted-foreground">No companies found. Add one to get started!</p>
+                <p className="text-lg text-muted-foreground">
+                  {searchQuery.trim() 
+                    ? `No companies found matching "${searchQuery}"`
+                    : "No companies found. Add one to get started!"}
+                </p>
               </div>
             </CardContent>
           </Card>

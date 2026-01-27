@@ -7,6 +7,7 @@ import ErrorMessage from "../components/ErrorMessage";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import AddCommunityModal from "../components/AddCommunityModal";
+import { Search } from "lucide-react";
 import API_URL from '../config';
 import { getCompanyColor } from '../utils/colors';
 import { getCommunityImage } from '../utils/communityImages';
@@ -40,6 +41,8 @@ interface Community {
 
 export default function CommunitiesPage() {
   const [communities, setCommunities] = useState<Community[]>([]);
+  const [filteredCommunities, setFilteredCommunities] = useState<Community[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [user, setUser] = useState<any>(null);
@@ -107,6 +110,7 @@ export default function CommunitiesPage() {
       });
 
       setCommunities(communityData);
+      setFilteredCommunities(communityData);
     } catch (err: any) {
       setError(err.message || "Unknown error");
     } finally {
@@ -122,6 +126,24 @@ export default function CommunitiesPage() {
     fetchUser();
     fetchCommunities();
   }, []);
+
+  // Filter communities based on search query
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredCommunities(communities);
+    } else {
+      const query = searchQuery.toLowerCase();
+      setFilteredCommunities(
+        communities.filter(
+          (community) =>
+            community.name.toLowerCase().includes(query) ||
+            community.location?.toLowerCase().includes(query) ||
+            community.description?.toLowerCase().includes(query) ||
+            community.companies.some(company => company.toLowerCase().includes(query))
+        )
+      );
+    }
+  }, [searchQuery, communities]);
 
   const fetchUser = async () => {
     try {
@@ -150,23 +172,47 @@ export default function CommunitiesPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-4">
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-semibold leading-none tracking-tight">Communities</h1>
-                <p className="text-sm text-muted-foreground">{isEditor ? 'Explore and manage' : 'Explore'} home plans by community</p>
+            <div className="mb-6">
+              <div className="flex flex-col gap-4">
+                {/* Title and Button Row */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <h1 className="text-2xl font-semibold leading-none tracking-tight">Communities</h1>
+                    <p className="text-sm text-muted-foreground">{isEditor ? 'Explore and manage' : 'Explore'} home plans by community</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {/* Search Bar */}
+                    <div className="relative w-full sm:w-auto sm:min-w-[300px]">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <input
+                        type="text"
+                        placeholder="Search communities..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pl-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                    </div>
+                    {/* Only show Add Community button for editors/admins and not pending users */}
+                    {isEditor && !isPending && (
+                      <AddCommunityModal 
+                        onSuccess={() => {
+                          fetchCommunities();
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+                {/* Results Counter */}
+                {searchQuery && (
+                  <div className="text-sm text-muted-foreground">
+                    Showing {filteredCommunities.length} of {communities.length} communities
+                  </div>
+                )}
               </div>
-              {/* Only show Add Community button for editors/admins and not pending users */}
-              {isEditor && !isPending && (
-                <AddCommunityModal 
-                  onSuccess={() => {
-                    fetchCommunities();
-                  }}
-                />
-              )}
             </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {communities.map((community) => (
+          {filteredCommunities.map((community) => (
             <Card
               key={community.name}
               onClick={() => handleCommunityClick(community)}
@@ -256,11 +302,15 @@ export default function CommunitiesPage() {
           ))}
         </div>
         
-        {communities.length === 0 && (
+        {filteredCommunities.length === 0 && (
           <Card>
             <CardContent className="pt-6">
               <div className="text-center py-12">
-                <p className="text-lg text-muted-foreground">No communities found.</p>
+                <p className="text-lg text-muted-foreground">
+                  {searchQuery.trim() 
+                    ? `No communities found matching "${searchQuery}"`
+                    : "No communities found."}
+                </p>
               </div>
             </CardContent>
           </Card>
