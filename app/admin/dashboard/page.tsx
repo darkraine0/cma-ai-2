@@ -46,8 +46,7 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
+        <div className="mb-8">          
           <p className="text-muted-foreground mt-2">Overview of user management</p>
         </div>
 

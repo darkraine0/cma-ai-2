@@ -230,51 +230,48 @@ export default function ManagePage() {
           </div>
         ) : (
           <>
-            <div className="mb-6">
-          <h1 className="mt-2 text-2xl font-semibold leading-none tracking-tight">{isEditor ? 'Manage' : 'View'} Communities & Companies</h1>
-          <p className="text-sm text-muted-foreground">{isEditor ? 'Add communities and manage companies in each community' : 'View communities and their companies'}</p>
-        </div>
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-semibold leading-none tracking-tight">{isEditor ? 'Manage' : 'View'} Communities & Companies</h1>
+                <p className="text-sm text-muted-foreground">{isEditor ? 'Add communities and manage companies in each community' : 'View communities and their companies'}</p>
+              </div>
+              {isEditor && (
+                <div className="flex flex-wrap items-center gap-3">
+                  <AddCommunityModal 
+                    onSuccess={() => {
+                      fetchCommunities();
+                      setError("");
+                    }}
+                  />
+                  {communities.filter(c => c._id && !c.fromPlans).length > 0 && (
+                    <Button
+                      onClick={handleDeleteAllCommunities}
+                      disabled={deletingAll || loading || loadingCompanies}
+                      variant="destructive"
+                      className="flex items-center gap-2"
+                    >
+                      {deletingAll ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Deleting All...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="h-4 w-4" />
+                          Delete All
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
 
         {error && (
           <div className="mb-4">
             <ErrorMessage message={error} />
           </div>
         )}
-
-        {/* Add Community Section */}
-        <div className=" flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-
-          {isEditor && (
-            <div className="flex gap-2">
-              <AddCommunityModal 
-                onSuccess={() => {
-                  fetchCommunities();
-                  setError("");
-                }}
-              />
-              {communities.filter(c => c._id && !c.fromPlans).length > 0 && (
-                <Button
-                  onClick={handleDeleteAllCommunities}
-                  disabled={deletingAll || loading || loadingCompanies}
-                  variant="destructive"
-                  className="flex items-center gap-2"
-                >
-                  {deletingAll ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Deleting All...
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="h-4 w-4" />
-                      Delete All
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
 
         {/* Communities List */}
         <div className="space-y-4">
