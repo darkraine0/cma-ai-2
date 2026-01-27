@@ -11,24 +11,24 @@ import PlansTable from "../components/PlansTable";
 import { useCommunityData } from "../hooks/useCommunityData";
 import { usePlansFilter } from "../hooks/usePlansFilter";
 import { exportToCSV } from "../utils/exportCSV";
+import { formatCommunitySlug } from "../utils/formatCommunityName";
+import { getCompanyNames, extractCompanyName } from "../utils/companyHelpers";
 
 export default function CommunityDetail() {
   const params = useParams();
   const communitySlug = params?.communityName 
     ? decodeURIComponent(params.communityName as string).toLowerCase() 
     : '';
+  const formattedSlug = formatCommunitySlug(communitySlug);
 
   // Fetch community and plans data
   const { community, plans, loading, error } = useCommunityData(communitySlug);
 
   // Extract company names
-  const companies = useMemo(() => {
-    return community?.companies?.map(c => {
-      if (typeof c === 'string') return c;
-      if (c && typeof c === 'object' && c.name) return c.name;
-      return '';
-    }).filter(name => name) || [];
-  }, [community]);
+  const companies = useMemo(
+    () => getCompanyNames(community?.companies),
+    [community]
+  );
 
   const companyNamesSet = useMemo(() => new Set(companies), [companies]);
 
@@ -52,9 +52,7 @@ export default function CommunityDetail() {
   // Handle CSV export
   const handleExportCSV = () => {
     const filteredPlans = plans.filter((plan) => {
-      const planCompany = typeof plan.company === 'string' 
-        ? plan.company 
-        : (plan.company as any)?.name || plan.company;
+      const planCompany = extractCompanyName(plan.company);
       
       return (
         companyNamesSet.has(planCompany) &&
@@ -65,7 +63,7 @@ export default function CommunityDetail() {
       );
     });
 
-    exportToCSV(filteredPlans, community?.name || 'community');
+    exportToCSV(filteredPlans, community?.name || formattedSlug);
   };
 
   // Error state
@@ -80,7 +78,7 @@ export default function CommunityDetail() {
           <CardContent className="p-0">
             {/* Header Section */}
             <CommunityHeader
-              communityName={community?.name || communitySlug}
+              communityName={community?.name || formattedSlug}
               communitySlug={communitySlug}
               selectedType={selectedType}
               onTypeChange={setSelectedType}

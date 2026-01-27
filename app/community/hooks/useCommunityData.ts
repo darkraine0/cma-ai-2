@@ -10,17 +10,41 @@ interface UseCommunityDataReturn {
   refetch: () => void;
 }
 
+// Cache for communities list
+let communitiesCache: Community[] | null = null;
+
 export function useCommunityData(communitySlug: string): UseCommunityDataReturn {
-  const [community, setCommunity] = useState<Community | null>(null);
+  const [community, setCommunity] = useState<Community | null>(() => {
+    // Try to get from sessionStorage on initial load
+    if (typeof window !== 'undefined') {
+      const cached = sessionStorage.getItem(`community_${communitySlug}`);
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+    }
+    return null;
+  });
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const fetchCommunity = async () => {
     try {
-      const res = await fetch(API_URL + "/communities");
-      if (!res.ok) throw new Error("Failed to fetch communities");
-      const communities: Community[] = await res.json();
+      let communities: Community[];
+      
+      // Use cached communities if available
+      if (communitiesCache) {
+        communities = communitiesCache;
+      } else {
+        const res = await fetch(API_URL + "/communities");
+        if (!res.ok) throw new Error("Failed to fetch communities");
+        communities = await res.json();
+        communitiesCache = communities;
+      }
 
       const foundCommunity = communities.find(comm => {
         const firstWord = comm.name.split(' ')[0].toLowerCase();
@@ -29,6 +53,10 @@ export function useCommunityData(communitySlug: string): UseCommunityDataReturn 
 
       if (foundCommunity) {
         setCommunity(foundCommunity);
+        // Cache in sessionStorage
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem(`community_${communitySlug}`, JSON.stringify(foundCommunity));
+        }
       }
     } catch (err: any) {
       console.error("Failed to fetch community:", err);
@@ -54,7 +82,10 @@ export function useCommunityData(communitySlug: string): UseCommunityDataReturn 
 
   useEffect(() => {
     if (communitySlug) {
-      fetchCommunity();
+      // Only fetch if not already loaded from cache
+      if (!community) {
+        fetchCommunity();
+      }
     }
   }, [communitySlug]);
 

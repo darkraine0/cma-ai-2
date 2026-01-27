@@ -3,6 +3,7 @@ import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { getCompanyColor } from "../../utils/colors";
+import { extractCompanyName } from "../utils/companyHelpers";
 import { Plan, SortKey } from "../types";
 
 interface PlansTableProps {
@@ -53,9 +54,7 @@ export default function PlansTable({
         </TableHeader>
         <TableBody>
           {plans.map((plan) => {
-            const planCompany = typeof plan.company === 'string' 
-              ? plan.company 
-              : (plan.company as any)?.name || plan.company;
+            const planCompany = extractCompanyName(plan.company);
             const color = getCompanyColor(planCompany);
 
             return (

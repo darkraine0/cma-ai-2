@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Plan, SortKey, SortOrder, PAGE_SIZE } from "../types";
+import { extractCompanyName } from "../utils/companyHelpers";
 
 interface UsePlansFilterReturn {
   sortKey: SortKey;
@@ -35,10 +36,7 @@ export function usePlansFilter(
   // Filter plans
   const filteredPlans = useMemo(() => {
     return plans.filter((plan) => {
-      const planCompany = typeof plan.company === 'string' 
-        ? plan.company 
-        : (plan.company as any)?.name || plan.company;
-
+      const planCompany = extractCompanyName(plan.company);
       const isCompanyInCommunity = companyNames.has(planCompany);
 
       return (
