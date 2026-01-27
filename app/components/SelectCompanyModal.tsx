@@ -212,20 +212,6 @@ export default function SelectCompanyModal({
               />
             </div>
 
-            {/* Add New Company Button */}
-            <div className="flex justify-end">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowAddCompanyModal(true);
-                }}
-                className="flex items-center gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Add New Company
-              </Button>
-            </div>
-
             {/* Loading State */}
             {loading && (
               <div className="flex items-center justify-center py-8">
@@ -285,9 +271,17 @@ export default function SelectCompanyModal({
                               </Badge>
                             )}
                             {company.website && (
-                              <Badge variant="secondary" className="text-xs">
-                                🌐 Website
-                              </Badge>
+                              <a
+                                href={company.website}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-block"
+                              >
+                                <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-secondary/80 transition-colors">
+                                  🌐 Website
+                                </Badge>
+                              </a>
                             )}
                           </div>
                         </div>
