@@ -6,7 +6,7 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { PasswordInput } from "../components/ui/password-input";
 import Loader from "../components/Loader";
-import { User, Lock, Shield, Eye, Edit, CheckCircle2, Clock } from "lucide-react";
+import { User, Lock, Shield, Eye, Edit, CheckCircle2, Clock, FileText, Trash2, Settings } from "lucide-react";
 
 interface UserProfile {
   id: string;
@@ -198,7 +198,7 @@ export default function ProfilePage() {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
-                <User className="w-5 h-5 text-primary" />
+                {/* <User className="w-5 h-5 text-primary" /> */}
                 <CardTitle>Profile Information</CardTitle>
               </div>
               <CardDescription>Update your personal information</CardDescription>
@@ -247,7 +247,7 @@ export default function ProfilePage() {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
-                <Lock className="w-5 h-5 text-primary" />
+                {/* <Lock className="w-5 h-5 text-primary" /> */}
                 <CardTitle>Security</CardTitle>
               </div>
               <CardDescription>Change your password</CardDescription>
@@ -292,57 +292,128 @@ export default function ProfilePage() {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-primary" />
-                <CardTitle>Permission & Access</CardTitle>
+                {/* <Shield className="w-5 h-5 text-primary" /> */}
+                <CardTitle>Permissions & Access Level</CardTitle>
               </div>
-              <CardDescription>Your current access level</CardDescription>
+              <CardDescription>Manage your account permissions and capabilities</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-4 border-2 border-border rounded-lg bg-muted/30">
-                <div>
-                  <p className="text-sm font-medium text-foreground mb-1">Current Permission</p>
-                  <div className="flex items-center gap-2">
-                    {user.permission === 'viewer' ? (
-                      <Badge variant="outline" className="border-slate-200 text-slate-600 bg-slate-50">
-                        <Eye className="w-3 h-3 mr-1" />
-                        Viewer
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50">
-                        <Edit className="w-3 h-3 mr-1" />
-                        Editor
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                
-                {user.permission === 'viewer' && user.role !== 'admin' && (
+            <CardContent className="space-y-6">
+              {/* Current Status */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
                   <div>
-                    {pendingRequest ? (
-                      <Badge variant="outline" className="border-amber-200 text-amber-700 bg-amber-50">
-                        <Clock className="w-3 h-3 mr-1" />
-                        Request Pending
-                      </Badge>
-                    ) : (
-                      <Button
-                        onClick={handleRequestPermission}
-                        disabled={requestLoading}
-                        size="sm"
-                      >
-                        {requestLoading ? "Submitting..." : "Request Editor Access"}
-                      </Button>
-                    )}
+                    <p className="text-sm font-medium text-muted-foreground mb-2">Current Access Level</p>
+                    <div className="flex items-center gap-3">
+                      {user.permission === 'viewer' ? (
+                        <Badge variant="outline" className="border-slate-200 text-slate-600 bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:bg-slate-900/30 px-3 py-1.5">
+                          <Eye className="w-4 h-4 mr-1.5" />
+                          Viewer
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:bg-blue-950/30 px-3 py-1.5">
+                          <Edit className="w-4 h-4 mr-1.5" />
+                          Editor
+                        </Badge>
+                      )}
+                      {user.role === 'admin' && (
+                        <Badge variant="outline" className="border-purple-200 text-purple-700 bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:bg-purple-950/30 px-3 py-1.5">
+                          <Shield className="w-4 h-4 mr-1.5" />
+                          Admin
+                        </Badge>
+                      )}
+                    </div>
                   </div>
-                )}
+                  
+                  {user.permission === 'viewer' && user.role !== 'admin' && (
+                    <div>
+                      {pendingRequest ? (
+                        <div className="text-center">
+                          <Badge variant="outline" className="border-amber-200 text-amber-700 bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:bg-amber-950/30 px-3 py-1.5">
+                            <Clock className="w-4 h-4 mr-1.5" />
+                            Request Pending
+                          </Badge>
+                          <p className="text-xs text-muted-foreground mt-1">Awaiting admin approval</p>
+                        </div>
+                      ) : (
+                        <Button
+                          onClick={handleRequestPermission}
+                          disabled={requestLoading}
+                          size="sm"
+                          className="h-9"
+                        >
+                          <Shield className="w-4 h-4 mr-2" />
+                          {requestLoading ? "Submitting..." : "Request Editor Access"}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {user.permission === 'viewer' && (
-                <div className="text-sm text-muted-foreground">
-                  <p className="font-medium mb-1">Permission Levels:</p>
-                  <ul className="space-y-1 ml-4">
-                    <li>• Viewer: Can view data and export reports</li>
-                    <li>• Editor: Can add, edit, and delete data</li>
-                  </ul>
+              {/* Permissions Breakdown */}
+              <div className="space-y-3">
+                <p className="text-sm font-semibold text-foreground">Your Capabilities</p>
+                <div className="grid gap-3">
+                  {/* View Permission */}
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 border border-border">
+                    <div className="flex-shrink-0 mt-0.5">
+                      <Eye className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground">View Access</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Browse communities, view plans, and export data
+                      </p>
+                    </div>
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                  </div>
+
+                  {/* Edit Permission */}
+                  <div className={`flex items-start gap-3 p-3 rounded-lg border ${
+                    user.permission === 'editor' || user.role === 'admin'
+                      ? 'bg-muted/30 border-border'
+                      : 'bg-muted/10 border-dashed border-border opacity-60'
+                  }`}>
+                    <div className="flex-shrink-0 mt-0.5">
+                      <Edit className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground">Edit Access</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Add, modify, and manage plans and communities
+                      </p>
+                    </div>
+                    {(user.permission === 'editor' || user.role === 'admin') ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                    ) : (
+                      <Lock className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                    )}
+                  </div>
+
+                  {/* Admin Permission */}
+                  {user.role === 'admin' && (
+                    <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 border border-border">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <Settings className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground">Admin Access</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Full system access, user management, and approvals
+                        </p>
+                      </div>
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Help Text */}
+              {user.permission === 'viewer' && user.role !== 'admin' && !pendingRequest && (
+                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    <strong>Need more access?</strong> Request editor permissions to create and modify content.
+                  </p>
                 </div>
               )}
             </CardContent>
