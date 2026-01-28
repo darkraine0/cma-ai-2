@@ -6,7 +6,7 @@ import Link from "next/link"
 import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Input } from "@/app/components/ui/input"
-import { Eye, EyeOff } from "lucide-react"
+import { PasswordInput } from "@/app/components/ui/password-input"
 import AuthBrand from "@/app/components/AuthBrand"
 import AuthRightPanel from "@/app/components/AuthRightPanel"
 
@@ -15,8 +15,6 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
@@ -174,65 +172,31 @@ export default function SignUpPage() {
                     />
                   </div>
 
-                  <div className="space-y-2 animate-fade-in-down" style={{ animationDelay: '0.6s' }}>
-                    <label htmlFor="password" className="text-sm font-semibold text-foreground">
-                      Password*
-                    </label>
-                    <div className="relative">
-                      <Input
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        disabled={loading}
-                        className="h-12 text-base pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                        tabIndex={-1}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-5 w-5" />
-                        ) : (
-                          <Eye className="h-5 w-5" />
-                        )}
-                      </button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Must be at least 6 characters</p>
+                  <div className="animate-fade-in-down" style={{ animationDelay: '0.6s' }}>
+                    <PasswordInput
+                      id="password"
+                      label="Password*"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      disabled={loading}
+                      helperText="Must be at least 6 characters"
+                      className="h-12 text-base"
+                    />
                   </div>
 
-                  <div className="space-y-2 animate-fade-in-down" style={{ animationDelay: '0.7s' }}>
-                    <label htmlFor="confirmPassword" className="text-sm font-semibold text-foreground">
-                      Confirm Password*
-                    </label>
-                    <div className="relative">
-                      <Input
-                        id="confirmPassword"
-                        type={showConfirmPassword ? "text" : "password"}
-                        placeholder="••••••••"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        required
-                        disabled={loading}
-                        className="h-12 text-base pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                        tabIndex={-1}
-                      >
-                        {showConfirmPassword ? (
-                          <EyeOff className="h-5 w-5" />
-                        ) : (
-                          <Eye className="h-5 w-5" />
-                        )}
-                      </button>
-                    </div>
+                  <div className="animate-fade-in-down" style={{ animationDelay: '0.7s' }}>
+                    <PasswordInput
+                      id="confirmPassword"
+                      label="Confirm Password*"
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      disabled={loading}
+                      className="h-12 text-base"
+                    />
                   </div>
 
                   <Button

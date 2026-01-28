@@ -6,7 +6,7 @@ import Link from "next/link"
 import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Input } from "@/app/components/ui/input"
-import { Eye, EyeOff } from "lucide-react"
+import { PasswordInput } from "@/app/components/ui/password-input"
 import ErrorMessage from "@/app/components/ErrorMessage"
 import AuthBrand from "@/app/components/AuthBrand"
 import AuthRightPanel from "@/app/components/AuthRightPanel"
@@ -14,7 +14,6 @@ import AuthRightPanel from "@/app/components/AuthRightPanel"
 export default function SignInPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
@@ -129,35 +128,18 @@ export default function SignInPage() {
                   </div>
 
                   <div className="space-y-2 animate-fade-in-down" style={{ animationDelay: '0.5s' }}>
-                    <label htmlFor="password" className="text-sm font-semibold text-foreground">
-                      Password*
-                    </label>
-                    <div className="relative">
-                      <Input
-                        id="password"
-                        name="password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Enter your password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        autoComplete="current-password"
-                        required
-                        disabled={loading}
-                        className="h-12 text-base pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                        tabIndex={-1}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-5 w-5" />
-                        ) : (
-                          <Eye className="h-5 w-5" />
-                        )}
-                      </button>
-                    </div>
+                    <PasswordInput
+                      id="password"
+                      name="password"
+                      label="Password*"
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      autoComplete="current-password"
+                      required
+                      disabled={loading}
+                      className="h-12 text-base"
+                    />
                     <div className="text-right">
                       <Link
                         href="/forgot-password"

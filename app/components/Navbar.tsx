@@ -6,7 +6,7 @@ import { Fragment, useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "./ui/button";
 import { ThemeToggle } from "./theme-toggle";
-import { LogOut } from "lucide-react";
+import { LogOut, User as UserIcon } from "lucide-react";
 
 const Navbar = () => {
   const router = useRouter();
@@ -114,6 +114,17 @@ const Navbar = () => {
                 <span className="text-sm text-muted-foreground hidden sm:inline">
                   {user.name || user.email}
                 </span>
+                {/* Profile button */}
+                <Link href="/profile">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="hover:bg-muted"
+                    title="Profile"
+                  >
+                    <UserIcon className="w-4 h-4" />
+                  </Button>
+                </Link>
                 {/* Show Admin button only for admin users */}
                 {user.role === "admin" && (
                   <Link href="/admin/dashboard">
