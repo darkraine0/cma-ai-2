@@ -144,20 +144,22 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8 flex items-center justify-between">
+        {/* Header */}
+        <div className="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">User Management</h1>
-            <p className="text-muted-foreground mt-2">Manage user approvals and permissions</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">User Management</h1>
+            <p className="text-sm md:text-base text-muted-foreground mt-1 md:mt-2">Manage user approvals and permissions</p>
           </div>
-          <Button onClick={fetchUsers} variant="outline">
+          <Button onClick={fetchUsers} variant="outline" size="sm" className="self-start sm:self-auto">
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
         </div>
 
-        <Card>
+        {/* Desktop Table View - Hidden on mobile */}
+        <Card className="hidden lg:block">
           <CardHeader>
             <CardDescription>Approve users and assign permissions</CardDescription>
           </CardHeader>
@@ -206,12 +208,12 @@ export default function AdminUsersPage() {
                       </TableCell>
                       <TableCell>
                         {user.emailVerified ? (
-                          <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 hover:border-blue-200 hover:text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:bg-blue-950/30 dark:hover:border-blue-800 dark:hover:text-blue-300 dark:hover:bg-blue-950/30">
+                          <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:bg-blue-950/30">
                             <ShieldCheck className="w-3 h-3 mr-1" />
                             Verified
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="border-gray-200 text-gray-600 bg-gray-50 hover:border-gray-200 hover:text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:bg-gray-900/30 dark:hover:border-gray-700 dark:hover:text-gray-400 dark:hover:bg-gray-900/30">
+                          <Badge variant="outline" className="border-gray-200 text-gray-600 bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:bg-gray-900/30">
                             Not Verified
                           </Badge>
                         )}
@@ -276,6 +278,135 @@ export default function AdminUsersPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Mobile Card View - Shown on mobile/tablet */}
+        <div className="lg:hidden space-y-4">
+          {users.length === 0 ? (
+            <Card>
+              <CardContent className="py-8">
+                <div className="text-center text-muted-foreground">
+                  No users found
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            users.map((user) => (
+              <Card key={user.id}>
+                <CardContent className="p-4">
+                  {/* User Info */}
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm truncate">{user.email}</p>
+                        {user.name && <p className="text-xs text-muted-foreground">{user.name}</p>}
+                      </div>
+                      {getRoleBadge(user.role)}
+                    </div>
+
+                    {/* Badges Row */}
+                    <div className="flex flex-wrap gap-2">
+                      {getStatusBadge(user.status)}
+                      {user.emailVerified ? (
+                        <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 text-xs">
+                          <ShieldCheck className="w-3 h-3 mr-1" />
+                          Verified
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-gray-200 text-gray-600 bg-gray-50 text-xs">
+                          Not Verified
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Permission Toggle */}
+                    {user.role !== "admin" && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-2">Permission Level</p>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant={user.permission === "viewer" ? "default" : "outline"}
+                            onClick={() => handleUpdatePermission(user.id, "viewer")}
+                            disabled={updating === user.id}
+                            className="flex-1"
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            Viewer
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={user.permission === "editor" ? "default" : "outline"}
+                            onClick={() => handleUpdatePermission(user.id, "editor")}
+                            disabled={updating === user.id}
+                            className="flex-1"
+                          >
+                            <Edit className="w-3 h-3 mr-1" />
+                            Editor
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="pt-2 border-t border-border">
+                      <p className="text-xs text-muted-foreground mb-2">Actions</p>
+                      <div className="flex gap-2">
+                        {user.status === "pending" && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleApprove(user.id, "approved")}
+                              disabled={updating === user.id}
+                              className="flex-1"
+                            >
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleApprove(user.id, "rejected")}
+                              disabled={updating === user.id}
+                              className="flex-1"
+                            >
+                              <XCircle className="w-3 h-3 mr-1" />
+                              Reject
+                            </Button>
+                          </>
+                        )}
+                        {user.status === "approved" && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleApprove(user.id, "rejected")}
+                            disabled={updating === user.id}
+                            className="w-full"
+                          >
+                            <XCircle className="w-3 h-3 mr-1" />
+                            Reject User
+                          </Button>
+                        )}
+                        {user.status === "rejected" && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => handleApprove(user.id, "approved")}
+                            disabled={updating === user.id}
+                            className="w-full"
+                          >
+                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                            Approve User
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
       </div>
     </div>
   )
