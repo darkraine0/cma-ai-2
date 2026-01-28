@@ -4,8 +4,9 @@ import React, { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Button } from "@/app/components/ui/button"
 import { Badge } from "@/app/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table"
 import Loader from "@/app/components/Loader"
-import { CheckCircle2, XCircle, Eye, Edit, RefreshCw } from "lucide-react"
+import { CheckCircle2, XCircle, Eye, Edit, RefreshCw, Clock, CheckCheck, ShieldCheck } from "lucide-react"
 
 interface User {
   id: string
@@ -100,21 +101,41 @@ export default function AdminUsersPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "approved":
-        return <Badge className="bg-green-500">Approved</Badge>
+        return (
+          <Badge variant="outline" className="border-slate-200 text-slate-600 bg-slate-50 hover:border-slate-200 hover:text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:bg-slate-900/30 dark:hover:border-slate-700 dark:hover:text-slate-400 dark:hover:bg-slate-900/30">
+            <CheckCircle2 className="w-3 h-3 mr-1" />
+            Approved
+          </Badge>
+        )
       case "pending":
-        return <Badge className="bg-yellow-500">Pending</Badge>
+        return (
+          <Badge variant="outline" className="border-amber-200 text-amber-700 bg-amber-50 hover:border-amber-200 hover:text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:bg-amber-950/30 dark:hover:border-amber-800 dark:hover:text-amber-300 dark:hover:bg-amber-950/30">
+            <Clock className="w-3 h-3 mr-1" />
+            Pending
+          </Badge>
+        )
       case "rejected":
-        return <Badge className="bg-red-500">Rejected</Badge>
+        return (
+          <Badge variant="outline" className="border-rose-200 text-rose-700 bg-rose-50 hover:border-rose-200 hover:text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:bg-rose-950/30 dark:hover:border-rose-800 dark:hover:text-rose-300 dark:hover:bg-rose-950/30">
+            <XCircle className="w-3 h-3 mr-1" />
+            Rejected
+          </Badge>
+        )
       default:
-        return <Badge>{status}</Badge>
+        return <Badge variant="outline">{status}</Badge>
     }
   }
 
   const getRoleBadge = (role: string) => {
     return role === "admin" ? (
-      <Badge variant="destructive">Admin</Badge>
+      <Badge variant="outline" className="border-purple-200 text-purple-700 bg-purple-50 hover:border-purple-200 hover:text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:bg-purple-950/30 dark:hover:border-purple-800 dark:hover:text-purple-300 dark:hover:bg-purple-950/30">
+        <ShieldCheck className="w-3 h-3 mr-1" />
+        Admin
+      </Badge>
     ) : (
-      <Badge variant="secondary">User</Badge>
+      <Badge variant="outline" className="border-slate-200 text-slate-600 bg-slate-50 hover:border-slate-200 hover:text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:bg-slate-900/30 dark:hover:border-slate-700 dark:hover:text-slate-400 dark:hover:bg-slate-900/30">
+        User
+      </Badge>
     )
   }
 
@@ -142,26 +163,26 @@ export default function AdminUsersPage() {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-4">Email</th>
-                    <th className="text-left p-4">Name</th>
-                    <th className="text-left p-4">Role</th>
-                    <th className="text-left p-4">Status</th>
-                    <th className="text-left p-4">Permission</th>
-                    <th className="text-left p-4">Email Verified</th>
-                    <th className="text-left p-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Permission</TableHead>
+                    <TableHead>Email Verified</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {users.map((user) => (
-                    <tr key={user.id} className="border-b">
-                      <td className="p-4">{user.email}</td>
-                      <td className="p-4">{user.name || "-"}</td>
-                      <td className="p-4">{getRoleBadge(user.role)}</td>
-                      <td className="p-4">{getStatusBadge(user.status)}</td>
-                      <td className="p-4">
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">{user.email}</TableCell>
+                      <TableCell>{user.name || "-"}</TableCell>
+                      <TableCell>{getRoleBadge(user.role)}</TableCell>
+                      <TableCell>{getStatusBadge(user.status)}</TableCell>
+                      <TableCell>
                         <div className="flex gap-2">
                           <Button
                             size="sm"
@@ -182,15 +203,20 @@ export default function AdminUsersPage() {
                             Editor
                           </Button>
                         </div>
-                      </td>
-                      <td className="p-4">
+                      </TableCell>
+                      <TableCell>
                         {user.emailVerified ? (
-                          <Badge className="bg-green-500">Verified</Badge>
+                          <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 hover:border-blue-200 hover:text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:bg-blue-950/30 dark:hover:border-blue-800 dark:hover:text-blue-300 dark:hover:bg-blue-950/30">
+                            <ShieldCheck className="w-3 h-3 mr-1" />
+                            Verified
+                          </Badge>
                         ) : (
-                          <Badge variant="outline">Not Verified</Badge>
+                          <Badge variant="outline" className="border-gray-200 text-gray-600 bg-gray-50 hover:border-gray-200 hover:text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:bg-gray-900/30 dark:hover:border-gray-700 dark:hover:text-gray-400 dark:hover:bg-gray-900/30">
+                            Not Verified
+                          </Badge>
                         )}
-                      </td>
-                      <td className="p-4">
+                      </TableCell>
+                      <TableCell>
                         <div className="flex gap-2">
                           {user.status === "pending" && (
                             <>
@@ -237,11 +263,11 @@ export default function AdminUsersPage() {
                             </Button>
                           )}
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
               {users.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   No users found
