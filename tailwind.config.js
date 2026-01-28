@@ -72,6 +72,32 @@ module.exports = {
         elegant: "var(--shadow-elegant)",
         card: "var(--shadow-card)",
       },
+      keyframes: {
+        "toast-in": {
+          "0%": { 
+            transform: "translateX(100%) scale(0.95)",
+            opacity: "0"
+          },
+          "100%": { 
+            transform: "translateX(0) scale(1)",
+            opacity: "1"
+          },
+        },
+        "toast-out": {
+          "0%": { 
+            transform: "translateX(0) scale(1)",
+            opacity: "1"
+          },
+          "100%": { 
+            transform: "translateX(100%) scale(0.95)",
+            opacity: "0"
+          },
+        },
+      },
+      animation: {
+        "toast-in": "toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+        "toast-out": "toast-out 0.2s cubic-bezier(0.4, 0, 1, 1)",
+      },
     },
   },
   plugins: [],

@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../co
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { PasswordInput } from "../components/ui/password-input";
+import { useToast } from "../components/ui/use-toast";
 import Loader from "../components/Loader";
 import { User, Lock, Shield, Eye, Edit, CheckCircle2, Clock, FileText, Trash2, Settings } from "lucide-react";
 
@@ -25,6 +26,7 @@ interface PermissionRequest {
 }
 
 export default function ProfilePage() {
+  const { toast } = useToast();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -61,7 +63,11 @@ export default function ProfilePage() {
       setName(data.user.name || "");
     } catch (error) {
       console.error("Error fetching user:", error);
-      alert("Failed to load profile");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to load profile. Please try again.",
+      });
     } finally {
       setLoading(false);
     }
@@ -101,10 +107,18 @@ export default function ProfilePage() {
         throw new Error(data.error || "Failed to update profile");
       }
 
-      alert(data.message);
+      toast({
+        variant: "success",
+        title: "Success",
+        description: data.message,
+      });
       await fetchUser();
     } catch (error: any) {
-      alert(error.message || "Failed to update profile");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to update profile",
+      });
     } finally {
       setUpdating(false);
     }
@@ -114,7 +128,11 @@ export default function ProfilePage() {
     e.preventDefault();
     
     if (newPassword !== confirmPassword) {
-      alert("New passwords do not match");
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "New passwords do not match",
+      });
       return;
     }
 
@@ -133,14 +151,22 @@ export default function ProfilePage() {
         throw new Error(data.error || "Failed to change password");
       }
 
-      alert(data.message);
+      toast({
+        variant: "success",
+        title: "Success",
+        description: data.message,
+      });
       
       // Clear password fields
       setOldPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (error: any) {
-      alert(error.message || "Failed to change password");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to change password",
+      });
     } finally {
       setUpdating(false);
     }
@@ -161,12 +187,20 @@ export default function ProfilePage() {
         throw new Error(data.error || "Failed to submit request");
       }
 
-      alert(data.message);
+      toast({
+        variant: "success",
+        title: "Request Submitted",
+        description: data.message,
+      });
       
       // Refresh to show pending request
       await checkPendingRequest();
     } catch (error: any) {
-      alert(error.message || "Failed to submit permission request");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to submit permission request",
+      });
     } finally {
       setRequestLoading(false);
     }
