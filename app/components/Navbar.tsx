@@ -6,13 +6,15 @@ import { Fragment, useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "./ui/button";
 import { ThemeToggle } from "./theme-toggle";
-import { LogOut } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
+import { LogOut, Menu, X } from "lucide-react";
 
 const Navbar = () => {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const publicRoutes = ["/signin", "/signup", "/forgot-password", "/reset-password", "/verify-email"];
 
@@ -74,88 +76,185 @@ const Navbar = () => {
 
   return (
     <Fragment>
-      <div className="bg-card border-b border-border shadow-card">
-        <nav className="container mx-auto py-4 px-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-3 text-2xl font-bold text-foreground tracking-tight select-none cursor-pointer">
+      <div className="bg-card border-b border-border shadow-card sticky top-0 z-50">
+        <nav className="container mx-auto py-3 px-4 md:px-6">
+          <div className="flex items-center justify-between">
+            {/* Logo - Always visible */}
+            <Link href="/" className="flex items-center gap-2 md:gap-3 text-lg md:text-2xl font-bold text-foreground tracking-tight select-none cursor-pointer">
               <Image 
                 src="/logo2.png" 
                 alt="MarketMap Homes Logo" 
                 width={0}
                 height={0}
                 sizes="100vw"
-                className="h-[2.5em] w-auto object-contain"
+                className="h-8 md:h-10 w-auto object-contain"
               />
-              MarketMap Homes
+              <span className="hidden sm:inline">MarketMap Homes</span>
+              <span className="sm:hidden">MMH</span>
             </Link>
-          </div>
-          <div className="flex gap-2 items-center">
-            {/* Hide Communities, Companies, Manage buttons if user is pending */}
-            {user?.status !== "pending" && (
-              <>
-                <Link href="/communities">
-                  <Button
-                    variant="outline"
-                    className="bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground font-semibold"
-                  >
-                    Communities
-                  </Button>
-                </Link>
-                <Link href="/companies">
-                  <Button 
-                    variant="outline"
-                    className="bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground font-semibold"
-                  >
-                    Companies
-                  </Button>
-                </Link>
-                <Link href="/manage">
-                  <Button 
-                    variant="outline"
-                    className="bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground font-semibold"
-                  >
-                    Manage
-                  </Button>
-                </Link>
-              </>
-            )}
-            {user && (
-              <div className="flex items-center gap-3 ml-2 pl-3 border-l border-border">
-                {/* Profile Avatar Button */}
-                <Link href="/profile" title="Profile">
-                  <div className="flex items-center gap-2 cursor-pointer group">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-white font-semibold text-xs shadow-md transition-all group-hover:shadow-lg group-hover:scale-105">
-                      {getInitials(user.name || user.email)}
-                    </div>
-                    <span className="text-sm text-muted-foreground hidden sm:inline group-hover:text-foreground transition-colors">
-                      {user.name || user.email}
-                    </span>
-                  </div>
-                </Link>
-                {/* Show Admin button only for admin users */}
-                {user.role === "admin" && (
-                  <Link href="/admin/dashboard">
+
+            {/* Desktop Navigation */}
+            <div className="hidden lg:flex gap-2 items-center">
+              {user?.status !== "pending" && (
+                <>
+                  <Link href="/communities">
                     <Button
                       variant="outline"
                       size="sm"
                       className="bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground font-semibold"
                     >
-                      Admin
+                      Communities
                     </Button>
                   </Link>
-                )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleSignOut}
-                  className="hover:bg-muted"
-                  title="Sign out"
-                >
-                  <LogOut className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
-            <ThemeToggle />
+                  <Link href="/companies">
+                    <Button 
+                      variant="outline"
+                      size="sm"
+                      className="bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground font-semibold"
+                    >
+                      Companies
+                    </Button>
+                  </Link>
+                  <Link href="/manage">
+                    <Button 
+                      variant="outline"
+                      size="sm"
+                      className="bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground font-semibold"
+                    >
+                      Manage
+                    </Button>
+                  </Link>
+                </>
+              )}
+              {user && (
+                <div className="flex items-center gap-2 ml-2 pl-3 border-l border-border">
+                  {/* Profile Avatar Button */}
+                  <Link href="/profile" title="Profile">
+                    <div className="flex items-center gap-2 cursor-pointer group">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-white font-semibold text-xs shadow-md transition-all group-hover:shadow-lg group-hover:scale-105">
+                        {getInitials(user.name || user.email)}
+                      </div>
+                      <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                        {user.name || user.email}
+                      </span>
+                    </div>
+                  </Link>
+                  {user.role === "admin" && (
+                    <Link href="/admin/dashboard">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground font-semibold"
+                      >
+                        Admin
+                      </Button>
+                    </Link>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleSignOut}
+                    className="hover:bg-muted"
+                    title="Sign out"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+              <ThemeToggle />
+            </div>
+
+            {/* Mobile Menu Button + Theme Toggle */}
+            <div className="flex lg:hidden items-center gap-2">
+              <ThemeToggle />
+              <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="lg:hidden">
+                    <Menu className="h-5 w-5" />
+                    <span className="sr-only">Toggle menu</span>
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-[280px] sm:w-[350px]">
+                  <div className="flex flex-col h-full">
+                    {/* User Profile Section */}
+                    {user && (
+                      <div className="pb-6 border-b border-border">
+                        <Link href="/profile" onClick={() => setMobileMenuOpen(false)}>
+                          <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors cursor-pointer">
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-white font-semibold text-sm shadow-md">
+                              {getInitials(user.name || user.email)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-foreground truncate">
+                                {user.name || user.email}
+                              </p>
+                              <p className="text-xs text-muted-foreground">View Profile</p>
+                            </div>
+                          </div>
+                        </Link>
+                      </div>
+                    )}
+
+                    {/* Navigation Links */}
+                    {user?.status !== "pending" && (
+                      <nav className="flex flex-col gap-2 py-6">
+                        <Link href="/communities" onClick={() => setMobileMenuOpen(false)}>
+                          <Button
+                            variant="ghost"
+                            className="w-full justify-start text-base font-semibold"
+                          >
+                            Communities
+                          </Button>
+                        </Link>
+                        <Link href="/companies" onClick={() => setMobileMenuOpen(false)}>
+                          <Button
+                            variant="ghost"
+                            className="w-full justify-start text-base font-semibold"
+                          >
+                            Companies
+                          </Button>
+                        </Link>
+                        <Link href="/manage" onClick={() => setMobileMenuOpen(false)}>
+                          <Button
+                            variant="ghost"
+                            className="w-full justify-start text-base font-semibold"
+                          >
+                            Manage
+                          </Button>
+                        </Link>
+                        {user?.role === "admin" && (
+                          <Link href="/admin/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-start text-base font-semibold"
+                            >
+                              Admin Dashboard
+                            </Button>
+                          </Link>
+                        )}
+                      </nav>
+                    )}
+
+                    {/* Sign Out Button */}
+                    {user && (
+                      <div className="mt-auto pt-6 border-t border-border">
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start"
+                          onClick={() => {
+                            handleSignOut();
+                            setMobileMenuOpen(false);
+                          }}
+                        >
+                          <LogOut className="w-4 h-4 mr-2" />
+                          Sign Out
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
           </div>
         </nav>
       </div>
