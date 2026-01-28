@@ -6,7 +6,7 @@ import { Fragment, useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "./ui/button";
 import { ThemeToggle } from "./theme-toggle";
-import { LogOut, User as UserIcon } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 const Navbar = () => {
   const router = useRouter();
@@ -15,6 +15,16 @@ const Navbar = () => {
   const [loading, setLoading] = useState(true);
 
   const publicRoutes = ["/signin", "/signup", "/forgot-password", "/reset-password", "/verify-email"];
+
+  // Get initials from name
+  const getInitials = (name: string) => {
+    if (!name) return "U";
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) {
+      return parts[0].charAt(0).toUpperCase();
+    }
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  };
 
   useEffect(() => {
     if (!publicRoutes.includes(pathname)) {
@@ -111,19 +121,16 @@ const Navbar = () => {
             )}
             {user && (
               <div className="flex items-center gap-3 ml-2 pl-3 border-l border-border">
-                <span className="text-sm text-muted-foreground hidden sm:inline">
-                  {user.name || user.email}
-                </span>
-                {/* Profile button */}
-                <Link href="/profile">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="hover:bg-muted"
-                    title="Profile"
-                  >
-                    <UserIcon className="w-4 h-4" />
-                  </Button>
+                {/* Profile Avatar Button */}
+                <Link href="/profile" title="Profile">
+                  <div className="flex items-center gap-2 cursor-pointer group">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-white font-semibold text-xs shadow-md transition-all group-hover:shadow-lg group-hover:scale-105">
+                      {getInitials(user.name || user.email)}
+                    </div>
+                    <span className="text-sm text-muted-foreground hidden sm:inline group-hover:text-foreground transition-colors">
+                      {user.name || user.email}
+                    </span>
+                  </div>
                 </Link>
                 {/* Show Admin button only for admin users */}
                 {user.role === "admin" && (
