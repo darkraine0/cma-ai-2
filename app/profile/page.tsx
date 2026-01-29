@@ -219,12 +219,12 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground">User Profile</h1>
-          <p className="text-muted-foreground mt-2">Manage your account settings</p>
+        <div className="mb-6 md:mb-8">
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">User Profile</h1>
+          <p className="text-sm md:text-base text-muted-foreground mt-1 md:mt-2">Manage your account settings</p>
         </div>
 
         <div className="space-y-6">

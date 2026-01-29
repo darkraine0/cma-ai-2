@@ -19,7 +19,7 @@ export default function ChartHeader({
   const router = useRouter();
 
   return (
-    <div className="relative overflow-hidden h-40 rounded-t-lg">
+    <div className="relative overflow-hidden h-36 sm:h-40 rounded-t-lg">
       {/* Background Image */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -32,15 +32,15 @@ export default function ChartHeader({
       <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/60" />
 
       {/* Content Overlay */}
-      <div className="absolute inset-0 p-6 flex flex-col justify-between">
+      <div className="absolute inset-0 p-3 sm:p-4 md:p-6 flex flex-col justify-between">
         {/* Top Row: Title and Back Button */}
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+        <div className="flex items-start justify-between gap-2">
           {/* Title */}
-          <div className="flex-1">
-            <h2 className="text-2xl font-bold text-white mb-1">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base sm:text-lg md:text-2xl font-bold text-white mb-0.5 sm:mb-1 truncate">
               {communityName} - Price Analysis
             </h2>
-            <p className="text-sm text-white/90">
+            <p className="text-xs sm:text-sm text-white/90 hidden sm:block">
               Price vs Square Footage by Builder
             </p>
           </div>
@@ -49,9 +49,9 @@ export default function ChartHeader({
           <button
             onClick={() => router.push(`/community/${communitySlug}`)}
             title="Back to Plans"
-            className="p-2 rounded-md bg-white/20 hover:bg-white/30 text-white border border-white/20 backdrop-blur-sm transition-all duration-200"
+            className="p-1.5 sm:p-2 rounded-md bg-white/20 hover:bg-white/30 text-white border border-white/20 backdrop-blur-sm transition-all duration-200 flex-shrink-0"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
           </button>

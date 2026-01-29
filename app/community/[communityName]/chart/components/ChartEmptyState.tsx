@@ -6,7 +6,7 @@ interface ChartEmptyStateProps {
 
 export default function ChartEmptyState({ selectedType }: ChartEmptyStateProps) {
   return (
-    <div className="w-full min-h-[400px] flex items-center justify-center">
+    <div className="w-full min-h-[500px] md:min-h-[400px] flex items-center justify-center">
       <div className="text-center text-muted-foreground">
         <svg 
           className="w-16 h-16 mx-auto mb-4 opacity-50" 

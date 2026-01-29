@@ -95,26 +95,28 @@ export default function PlansTable({
       </Table>
 
       {/* Price Change Legend */}
-      <div className="mt-4 text-sm text-muted-foreground">
-        <span className="inline-block w-3 h-3 bg-primary/20 border border-primary/30 rounded-full mr-2" />
-        Highlighted rows indicate a price change in the last 24 hours.
+      <div className="mt-4 text-xs sm:text-sm text-muted-foreground flex items-center gap-2">
+        <span className="inline-block w-3 h-3 bg-primary/20 border border-primary/30 rounded-full flex-shrink-0" />
+        <span>Highlighted rows indicate a price change in the last 24 hours.</span>
       </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-3 mt-6">
+        <div className="flex justify-center items-center gap-2 sm:gap-3 mt-4 sm:mt-6">
           <Button
             variant="outline"
+            size="sm"
             onClick={() => onPageChange(Math.max(1, currentPage - 1))}
             disabled={currentPage === 1}
           >
             Prev
           </Button>
-          <span className="text-sm font-medium text-foreground">
+          <span className="text-xs sm:text-sm font-medium text-foreground px-2">
             Page {currentPage} of {totalPages}
           </span>
           <Button
             variant="outline"
+            size="sm"
             onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
             disabled={currentPage === totalPages}
           >

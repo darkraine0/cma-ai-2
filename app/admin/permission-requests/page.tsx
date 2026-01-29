@@ -126,16 +126,16 @@ export default function PermissionRequestsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Permission Requests</h1>
-            <p className="text-muted-foreground mt-2">
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Permission Requests</h1>
+            <p className="text-sm md:text-base text-muted-foreground mt-1 md:mt-2">
               Manage user permission upgrade requests
             </p>
           </div>
-          <Button onClick={fetchRequests} variant="outline">
+          <Button onClick={fetchRequests} variant="outline" size="sm" className="self-start sm:self-auto">
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
@@ -143,19 +143,20 @@ export default function PermissionRequestsPage() {
 
         {/* Pending Requests */}
         {pendingRequests.length > 0 && (
-          <Card className="mb-6">
+          <Card className="mb-4 md:mb-6">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Shield className="w-5 h-5 text-amber-600" />
                 <div>
-                  <h3 className="text-lg font-semibold">Pending Requests</h3>
-                  <CardDescription>Requests awaiting approval</CardDescription>
+                  <h3 className="text-base md:text-lg font-semibold">Pending Requests</h3>
+                  <CardDescription className="text-xs md:text-sm">Requests awaiting approval</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <div className="min-w-[800px]">
+                  <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>User</TableHead>
@@ -204,6 +205,7 @@ export default function PermissionRequestsPage() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -214,13 +216,14 @@ export default function PermissionRequestsPage() {
           <Card>
             <CardHeader>
               <div>
-                <h3 className="text-lg font-semibold">Request History</h3>
-                <CardDescription>Previously processed requests</CardDescription>
+                <h3 className="text-base md:text-lg font-semibold">Request History</h3>
+                <CardDescription className="text-xs md:text-sm">Previously processed requests</CardDescription>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <div className="min-w-[800px]">
+                  <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>User</TableHead>
@@ -252,6 +255,7 @@ export default function PermissionRequestsPage() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               </div>
             </CardContent>
           </Card>

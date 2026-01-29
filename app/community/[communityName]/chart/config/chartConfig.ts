@@ -3,18 +3,19 @@ import { ChartOptions } from 'chart.js';
 /**
  * Chart configuration for price vs square footage chart
  */
-export const createChartOptions = (): ChartOptions<'line'> => ({
+export const createChartOptions = (isMobile: boolean = false): ChartOptions<'line'> => ({
   responsive: true,
   maintainAspectRatio: true,
-  aspectRatio: 2,
+  aspectRatio: isMobile ? 0.9 : 2, // Taller on mobile (0.9), wider on desktop (2)
   plugins: {
     legend: {
       display: true,
       position: 'bottom',
       labels: { 
-        font: { weight: 'bold' },
+        font: { weight: 'bold', size: isMobile ? 11 : 12 },
         color: '#2563eb',
-        padding: 15,
+        padding: isMobile ? 10 : 15,
+        boxWidth: isMobile ? 30 : 40,
       },
     },
     title: {
@@ -35,10 +36,13 @@ export const createChartOptions = (): ChartOptions<'line'> => ({
         display: true, 
         text: 'Square Footage', 
         color: '#2563eb', 
-        font: { weight: 'bold', size: 14 } 
+        font: { weight: 'bold', size: isMobile ? 12 : 14 } 
       },
       ticks: { 
         color: '#2563eb',
+        font: { size: isMobile ? 10 : 12 },
+        maxRotation: isMobile ? 45 : 0,
+        minRotation: isMobile ? 45 : 0,
         callback: function(value) {
           return value.toLocaleString();
         }
@@ -51,10 +55,11 @@ export const createChartOptions = (): ChartOptions<'line'> => ({
         display: true, 
         text: 'Price ($)', 
         color: '#2563eb', 
-        font: { weight: 'bold', size: 14 } 
+        font: { weight: 'bold', size: isMobile ? 12 : 14 } 
       },
       ticks: { 
         color: '#2563eb',
+        font: { size: isMobile ? 10 : 12 },
         callback: function(value) {
           return '$' + Number(value).toLocaleString();
         }

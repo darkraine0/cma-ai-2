@@ -1,8 +1,10 @@
 "use client"
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { Card, CardContent } from "../../components/ui/card";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "../../components/ui/sheet";
+import { Button } from "../../components/ui/button";
 import Loader from "../../components/Loader";
 import ErrorMessage from "../../components/ErrorMessage";
 import CommunityHeader from "../components/CommunityHeader";
@@ -13,6 +15,7 @@ import { usePlansFilter } from "../hooks/usePlansFilter";
 import { exportToCSV } from "../utils/exportCSV";
 import { formatCommunitySlug } from "../utils/formatCommunityName";
 import { getCompanyNames, extractCompanyName } from "../utils/companyHelpers";
+import { Filter } from "lucide-react";
 
 export default function CommunityDetail() {
   const params = useParams();
@@ -20,6 +23,7 @@ export default function CommunityDetail() {
     ? decodeURIComponent(params.communityName as string).toLowerCase() 
     : '';
   const formattedSlug = formatCommunitySlug(communitySlug);
+  const [filterOpen, setFilterOpen] = useState(false);
 
   // Fetch community and plans data
   const { community, plans, loading, error } = useCommunityData(communitySlug);
@@ -73,7 +77,7 @@ export default function CommunityDetail() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-4 max-w-[1600px]">
+      <div className="container mx-auto p-2 sm:p-4 max-w-[1600px]">
         <Card>
           <CardContent className="p-0">
             {/* Header Section */}
@@ -90,14 +94,44 @@ export default function CommunityDetail() {
             />
 
             {/* Main Content */}
-            <div className="p-6">
+            <div className="p-4 md:p-6">
+              {/* Mobile Filter Button */}
+              <div className="lg:hidden mb-4">
+                <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
+                  <SheetTrigger asChild>
+                    <Button variant="outline" className="w-full" size="sm">
+                      <Filter className="w-4 h-4 mr-2" />
+                      Filter by Builder
+                      {selectedCompany !== 'All' && (
+                        <span className="ml-2 text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded">
+                          {selectedCompany}
+                        </span>
+                      )}
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="left" className="w-[280px] p-4">
+                    <SheetTitle className="text-lg font-semibold mb-4">Filter by Builder</SheetTitle>
+                    <CompanySidebar
+                      companies={companies}
+                      selectedCompany={selectedCompany}
+                      onCompanySelect={(company) => {
+                        setSelectedCompany(company);
+                        setFilterOpen(false);
+                      }}
+                    />
+                  </SheetContent>
+                </Sheet>
+              </div>
+
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                {/* Sidebar */}
-                <CompanySidebar
-                  companies={companies}
-                  selectedCompany={selectedCompany}
-                  onCompanySelect={setSelectedCompany}
-                />
+                {/* Desktop Sidebar - Hidden on mobile */}
+                <div className="hidden lg:block">
+                  <CompanySidebar
+                    companies={companies}
+                    selectedCompany={selectedCompany}
+                    onCompanySelect={setSelectedCompany}
+                  />
+                </div>
 
                 {/* Table Section */}
                 <div className="lg:col-span-4">

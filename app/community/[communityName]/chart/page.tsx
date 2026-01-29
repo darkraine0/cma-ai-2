@@ -50,7 +50,7 @@ export default function ChartPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-4 max-w-[1600px]">
+      <div className="container mx-auto p-2 sm:p-4 max-w-[1600px]">
         <Card>
           <CardContent className="p-0">
             <ChartHeader
@@ -60,7 +60,7 @@ export default function ChartPage() {
               onTypeChange={setSelectedType}
             />
 
-            <div className="p-8 min-h-[500px]">
+            <div className="p-4 md:p-6 lg:p-8 min-h-[500px] md:min-h-[450px]">
               {loading ? (
                 <ChartSkeleton />
               ) : error ? (

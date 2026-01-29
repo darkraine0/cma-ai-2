@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Chart, LineElement, PointElement, LinearScale, Title, CategoryScale, Tooltip, Legend } from "chart.js";
 import { Plan } from "../../../types";
@@ -30,14 +30,26 @@ export default function PriceChart({
   selectedType,
 }: PriceChartProps) {
   const { chartData, isEmpty } = useChartData(plans, companies);
-  const options = useMemo(() => createChartOptions(), []);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const options = useMemo(() => createChartOptions(isMobile), [isMobile]);
 
   if (isEmpty) {
     return <ChartEmptyState selectedType={selectedType} />;
   }
 
   return (
-    <div className="w-full min-h-[400px] flex items-center justify-center">
+    <div className="w-full min-h-[500px] md:min-h-[400px] flex items-center justify-center">
       <div className="w-full">
         <Line data={chartData} options={options} />
       </div>

@@ -12,7 +12,7 @@ const TypeTabs: React.FC<TypeTabsProps> = ({ selected, onSelect }) => (
         key={type}
         onClick={() => onSelect(type)}
         className={`
-          px-4 py-2 text-sm font-medium rounded-md transition-all duration-200
+          px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-all duration-200
           ${selected === type
             ? 'bg-white/20 text-white shadow-sm backdrop-blur-sm'
             : 'text-white/70 hover:text-white hover:bg-white/5'
