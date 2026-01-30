@@ -7,7 +7,7 @@ import ErrorMessage from "../components/ErrorMessage";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import AddCommunityModal from "../components/AddCommunityModal";
-import { Search } from "lucide-react";
+import { Search, RefreshCw } from "lucide-react";
 import API_URL from '../config';
 import { getCompanyColor } from '../utils/colors';
 import { getCommunityImage } from '../utils/communityImages';
@@ -40,17 +40,58 @@ interface Community {
 }
 
 export default function CommunitiesPage() {
-  const [communities, setCommunities] = useState<Community[]>([]);
-  const [filteredCommunities, setFilteredCommunities] = useState<Community[]>([]);
+  const [communities, setCommunities] = useState<Community[]>(() => {
+    // Try to load from cache on initial load
+    if (typeof window !== 'undefined') {
+      const cached = sessionStorage.getItem('communities_data');
+      if (cached) {
+        try {
+          const { data, timestamp } = JSON.parse(cached);
+          // Cache for 5 minutes
+          if (Date.now() - timestamp < 5 * 60 * 1000) {
+            return data;
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+    }
+    return [];
+  });
+  const [filteredCommunities, setFilteredCommunities] = useState<Community[]>(communities);
   const [searchQuery, setSearchQuery] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(communities.length === 0);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [user, setUser] = useState<any>(null);
   const router = useRouter();
   const hasFetched = useRef(false);
 
-  const fetchCommunities = async () => {
-    setLoading(true);
+  const fetchCommunities = async (forceRefresh = false) => {
+    // Check cache first unless force refresh
+    if (!forceRefresh && typeof window !== 'undefined') {
+      const cached = sessionStorage.getItem('communities_data');
+      if (cached) {
+        try {
+          const { data, timestamp } = JSON.parse(cached);
+          // Cache for 5 minutes
+          if (Date.now() - timestamp < 5 * 60 * 1000) {
+            setCommunities(data);
+            setFilteredCommunities(data);
+            setLoading(false);
+            return;
+          }
+        } catch (e) {
+          // Continue to fetch if cache fails
+        }
+      }
+    }
+
+    if (forceRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setError("");
     try {
       // Fetch communities from the API (includes both database communities and plan-derived ones)
@@ -109,12 +150,21 @@ export default function CommunitiesPage() {
         };
       });
 
+      // Cache the data
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('communities_data', JSON.stringify({
+          data: communityData,
+          timestamp: Date.now()
+        }));
+      }
+
       setCommunities(communityData);
       setFilteredCommunities(communityData);
     } catch (err: any) {
       setError(err.message || "Unknown error");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -124,7 +174,10 @@ export default function CommunitiesPage() {
     hasFetched.current = true;
     
     fetchUser();
-    fetchCommunities();
+    // Only fetch if not already loaded from cache
+    if (communities.length === 0) {
+      fetchCommunities();
+    }
   }, []);
 
   // Filter communities based on search query
@@ -192,11 +245,22 @@ export default function CommunitiesPage() {
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pl-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       />
                     </div>
+                    {/* Refresh Button */}
+                    <button
+                      onClick={() => fetchCommunities(true)}
+                      disabled={refreshing}
+                      title="Refresh communities data"
+                      className={`p-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors ${
+                        refreshing ? 'opacity-70 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    </button>
                     {/* Only show Add Community button for editors/admins and not pending users */}
                     {isEditor && !isPending && (
                       <AddCommunityModal 
                         onSuccess={() => {
-                          fetchCommunities();
+                          fetchCommunities(true); // Force refresh
                         }}
                       />
                     )}
