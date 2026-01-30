@@ -308,19 +308,40 @@ export default function ManagePage() {
           </div>
         ) : (
           <>
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-semibold leading-none tracking-tight">{isEditor ? 'Manage' : 'View'} Communities & Companies</h1>
-                <p className="text-sm text-muted-foreground">{isEditor ? 'Add communities and manage companies in each community' : 'View communities and their companies'}</p>
+            <div className="mb-6">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <h1 className="text-2xl font-semibold leading-none tracking-tight">{isEditor ? 'Manage' : 'View'} Communities & Companies</h1>
+                    <p className="text-sm text-muted-foreground">{isEditor ? 'Add communities and manage companies in each community' : 'View communities and their companies'}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="relative w-full sm:w-auto sm:min-w-[300px]">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <input
+                        type="text"
+                        placeholder="Search communities..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pl-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                    </div>
+                    {isEditor && (
+                      <AddCommunityModal 
+                        onSuccess={() => {
+                          fetchCommunities();
+                          setError("");
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+                {searchQuery && (
+                  <div className="text-sm text-muted-foreground">
+                    Showing {filteredCommunities.length} of {communities.length} communities
+                  </div>
+                )}
               </div>
-              {isEditor && (
-                <AddCommunityModal 
-                  onSuccess={() => {
-                    fetchCommunities();
-                    setError("");
-                  }}
-                />
-              )}
             </div>
 
             {error && (
@@ -334,18 +355,8 @@ export default function ManagePage() {
                 <Card className="lg:sticky lg:top-4">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg">Communities</CardTitle>
-                    <div className="relative mt-3">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <input
-                        type="text"
-                        placeholder="Search..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 pl-9 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      />
-                    </div>
                   </CardHeader>
-                  <CardContent className="p-0 max-h-[calc(100vh-18rem)] overflow-y-auto">
+                  <CardContent className="p-0 max-h-[calc(100vh-15rem)] overflow-y-auto">
                     {filteredCommunities.length === 0 ? (
                       <div className="text-center py-8 px-4">
                         <p className="text-sm text-muted-foreground">
