@@ -4,6 +4,7 @@ import TypeTabs from "../../components/TypeTabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { getCommunityImage } from "../../utils/communityImages";
 import { SortKey, SortOrder } from "../types";
+import { RefreshCw } from "lucide-react";
 
 interface CommunityHeaderProps {
   communityName: string;
@@ -15,6 +16,8 @@ interface CommunityHeaderProps {
   sortOrder: SortOrder;
   onSortOrderChange: () => void;
   onExportCSV: () => void;
+  onSync?: () => void;
+  isSyncing?: boolean;
 }
 
 export default function CommunityHeader({
@@ -27,6 +30,8 @@ export default function CommunityHeader({
   sortOrder,
   onSortOrderChange,
   onExportCSV,
+  onSync,
+  isSyncing = false,
 }: CommunityHeaderProps) {
   const router = useRouter();
 
@@ -55,6 +60,18 @@ export default function CommunityHeader({
 
           {/* Action Buttons */}
           <div className="flex gap-1.5 sm:gap-2 flex-shrink-0">
+            {onSync && (
+              <button
+                onClick={onSync}
+                disabled={isSyncing}
+                title={isSyncing ? "Syncing data..." : "Update to date - Re-scrape data"}
+                className={`p-1.5 sm:p-2 rounded-md bg-white/20 hover:bg-white/30 text-white border border-white/20 backdrop-blur-sm transition-all duration-200 ${
+                  isSyncing ? 'opacity-70 cursor-not-allowed' : ''
+                }`}
+              >
+                <RefreshCw className={`w-4 h-4 sm:w-5 sm:h-5 ${isSyncing ? 'animate-spin' : ''}`} />
+              </button>
+            )}
             <button
               onClick={() => router.push(`/community/${communitySlug}/chart?type=${selectedType.toLowerCase()}`)}
               title="View Chart"

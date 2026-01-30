@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { Card, CardContent } from "../../components/ui/card";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "../../components/ui/sheet";
 import { Button } from "../../components/ui/button";
+import { useToast } from "../../components/ui/use-toast";
 import Loader from "../../components/Loader";
 import ErrorMessage from "../../components/ErrorMessage";
 import CommunityHeader from "../components/CommunityHeader";
@@ -16,17 +17,20 @@ import { exportToCSV } from "../utils/exportCSV";
 import { formatCommunitySlug } from "../utils/formatCommunityName";
 import { getCompanyNames, extractCompanyName } from "../utils/companyHelpers";
 import { Filter } from "lucide-react";
+import API_URL from '../../config';
 
 export default function CommunityDetail() {
   const params = useParams();
+  const { toast } = useToast();
   const communitySlug = params?.communityName 
     ? decodeURIComponent(params.communityName as string).toLowerCase() 
     : '';
   const formattedSlug = formatCommunitySlug(communitySlug);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Fetch community and plans data
-  const { community, plans, loading, error } = useCommunityData(communitySlug);
+  const { community, plans, loading, error, refetch } = useCommunityData(communitySlug);
 
   // Extract company names
   const companies = useMemo(
@@ -52,6 +56,87 @@ export default function CommunityDetail() {
     totalPages,
     handleSort,
   } = usePlansFilter(plans, companyNamesSet);
+
+  // Handle sync/re-scrape
+  const handleSync = async () => {
+    if (!community || companies.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No companies to sync",
+      });
+      return;
+    }
+
+    setIsSyncing(true);
+    
+    try {
+      // Scrape data for each company in the community
+      const scrapePromises = companies.map(async (company) => {
+        try {
+          const response = await fetch(API_URL + "/scrape", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              company: company,
+              community: community.name,
+            }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || `Failed to sync ${company}`);
+          }
+
+          const data = await response.json();
+          return { company, success: true, data };
+        } catch (error) {
+          return { 
+            company, 
+            success: false, 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+          };
+        }
+      });
+
+      const results = await Promise.all(scrapePromises);
+      
+      // Check if all succeeded
+      const failures = results.filter(r => !r.success);
+      
+      if (failures.length === 0) {
+        toast({
+          variant: "success",
+          title: "Sync Complete",
+          description: `Successfully updated data for all ${companies.length} companies`,
+        });
+      } else if (failures.length < companies.length) {
+        toast({
+          variant: "default",
+          title: "Partial Sync",
+          description: `Synced ${companies.length - failures.length}/${companies.length} companies. ${failures.length} failed.`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Sync Failed",
+          description: "Failed to sync all companies. Please try again.",
+        });
+      }
+
+      // Refetch the data to show updated plans
+      await refetch();
+      
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to sync data",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Handle CSV export
   const handleExportCSV = () => {
@@ -91,6 +176,8 @@ export default function CommunityDetail() {
               sortOrder={sortOrder}
               onSortOrderChange={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
               onExportCSV={handleExportCSV}
+              onSync={handleSync}
+              isSyncing={isSyncing}
             />
 
             {/* Main Content */}
