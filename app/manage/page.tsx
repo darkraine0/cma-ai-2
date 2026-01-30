@@ -303,11 +303,11 @@ export default function ManagePage() {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               {/* Sidebar - Communities List */}
               <div className="lg:col-span-1">
-                <Card>
+                <Card className="lg:sticky lg:top-4">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg">Communities</CardTitle>
                   </CardHeader>
-                  <CardContent className="p-0">
+                  <CardContent className="p-0 max-h-[calc(100vh-15rem)] overflow-y-auto">
                     {communities.length === 0 ? (
                       <div className="text-center py-8 px-4">
                         <p className="text-sm text-muted-foreground">No communities found.</p>
