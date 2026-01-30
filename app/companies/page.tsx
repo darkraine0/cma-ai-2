@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -23,15 +23,61 @@ interface Company {
   updatedAt: string;
 }
 
+interface Plan {
+  plan_name: string;
+  company: string | { name: string };
+  type: string;
+}
+
 export default function CompaniesPage() {
   const router = useRouter();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]);
+  const [plans, setPlans] = useState<Plan[]>(() => {
+    // Try to load plans from cache on initial load
+    if (typeof window !== 'undefined') {
+      const cached = sessionStorage.getItem('plans_data');
+      if (cached) {
+        try {
+          const { data, timestamp } = JSON.parse(cached);
+          // Cache for 5 minutes
+          if (Date.now() - timestamp < 5 * 60 * 1000) {
+            return data;
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+    }
+    return [];
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [deletingCompanyId, setDeletingCompanyId] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
+  const hasFetched = useRef(false);
+
+  const sortCompanies = (companiesList: Company[], plansData: Plan[]) => {
+    const homeCountMap = plansData.reduce((map, plan) => {
+      const companyName = typeof plan.company === 'string' 
+        ? plan.company 
+        : plan.company?.name || '';
+      if (companyName) {
+        map.set(companyName, (map.get(companyName) || 0) + 1);
+      }
+      return map;
+    }, new Map<string, number>());
+    
+    return [...companiesList].sort((a, b) => {
+      const isUnionmainA = a.name.toLowerCase().includes('unionmain');
+      const isUnionmainB = b.name.toLowerCase().includes('unionmain');
+      
+      if (isUnionmainA !== isUnionmainB) return isUnionmainA ? -1 : 1;
+      
+      return (homeCountMap.get(b.name) || 0) - (homeCountMap.get(a.name) || 0);
+    });
+  };
 
   const fetchCompanies = async () => {
     setLoading(true);
@@ -40,8 +86,40 @@ export default function CompaniesPage() {
       const res = await fetch(API_URL + "/companies");
       if (!res.ok) throw new Error("Failed to fetch companies");
       const data = await res.json();
-      setCompanies(data);
-      setFilteredCompanies(data);
+      
+      let plansData = plans;
+      if (plans.length === 0) {
+        if (typeof window !== 'undefined') {
+          const cached = sessionStorage.getItem('plans_data');
+          if (cached) {
+            try {
+              const { data: cachedPlans, timestamp } = JSON.parse(cached);
+              if (Date.now() - timestamp < 5 * 60 * 1000) {
+                plansData = cachedPlans;
+                setPlans(cachedPlans);
+              }
+            } catch (e) {}
+          }
+        }
+        
+        if (plansData.length === 0) {
+          const plansRes = await fetch(API_URL + "/plans");
+          if (!plansRes.ok) throw new Error("Failed to fetch plans");
+          plansData = await plansRes.json();
+          setPlans(plansData);
+          
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('plans_data', JSON.stringify({
+              data: plansData,
+              timestamp: Date.now()
+            }));
+          }
+        }
+      }
+      
+      const sortedCompanies = sortCompanies(data, plansData);
+      setCompanies(sortedCompanies);
+      setFilteredCompanies(sortedCompanies);
     } catch (err: any) {
       setError(err.message || "Unknown error");
     } finally {
@@ -50,26 +128,27 @@ export default function CompaniesPage() {
   };
 
   useEffect(() => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+    
     fetchCompanies();
     fetchUser();
   }, []);
 
-  // Filter companies based on search query
   useEffect(() => {
-    if (searchQuery.trim() === "") {
+    if (!searchQuery.trim()) {
       setFilteredCompanies(companies);
-    } else {
-      const query = searchQuery.toLowerCase();
-      setFilteredCompanies(
-        companies.filter(
-          (company) =>
-            company.name.toLowerCase().includes(query) ||
-            company.description?.toLowerCase().includes(query) ||
-            company.headquarters?.toLowerCase().includes(query) ||
-            company.website?.toLowerCase().includes(query)
-        )
-      );
+      return;
     }
+    
+    const query = searchQuery.toLowerCase();
+    const filtered = companies.filter(company =>
+      company.name.toLowerCase().includes(query) ||
+      company.description?.toLowerCase().includes(query) ||
+      company.headquarters?.toLowerCase().includes(query) ||
+      company.website?.toLowerCase().includes(query)
+    );
+    setFilteredCompanies(filtered);
   }, [searchQuery, companies]);
 
   const fetchUser = async () => {
@@ -188,58 +267,69 @@ export default function CompaniesPage() {
         {/* Companies List */}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredCompanies.map((company) => (
-            <Card key={company._id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <CardTitle className="text-lg">{company.name}</CardTitle>
-                  <div className="flex items-center gap-2">
-                    {company.website && (
-                      <a
-                        href={company.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:text-primary/80"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
-                    )}
-                    {isEditor && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteCompany(company._id, company.name)}
-                        disabled={deletingCompanyId === company._id}
-                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
+          {filteredCompanies.map((company) => {
+            // Calculate home count for this company
+            const homeCount = plans.filter(plan => {
+              const companyName = typeof plan.company === 'string' 
+                ? plan.company 
+                : plan.company?.name || '';
+              return companyName === company.name;
+            }).length;
+            
+            return (
+              <Card key={company._id}>
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <CardTitle className="text-lg">{company.name}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      {company.website && (
+                        <a
+                          href={company.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:text-primary/80"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      )}
+                      {isEditor && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteCompany(company._id, company.name)}
+                          disabled={deletingCompanyId === company._id}
+                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {company.description && (
-                    <p className="text-sm text-muted-foreground">{company.description}</p>
-                  )}
-                  
-                  <div className="flex flex-wrap gap-2">
-                    {company.headquarters && (
-                      <Badge variant="secondary" className="text-xs">
-                        📍 {company.headquarters}
-                      </Badge>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {company.description && (
+                      <p className="text-sm text-muted-foreground">{company.description}</p>
                     )}
-                    {company.founded && (
-                      <Badge variant="secondary" className="text-xs">
-                        🏛️ Founded {company.founded}
-                      </Badge>
-                    )}
+                    
+                    <div className="flex flex-wrap gap-2">
+                     
+                      {company.headquarters && (
+                        <Badge variant="secondary" className="text-xs">
+                          📍 {company.headquarters}
+                        </Badge>
+                      )}
+                      {company.founded && (
+                        <Badge variant="secondary" className="text-xs">
+                          🏛️ Founded {company.founded}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {filteredCompanies.length === 0 && !loading && (

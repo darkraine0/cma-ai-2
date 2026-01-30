@@ -182,20 +182,28 @@ export default function CommunitiesPage() {
 
   // Filter communities based on search query
   useEffect(() => {
+    let filtered;
     if (searchQuery.trim() === "") {
-      setFilteredCommunities(communities);
+      filtered = [...communities];
     } else {
       const query = searchQuery.toLowerCase();
-      setFilteredCommunities(
-        communities.filter(
-          (community) =>
-            community.name.toLowerCase().includes(query) ||
-            community.location?.toLowerCase().includes(query) ||
-            community.description?.toLowerCase().includes(query) ||
-            community.companies.some(company => company.toLowerCase().includes(query))
-        )
+      filtered = communities.filter(
+        (community) =>
+          community.name.toLowerCase().includes(query) ||
+          community.location?.toLowerCase().includes(query) ||
+          community.description?.toLowerCase().includes(query) ||
+          community.companies.some(company => company.toLowerCase().includes(query))
       );
     }
+    
+    // Sort by sum of totalPlans and totalNow (descending - highest first)
+    filtered.sort((a, b) => {
+      const sumA = a.totalPlans + a.totalNow;
+      const sumB = b.totalPlans + b.totalNow;
+      return sumB - sumA;
+    });
+    
+    setFilteredCommunities(filtered);
   }, [searchQuery, communities]);
 
   const fetchUser = async () => {
