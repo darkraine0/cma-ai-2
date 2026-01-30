@@ -268,7 +268,8 @@ export default function ManagePage() {
                       setError("");
                     }}
                   />
-                  {communities.filter(c => c._id && !c.fromPlans).length > 0 && (
+                  {/* Temporarily commented out Delete All button */}
+                  {/* {communities.filter(c => c._id && !c.fromPlans).length > 0 && (
                     <Button
                       onClick={handleDeleteAllCommunities}
                       disabled={deletingAll || loading || loadingCompanies}
@@ -287,7 +288,7 @@ export default function ManagePage() {
                         </>
                       )}
                     </Button>
-                  )}
+                  )} */}
                 </div>
               )}
             </div>
