@@ -5,7 +5,7 @@ import Company from '@/app/models/Company';
 import mongoose from 'mongoose';
 import { requirePermission } from '@/app/lib/admin';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     await connectDB();
     
@@ -17,20 +17,76 @@ export async function GET() {
       Company;
     }
     
-    const communities = await Community.find()
+    const { searchParams } = new URL(request.url);
+    const includeChildren = searchParams.get('includeChildren') === 'true';
+    const parentsOnly = searchParams.get('parentsOnly') === 'true';
+    
+    let query: any = {};
+    
+    // If parentsOnly is true, only return communities without a parent
+    if (parentsOnly) {
+      query.parentCommunityId = { $exists: false };
+    }
+    
+    const communities = await Community.find(query)
       .sort({ name: 1 })
       .populate({
         path: 'companies',
         model: mongoose.models.Company,
         select: 'name _id',
+      })
+      .populate({
+        path: 'parentCommunityId',
+        select: 'name _id',
       });
     
+    // If includeChildren is true, also fetch child communities for each parent
+    let communitiesWithChildren = communities;
+    if (includeChildren && parentsOnly) {
+      const parentIds = communities.map((c: any) => c._id);
+      const children = await Community.find({
+        parentCommunityId: { $in: parentIds }
+      })
+        .sort({ name: 1 })
+        .populate({
+          path: 'companies',
+          model: mongoose.models.Company,
+          select: 'name _id',
+        });
+      
+      // Group children by parent
+      const childrenByParent = new Map();
+      children.forEach((child: any) => {
+        const parentId = child.parentCommunityId?.toString();
+        if (parentId) {
+          if (!childrenByParent.has(parentId)) {
+            childrenByParent.set(parentId, []);
+          }
+          childrenByParent.get(parentId).push(child);
+        }
+      });
+      
+      // Attach children to parents
+      communitiesWithChildren = communities.map((parent: any) => {
+        const parentId = parent._id.toString();
+        return {
+          ...parent.toObject(),
+          children: childrenByParent.get(parentId) || []
+        };
+      });
+    }
+    
     // Map to response format
-    const result = communities.map((community: any) => ({
+    const result = communitiesWithChildren.map((community: any) => ({
       _id: community._id.toString(),
       name: community.name,
       description: community.description || null,
       location: community.location || null,
+      parentCommunityId: community.parentCommunityId 
+        ? (typeof community.parentCommunityId === 'object' 
+          ? { _id: community.parentCommunityId._id.toString(), name: community.parentCommunityId.name }
+          : community.parentCommunityId.toString())
+        : null,
       companies: (community.companies || [])
         .map((c: any) => {
           // Handle populated companies (objects with _id and name)
@@ -44,6 +100,24 @@ export async function GET() {
           return null;
         })
         .filter((company: any) => company !== null), // Filter out null entries
+      children: community.children ? community.children.map((child: any) => ({
+        _id: child._id.toString(),
+        name: child.name,
+        description: child.description || null,
+        location: child.location || null,
+        companies: (child.companies || [])
+          .map((c: any) => {
+            if (c && typeof c === 'object' && c._id && c.name) {
+              return {
+                _id: c._id.toString(),
+                name: c.name,
+              };
+            }
+            return null;
+          })
+          .filter((company: any) => company !== null),
+        fromPlans: false,
+      })) : undefined,
       fromPlans: false, // All communities from database are not from plans
     }));
     
@@ -85,7 +159,7 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
     const body = await request.json();
-    const { name, description, location } = body;
+    const { name, description, location, parentCommunityId } = body;
 
     if (!name) {
       return NextResponse.json(
@@ -103,11 +177,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate parentCommunityId if provided
+    if (parentCommunityId) {
+      const parentExists = await Community.findById(parentCommunityId);
+      if (!parentExists) {
+        return NextResponse.json(
+          { error: 'Parent community not found' },
+          { status: 404 }
+        );
+      }
+    }
+
     const community = new Community({
       name: name.trim(),
       description,
       location,
       companies: [],
+      parentCommunityId: parentCommunityId || null,
     });
 
     await community.save();

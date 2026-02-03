@@ -8,6 +8,7 @@ export interface ICommunity extends Document {
   city?: string;
   state?: string;
   companies: Types.ObjectId[]; // Array of company ObjectIds (references)
+  parentCommunityId?: Types.ObjectId; // Reference to parent UnionMain community
   totalPlans?: number; // Aggregated stats (denormalized)
   totalQuickMoveIns?: number; // Aggregated stats (denormalized)
   createdBy?: Types.ObjectId;
@@ -47,6 +48,12 @@ const CommunitySchema = new Schema<ICommunity>(
       ref: 'Company',
       index: true,
     }],
+    parentCommunityId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Community',
+      index: true,
+      default: null,
+    },
     totalPlans: {
       type: Number,
       default: 0,
