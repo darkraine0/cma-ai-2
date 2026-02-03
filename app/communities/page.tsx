@@ -7,7 +7,7 @@ import ErrorMessage from "../components/ErrorMessage";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import AddCommunityModal from "../components/AddCommunityModal";
-import { Search, RefreshCw, ChevronDown, ChevronRight } from "lucide-react";
+import { Search, RefreshCw } from "lucide-react";
 import API_URL from '../config';
 import { getCompanyColor } from '../utils/colors';
 import { getCommunityImage } from '../utils/communityImages';
@@ -66,7 +66,6 @@ export default function CommunitiesPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [user, setUser] = useState<any>(null);
-  const [expandedCommunities, setExpandedCommunities] = useState<Set<string>>(new Set());
   const router = useRouter();
   const hasFetched = useRef(false);
 
@@ -97,8 +96,8 @@ export default function CommunitiesPage() {
     }
     setError("");
     try {
-      // Fetch parent communities with children from the API
-      const communitiesRes = await fetch(API_URL + "/communities?parentsOnly=true&includeChildren=true");
+      // Fetch only parent communities (no children)
+      const communitiesRes = await fetch(API_URL + "/communities?parentsOnly=true");
       if (!communitiesRes.ok) throw new Error("Failed to fetch communities");
       const communitiesData: any[] = await communitiesRes.json();
       
@@ -151,39 +150,6 @@ export default function CommunitiesPage() {
           _id: comm._id,
           fromPlans: comm.fromPlans || false,
           parentCommunityId: comm.parentCommunityId || null,
-          children: comm.children ? comm.children.map((child: any) => {
-            const childPlans = communityPlansMap.get(child.name) || [];
-            const childPrices = childPlans.map(p => p.price).filter(p => p > 0);
-            const childRecentChanges = childPlans.filter(p => p.price_changed_recently).length;
-            const childTotalPlans = childPlans.filter(p => p.type === 'plan').length;
-            const childTotalNow = childPlans.filter(p => p.type === 'now').length;
-            const childCompanyNames = (child.companies || []).map((c: any) => {
-              if (typeof c === 'string') return c;
-              if (c && typeof c === 'object' && c.name) return c.name;
-              return '';
-            }).filter((name: string) => name);
-            const childCompanies = childCompanyNames.length > 0 
-              ? childCompanyNames 
-              : Array.from(new Set(childPlans.map(p => typeof p.company === 'string' ? p.company : (p.company as any)?.name || p.company)));
-            
-            return {
-              name: child.name,
-              companies: childCompanies.length > 0 ? childCompanies : [],
-              totalPlans: childTotalPlans,
-              totalNow: childTotalNow,
-              avgPrice: childPrices.length > 0 ? Math.round(childPrices.reduce((a, b) => a + b, 0) / childPrices.length) : 0,
-              priceRange: {
-                min: childPrices.length > 0 ? Math.min(...childPrices) : 0,
-                max: childPrices.length > 0 ? Math.max(...childPrices) : 0
-              },
-              recentChanges: childRecentChanges,
-              description: child.description,
-              location: child.location,
-              _id: child._id,
-              fromPlans: child.fromPlans || false,
-              parentCommunityId: child.parentCommunityId || null,
-            };
-          }) : undefined,
         };
       });
 
@@ -217,56 +183,19 @@ export default function CommunitiesPage() {
     }
   }, []);
 
-  // Filter communities based on search query
+  // Filter communities based on search query (parent communities only)
   useEffect(() => {
     let filtered;
     if (searchQuery.trim() === "") {
       filtered = [...communities];
     } else {
       const query = searchQuery.toLowerCase();
-      filtered = communities.filter((community: Community) => {
-        // Check if parent matches
-        const parentMatches =
-          community.name.toLowerCase().includes(query) ||
-          community.location?.toLowerCase().includes(query) ||
-          community.description?.toLowerCase().includes(query) ||
-          community.companies.some((company: string) => company.toLowerCase().includes(query));
-        
-        // Check if any child matches
-        const childMatches = community.children?.some((child: Community) =>
-          child.name.toLowerCase().includes(query) ||
-          child.location?.toLowerCase().includes(query) ||
-          child.description?.toLowerCase().includes(query) ||
-          child.companies.some((company: string) => company.toLowerCase().includes(query))
-        );
-        
-        return parentMatches || childMatches;
-      }).map((community: Community) => {
-        // If parent doesn't match but children do, filter children
-        const query = searchQuery.toLowerCase();
-        const parentMatches =
-          community.name.toLowerCase().includes(query) ||
-          community.location?.toLowerCase().includes(query) ||
-          community.description?.toLowerCase().includes(query) ||
-          community.companies.some((company: string) => company.toLowerCase().includes(query));
-        
-        if (parentMatches || !community.children) {
-          return community;
-        }
-        
-        // Filter children that match
-        const filteredChildren = community.children.filter((child: Community) =>
-          child.name.toLowerCase().includes(query) ||
-          child.location?.toLowerCase().includes(query) ||
-          child.description?.toLowerCase().includes(query) ||
-          child.companies.some((company: string) => company.toLowerCase().includes(query))
-        );
-        
-        return {
-          ...community,
-          children: filteredChildren.length > 0 ? filteredChildren : undefined,
-        };
-      });
+      filtered = communities.filter((community: Community) =>
+        community.name.toLowerCase().includes(query) ||
+        community.location?.toLowerCase().includes(query) ||
+        community.description?.toLowerCase().includes(query) ||
+        community.companies.some((company: string) => company.toLowerCase().includes(query))
+      );
     }
     
     // Sort by sum of totalPlans and totalNow (descending - highest first)
@@ -297,61 +226,30 @@ export default function CommunitiesPage() {
     router.push(`/community/${firstWord}`);
   };
 
-  const toggleExpand = (communityId: string, e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation(); // Prevent card click
-    setExpandedCommunities((prev: Set<string>) => {
-      const newSet = new Set(prev);
-      if (newSet.has(communityId)) {
-        newSet.delete(communityId);
-      } else {
-        newSet.add(communityId);
-      }
-      return newSet;
-    });
-  };
-
-  const renderCommunityCard = (community: Community, isChild = false) => {
-    const isExpanded = community._id ? expandedCommunities.has(community._id) : false;
-    const hasChildren = community.children && community.children.length > 0;
-
+  const renderCommunityCard = (community: Community) => {
     return (
-      <div key={community.name} className={isChild ? "ml-8 mt-2" : ""}>
-        <Card
-          onClick={() => handleCommunityClick(community)}
-          className={`cursor-pointer overflow-auto ${isChild ? 'border-l-4 border-l-primary/50' : ''}`}
-        >
-          <div className="relative overflow-hidden h-48">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={getCommunityImage(community.name)}
-              alt={community.name}
-              className="w-full h-full object-cover"
-            />
-            {community.recentChanges > 0 && (
-              <Badge variant="destructive" className="absolute top-2 right-2">
-                {community.recentChanges} new
-              </Badge>
-            )}
-          </div>
-          
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className={isChild ? "text-base" : ""}>{community.name}</CardTitle>
-              {hasChildren && (
-                <button
-                  onClick={(e) => toggleExpand(community._id!, e)}
-                  className="p-1 rounded-md hover:bg-accent transition-colors"
-                  title={isExpanded ? "Collapse" : "Expand"}
-                >
-                  {isExpanded ? (
-                    <ChevronDown className="h-5 w-5" />
-                  ) : (
-                    <ChevronRight className="h-5 w-5" />
-                  )}
-                </button>
-              )}
-            </div>
-          </CardHeader>
+      <Card
+        key={community.name}
+        onClick={() => handleCommunityClick(community)}
+        className="cursor-pointer overflow-auto"
+      >
+        <div className="relative overflow-hidden h-48">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={getCommunityImage(community.name)}
+            alt={community.name}
+            className="w-full h-full object-cover"
+          />
+          {community.recentChanges > 0 && (
+            <Badge variant="destructive" className="absolute top-2 right-2">
+              {community.recentChanges} new
+            </Badge>
+          )}
+        </div>
+        
+        <CardHeader>
+          <CardTitle>{community.name}</CardTitle>
+        </CardHeader>
           
           <CardContent>
             <div className="space-y-4">
@@ -416,14 +314,6 @@ export default function CommunitiesPage() {
             </div>
           </CardContent>
         </Card>
-        
-        {/* Render children if expanded */}
-        {hasChildren && isExpanded && (
-          <div className="mt-2 space-y-2">
-            {community.children!.map((child) => renderCommunityCard(child, true))}
-          </div>
-        )}
-      </div>
     );
   };
 

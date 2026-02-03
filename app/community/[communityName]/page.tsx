@@ -17,7 +17,9 @@ import { exportToCSV } from "../utils/exportCSV";
 import { formatCommunitySlug } from "../utils/formatCommunityName";
 import { getCompanyNames, extractCompanyName } from "../utils/companyHelpers";
 import { Filter } from "lucide-react";
-import API_URL from '../../config';
+import API_URL from "../../config";
+import { Community } from "../types";
+import { Plan } from "../types";
 
 export default function CommunityDetail() {
   const params = useParams();
@@ -28,19 +30,55 @@ export default function CommunityDetail() {
   const formattedSlug = formatCommunitySlug(communitySlug);
   const [filterOpen, setFilterOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  /** When user selects a subcommunity from dropdown (no route change), we show its plans */
+  const [selectedSubcommunity, setSelectedSubcommunity] = useState<Community | null>(null);
+  const [subcommunityPlans, setSubcommunityPlans] = useState<Plan[]>([]);
+  const [subcommunityPlansLoading, setSubcommunityPlansLoading] = useState(false);
 
-  // Fetch community and plans data
-  const { community, plans, loading, error, refetch } = useCommunityData(communitySlug);
+  // Fetch community, plans, and child communities
+  const { community, plans, childCommunities, loading, error, refetch } = useCommunityData(communitySlug);
 
-  // Extract company names
+  // When a subcommunity is selected, fetch its plans (no route change)
+  React.useEffect(() => {
+    if (!selectedSubcommunity?._id) {
+      setSubcommunityPlans([]);
+      return;
+    }
+    let cancelled = false;
+    setSubcommunityPlansLoading(true);
+    fetch(`${API_URL}/communities/${selectedSubcommunity._id}/plans`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: Plan[]) => {
+        if (!cancelled) setSubcommunityPlans(data);
+      })
+      .catch(() => {
+        if (!cancelled) setSubcommunityPlans([]);
+      })
+      .finally(() => {
+        if (!cancelled) setSubcommunityPlansLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSubcommunity?._id]);
+
+  // Display: selected subcommunity's data or main community's
+  const displayPlans = selectedSubcommunity ? subcommunityPlans : plans;
   const companies = useMemo(
-    () => getCompanyNames(community?.companies),
-    [community]
+    () => getCompanyNames((selectedSubcommunity ?? community)?.companies),
+    [selectedSubcommunity, community]
   );
+
+  // Parent community name when current community is a subcommunity (for header title)
+  const parentCommunityName = useMemo(() => {
+    const parent = community?.parentCommunityId;
+    if (parent && typeof parent === "object" && "name" in parent) return parent.name;
+    return null;
+  }, [community?.parentCommunityId]);
 
   const companyNamesSet = useMemo(() => new Set(companies), [companies]);
 
-  // Filter, sort, and paginate plans
+  // Filter, sort, and paginate plans (use display plans)
   const {
     sortKey,
     setSortKey,
@@ -55,11 +93,12 @@ export default function CommunityDetail() {
     paginatedPlans,
     totalPages,
     handleSort,
-  } = usePlansFilter(plans, companyNamesSet);
+  } = usePlansFilter(displayPlans, companyNamesSet);
 
-  // Handle sync/re-scrape
+  // Handle sync/re-scrape (use current display community)
   const handleSync = async () => {
-    if (!community || companies.length === 0) {
+    const communityToSync = selectedSubcommunity ?? community;
+    if (!communityToSync || companies.length === 0) {
       toast({
         variant: "destructive",
         title: "Error",
@@ -79,7 +118,7 @@ export default function CommunityDetail() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               company: company,
-              community: community.name,
+              community: communityToSync.name,
             }),
           });
 
@@ -126,6 +165,10 @@ export default function CommunityDetail() {
 
       // Refetch the data to show updated plans
       await refetch();
+      if (selectedSubcommunity?._id) {
+        const res = await fetch(`${API_URL}/communities/${selectedSubcommunity._id}/plans`);
+        if (res.ok) setSubcommunityPlans(await res.json());
+      }
       
     } catch (error) {
       toast({
@@ -138,9 +181,9 @@ export default function CommunityDetail() {
     }
   };
 
-  // Handle CSV export
+  // Handle CSV export (use display plans)
   const handleExportCSV = () => {
-    const filteredPlans = plans.filter((plan) => {
+    const filteredPlans = displayPlans.filter((plan) => {
       const planCompany = extractCompanyName(plan.company);
       
       return (
@@ -152,7 +195,7 @@ export default function CommunityDetail() {
       );
     });
 
-    exportToCSV(filteredPlans, community?.name || formattedSlug);
+    exportToCSV(filteredPlans, (selectedSubcommunity ?? community)?.name || formattedSlug);
   };
 
   // Error state
@@ -169,6 +212,10 @@ export default function CommunityDetail() {
             <CommunityHeader
               communityName={community?.name || formattedSlug}
               communitySlug={communitySlug}
+              parentCommunityName={parentCommunityName}
+              childCommunities={childCommunities}
+              selectedSubcommunity={selectedSubcommunity}
+              onSubcommunityChange={setSelectedSubcommunity}
               selectedType={selectedType}
               onTypeChange={setSelectedType}
               sortKey={sortKey}
@@ -222,7 +269,7 @@ export default function CommunityDetail() {
 
                 {/* Table Section */}
                 <div className="lg:col-span-4">
-                  {loading ? (
+                  {loading || (selectedSubcommunity && subcommunityPlansLoading) ? (
                     <Loader />
                   ) : error ? (
                     <ErrorMessage message={error} />

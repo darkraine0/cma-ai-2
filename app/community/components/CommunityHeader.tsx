@@ -3,12 +3,21 @@ import { useRouter } from "next/navigation";
 import TypeTabs from "../../components/TypeTabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { getCommunityImage } from "../../utils/communityImages";
+import { cn } from "../../utils/utils";
 import { SortKey, SortOrder } from "../types";
+import { Community } from "../types";
 import { RefreshCw } from "lucide-react";
 
 interface CommunityHeaderProps {
   communityName: string;
   communitySlug: string;
+  /** When set, title shows as "parentCommunityName [communityName]" (e.g. Cambridge Crossing [Cross Creek Meadows]) */
+  parentCommunityName?: string | null;
+  childCommunities?: Community[];
+  /** Currently selected subcommunity (when user picks from dropdown without navigating) */
+  selectedSubcommunity?: Community | null;
+  /** Called when user selects a subcommunity from dropdown; pass null for "All" */
+  onSubcommunityChange?: (community: Community | null) => void;
   selectedType: string;
   onTypeChange: (type: string) => void;
   sortKey: SortKey;
@@ -23,6 +32,10 @@ interface CommunityHeaderProps {
 export default function CommunityHeader({
   communityName,
   communitySlug,
+  parentCommunityName,
+  childCommunities = [],
+  selectedSubcommunity = null,
+  onSubcommunityChange,
   selectedType,
   onTypeChange,
   sortKey,
@@ -34,6 +47,23 @@ export default function CommunityHeader({
   isSyncing = false,
 }: CommunityHeaderProps) {
   const router = useRouter();
+  const hasSubcommunities = childCommunities.length > 0;
+  // Show "Parent [Subcommunity]" when a subcommunity is selected from dropdown, or when we're on a subcommunity's page
+  const displayTitle = selectedSubcommunity
+    ? `${communityName} [${selectedSubcommunity.name}]`
+    : parentCommunityName
+      ? `${parentCommunityName} [${communityName}]`
+      : communityName;
+
+  const handleSubcommunitySelect = (value: string) => {
+    if (!onSubcommunityChange) return;
+    if (value === "__all__" || !value) {
+      onSubcommunityChange(null);
+      return;
+    }
+    const child = childCommunities.find((c) => c._id === value || c.name === value);
+    if (child) onSubcommunityChange(child);
+  };
 
   return (
     <div className="relative overflow-hidden h-36 sm:h-40 rounded-t-lg">
@@ -54,7 +84,7 @@ export default function CommunityHeader({
         <div className="flex items-start justify-between gap-2">
           {/* Community Info */}
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-0.5 sm:mb-1 truncate">{communityName}</h2>
+            <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-0.5 sm:mb-1 truncate">{displayTitle}</h2>
             <p className="text-xs sm:text-sm text-white/90 hidden sm:block">Home plans and pricing information</p>
           </div>
 
@@ -101,7 +131,30 @@ export default function CommunityHeader({
           </div>
 
           {/* Sort Controls */}
-          <div className="flex gap-1.5 sm:gap-2 items-center">
+          <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
+            {hasSubcommunities && (
+              <>
+                <span className="text-xs sm:text-sm font-medium text-white/90 hidden sm:inline">Subcommunity:</span>
+                <Select
+                  value={selectedSubcommunity?._id ?? "__all__"}
+                  onValueChange={handleSubcommunitySelect}
+                >
+                  <SelectTrigger className="w-full sm:w-[180px] md:w-[200px] h-8 sm:h-10 text-xs sm:text-sm bg-white/20 hover:bg-white/30 text-white border-white/20 backdrop-blur-sm">
+                    <span className={cn(!selectedSubcommunity && "text-white/70")}>
+                      {selectedSubcommunity ? selectedSubcommunity.name : "Select subcommunity"}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent className="z-50">
+                    <SelectItem value="__all__">All</SelectItem>
+                    {childCommunities.map((child) => (
+                      <SelectItem key={child._id} value={child._id}>
+                        {child.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
             <span className="text-xs sm:text-sm font-medium text-white/90 hidden sm:inline">Sort by:</span>
             <div className="relative z-50 flex-1 sm:flex-initial">
               <Select value={sortKey} onValueChange={(value) => onSortKeyChange(value as SortKey)}>

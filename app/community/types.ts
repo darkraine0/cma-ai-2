@@ -21,6 +21,9 @@ export interface Community {
   _id: string;
   name: string;
   companies: CommunityCompany[];
+  description?: string | null;
+  location?: string | null;
+  parentCommunityId?: string | { _id: string; name: string } | null;
 }
 
 export type SortKey = "plan_name" | "price" | "sqft" | "last_updated";

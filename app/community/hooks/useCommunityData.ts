@@ -5,6 +5,7 @@ import { Community, Plan } from "../types";
 interface UseCommunityDataReturn {
   community: Community | null;
   plans: Plan[];
+  childCommunities: Community[];
   loading: boolean;
   error: string;
   refetch: () => void;
@@ -29,6 +30,7 @@ export function useCommunityData(communitySlug: string): UseCommunityDataReturn 
     return null;
   });
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [childCommunities, setChildCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -57,9 +59,22 @@ export function useCommunityData(communitySlug: string): UseCommunityDataReturn 
         if (typeof window !== 'undefined') {
           sessionStorage.setItem(`community_${communitySlug}`, JSON.stringify(foundCommunity));
         }
+      } else {
+        setCommunity(null);
       }
     } catch (err: any) {
       console.error("Failed to fetch community:", err);
+    }
+  };
+
+  const fetchChildCommunities = async (parentId: string) => {
+    try {
+      const res = await fetch(`${API_URL}/communities?parentId=${parentId}`);
+      if (!res.ok) return;
+      const data: Community[] = await res.json();
+      setChildCommunities(data);
+    } catch {
+      setChildCommunities([]);
     }
   };
 
@@ -92,12 +107,18 @@ export function useCommunityData(communitySlug: string): UseCommunityDataReturn 
   useEffect(() => {
     if (community?._id) {
       fetchPlans();
+      fetchChildCommunities(community._id);
+    } else {
+      setChildCommunities([]);
     }
   }, [community?._id]);
 
   const refetch = () => {
-    fetchPlans();
+    if (community?._id) {
+      fetchPlans();
+      fetchChildCommunities(community._id);
+    }
   };
 
-  return { community, plans, loading, error, refetch };
+  return { community, plans, childCommunities, loading, error, refetch };
 }

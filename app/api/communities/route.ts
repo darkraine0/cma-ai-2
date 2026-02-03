@@ -20,11 +20,15 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const includeChildren = searchParams.get('includeChildren') === 'true';
     const parentsOnly = searchParams.get('parentsOnly') === 'true';
+    const parentId = searchParams.get('parentId');
     
     let query: any = {};
     
-    // If parentsOnly is true, only return communities without a parent
-    if (parentsOnly) {
+    // If parentId is set, return only child communities of that parent
+    if (parentId && mongoose.Types.ObjectId.isValid(parentId)) {
+      query.parentCommunityId = new mongoose.Types.ObjectId(parentId);
+    } else if (parentsOnly) {
+      // If parentsOnly is true, only return communities without a parent
       query.parentCommunityId = { $exists: false };
     }
     
