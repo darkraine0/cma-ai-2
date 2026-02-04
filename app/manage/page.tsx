@@ -62,6 +62,7 @@ export default function ManagePage() {
   const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null);
   
   const [deletingCommunityId, setDeletingCommunityId] = useState<string | null>(null);
+  const [deletingSubcommunityId, setDeletingSubcommunityId] = useState<string | null>(null);
   const [deletingAll, setDeletingAll] = useState(false);
   const [childCommunities, setChildCommunities] = useState<Community[]>([]);
   const hasFetched = useRef(false);
@@ -258,6 +259,30 @@ export default function ManagePage() {
       await fetchCommunities();
     } catch (err: any) {
       setError(err.message || "Unknown error");
+    }
+  };
+
+  const handleDeleteSubcommunity = async (child: Community) => {
+    if (!child._id) {
+      setError("Cannot delete this subcommunity.");
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to delete "${child.name}"? This action cannot be undone.`)) return;
+
+    setDeletingSubcommunityId(child._id);
+    setError("");
+    try {
+      const res = await fetch(`${API_URL}/communities?id=${child._id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete subcommunity");
+      }
+      if (selectedCommunity?._id) fetchChildCommunities(selectedCommunity._id);
+      await fetchCommunities();
+    } catch (err: any) {
+      setError(err.message || "Unknown error");
+    } finally {
+      setDeletingSubcommunityId(null);
     }
   };
 
@@ -601,9 +626,26 @@ export default function ManagePage() {
                                 key={child._id || child.name}
                                 className="flex items-center justify-between p-3 bg-muted rounded-md"
                               >
-                                <span className="text-sm font-medium">{child.name}</span>
-                                {child.location && (
-                                  <span className="text-xs text-muted-foreground">📍 {child.location}</span>
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <span className="text-sm font-medium truncate">{child.name}</span>
+                                  {child.location && (
+                                    <span className="text-xs text-muted-foreground shrink-0">📍 {child.location}</span>
+                                  )}
+                                </div>
+                                {isEditor && child._id && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleDeleteSubcommunity(child)}
+                                    disabled={deletingSubcommunityId === child._id}
+                                    className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                                  >
+                                    {deletingSubcommunityId === child._id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <X className="h-3.5 w-3.5" />
+                                    )}
+                                  </Button>
                                 )}
                               </div>
                             ))}
