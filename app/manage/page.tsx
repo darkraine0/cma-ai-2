@@ -45,6 +45,7 @@ interface Community {
   _id?: string | null;
   totalPlans?: number;
   totalNow?: number;
+  parentCommunityId?: string | { _id: string; name: string } | null;
 }
 
 export default function ManagePage() {
@@ -171,7 +172,6 @@ export default function ManagePage() {
       setFilteredCommunities(communities);
       return;
     }
-    
     const query = searchQuery.toLowerCase();
     const filtered = communities.filter(community =>
       community.name.toLowerCase().includes(query) ||
@@ -180,6 +180,12 @@ export default function ManagePage() {
     );
     setFilteredCommunities(filtered);
   }, [searchQuery, communities]);
+
+  // Left sidebar shows only parent communities (no subcommunities)
+  const parentCommunitiesForSidebar = React.useMemo(
+    () => filteredCommunities.filter((c) => !c.parentCommunityId),
+    [filteredCommunities]
+  );
 
   const fetchChildCommunities = React.useCallback(async (parentId: string) => {
     try {
@@ -371,7 +377,7 @@ export default function ManagePage() {
                 </div>
                 {searchQuery && (
                   <div className="text-sm text-muted-foreground">
-                    Showing {filteredCommunities.length} of {communities.length} communities
+                    Showing {parentCommunitiesForSidebar.length} of {communities.filter((c) => !c.parentCommunityId).length} parent communities
                   </div>
                 )}
               </div>
@@ -390,15 +396,15 @@ export default function ManagePage() {
                     <CardTitle className="text-lg">Communities</CardTitle>
                   </CardHeader>
                   <CardContent className="p-0 max-h-[calc(100vh-15rem)] overflow-y-auto">
-                    {filteredCommunities.length === 0 ? (
+                    {parentCommunitiesForSidebar.length === 0 ? (
                       <div className="text-center py-8 px-4">
                         <p className="text-sm text-muted-foreground">
-                          {searchQuery.trim() ? `No communities found matching "${searchQuery}"` : "No communities found."}
+                          {searchQuery.trim() ? `No parent communities found matching "${searchQuery}"` : "No parent communities."}
                         </p>
                       </div>
                     ) : (
                       <div className="space-y-1">
-                        {filteredCommunities.map((community) => {
+                        {parentCommunitiesForSidebar.map((community) => {
                           const totalHomes = (community.totalPlans || 0) + (community.totalNow || 0);
                           return (
                             <button
