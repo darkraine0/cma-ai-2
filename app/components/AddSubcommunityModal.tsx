@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,7 @@ interface Company {
   name: string;
 }
 
-interface ParentCommunity {
+interface CommunityOption {
   _id: string;
   name: string;
 }
@@ -28,7 +28,7 @@ interface ParentCommunity {
 interface AddSubcommunityModalProps {
   onSuccess?: () => void;
   trigger?: React.ReactNode;
-  /** When set, parent community is pre-selected (e.g. when opening from a community's detail card) */
+  /** When set, parent is fixed and we only select an existing community to link as subcommunity */
   defaultParentId?: string | null;
 }
 
@@ -38,10 +38,9 @@ export default function AddSubcommunityModal({
   defaultParentId,
 }: AddSubcommunityModalProps) {
   const [open, setOpen] = useState(false);
-  const [parentCommunities, setParentCommunities] = useState<ParentCommunity[]>([]);
+  const [linkableCommunities, setLinkableCommunities] = useState<CommunityOption[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [selectedParentId, setSelectedParentId] = useState("");
-  const [subcommunityName, setSubcommunityName] = useState("");
+  const [selectedCommunityId, setSelectedCommunityId] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
   const [selectedCompanies, setSelectedCompanies] = useState<Company[]>([]);
@@ -51,8 +50,7 @@ export default function AddSubcommunityModal({
   const [error, setError] = useState("");
 
   const resetForm = () => {
-    setSelectedParentId(defaultParentId || "");
-    setSubcommunityName("");
+    setSelectedCommunityId("");
     setDescription("");
     setLocation("");
     setSelectedCompanies([]);
@@ -69,34 +67,33 @@ export default function AddSubcommunityModal({
   };
 
   const loadInitialData = async () => {
+    if (!defaultParentId) return;
     setLoadingData(true);
     setError("");
     try {
-      const [parentsRes, companiesRes] = await Promise.all([
-        fetch(API_URL + "/communities?parentsOnly=true"),
+      const [communitiesRes, companiesRes] = await Promise.all([
+        fetch(API_URL + "/communities?linkableAsSubcommunity=true"),
         fetch(API_URL + "/companies"),
       ]);
-      if (parentsRes.ok) {
-        const parents = await parentsRes.json();
-        setParentCommunities(parents.map((c: any) => ({ _id: c._id, name: c.name })));
+      if (!communitiesRes.ok) {
+        setError("Failed to load communities");
+        setLinkableCommunities([]);
+      } else {
+        const noParent: CommunityOption[] = await communitiesRes.json();
+        const linkable = noParent.filter((c) => c._id !== defaultParentId);
+        setLinkableCommunities(linkable);
       }
       if (companiesRes.ok) {
         const comps = await companiesRes.json();
         setCompanies(comps);
       }
-      setSelectedParentId(defaultParentId || "");
     } catch {
-      setError("Failed to load parents or companies");
+      setError("Failed to load data");
+      setLinkableCommunities([]);
     } finally {
       setLoadingData(false);
     }
   };
-
-  useEffect(() => {
-    if (open && defaultParentId && parentCommunities.length > 0) {
-      setSelectedParentId(defaultParentId);
-    }
-  }, [open, defaultParentId, parentCommunities.length]);
 
   const addCompany = (company: Company) => {
     if (selectedCompanies.some((c) => c._id === company._id)) return;
@@ -109,43 +106,40 @@ export default function AddSubcommunityModal({
   };
 
   const handleSubmit = async () => {
-    const name = subcommunityName.trim();
-    const parentId = defaultParentId || selectedParentId;
-    if (!name) {
-      setError("Subcommunity name is required");
+    const parentId = defaultParentId;
+    if (!parentId) {
+      setError("Parent community is required");
       return;
     }
-    if (!parentId) {
-      setError("Please select a parent community");
+    if (!selectedCommunityId) {
+      setError("Please select a community to add as subcommunity");
       return;
     }
 
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(API_URL + "/communities", {
-        method: "POST",
+      const res = await fetch(`${API_URL}/communities/${selectedCommunityId}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name,
+          parentCommunityId: parentId,
           description: description.trim() || undefined,
           location: location.trim() || undefined,
-          parentCommunityId: parentId,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to add subcommunity");
+      if (!res.ok) throw new Error(data.error || "Failed to link subcommunity");
 
-      const newCommunityId = data._id;
       for (const company of selectedCompanies) {
         try {
-          await fetch(`${API_URL}/communities/${newCommunityId}/companies`, {
+          await fetch(`${API_URL}/communities/${selectedCommunityId}/companies`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ companyId: company._id }),
           });
         } catch {
-          // continue
+          // continue with other companies
         }
       }
 
@@ -174,97 +168,106 @@ export default function AddSubcommunityModal({
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+        <DialogHeader className="text-left">
           <DialogTitle>Add Subcommunity</DialogTitle>
         </DialogHeader>
         <DialogClose />
 
         <div className="space-y-4 mt-2">
           <div>
-            <label className="block text-sm font-medium mb-2">Subcommunity Name *</label>
+            <label className="block text-sm font-medium mb-2">Subcommunity *</label>
+            <select
+              value={selectedCommunityId}
+              onChange={(e) => setSelectedCommunityId(e.target.value)}
+              className="w-full px-3 py-2 rounded-md border-2 border-border bg-card text-card-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              disabled={loading || loadingData}
+            >
+              <option value="">Select community to add as subcommunity...</option>
+              {linkableCommunities.map((c) => (
+                <option key={c._id} value={c._id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Only communities that are not already a parent and have no parent are listed.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Builders (Companies)</label>
+            <select
+              value={companySelectValue}
+              onChange={(e) => {
+                const id = e.target.value;
+                if (id) {
+                  const company = companies.find((c) => c._id === id);
+                  if (company) addCompany(company);
+                }
+                setCompanySelectValue("");
+              }}
+              className="w-full px-3 py-2 rounded-md border-2 border-border bg-card text-card-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              disabled={loading || loadingData}
+            >
+              <option value="">Add builder...</option>
+              {availableCompanies.map((c) => (
+                <option key={c._id} value={c._id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            {selectedCompanies.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {selectedCompanies.map((company) => {
+                  const color = getCompanyColor(company.name);
+                  return (
+                    <span
+                      key={company._id}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm font-medium border bg-background"
+                      style={{ borderColor: color }}
+                    >
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: color }}
+                      />
+                      {company.name}
+                      <button
+                        type="button"
+                        onClick={() => removeCompany(company._id)}
+                        className="ml-0.5 rounded p-0.5 hover:bg-muted"
+                        aria-label={`Remove ${company.name}`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Description (optional)</label>
             <input
               type="text"
-              value={subcommunityName}
-              onChange={(e) => setSubcommunityName(e.target.value)}
-              placeholder="e.g., Cross Creek Meadows"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Brief description..."
               className="w-full px-3 py-2 rounded-md border-2 border-border bg-card text-card-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               disabled={loading || loadingData}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Builders (Companies)</label>
-            <div className="flex flex-wrap gap-2 p-3 rounded-md border-2 border-border bg-muted/30 min-h-[52px]">
-              {selectedCompanies.map((company) => {
-                const color = getCompanyColor(company.name);
-                return (
-                  <span
-                    key={company._id}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm font-medium border bg-background"
-                    style={{ borderColor: color }}
-                  >
-                    <span
-                      className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: color }}
-                    />
-                    {company.name}
-                    <button
-                      type="button"
-                      onClick={() => removeCompany(company._id)}
-                      className="ml-0.5 rounded p-0.5 hover:bg-muted"
-                      aria-label={`Remove ${company.name}`}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </span>
-                );
-              })}
-              <select
-                value={companySelectValue}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  if (id) {
-                    const company = companies.find((c) => c._id === id);
-                    if (company) addCompany(company);
-                  }
-                  setCompanySelectValue("");
-                }}
-                className="flex-1 min-w-[120px] px-2 py-1 rounded border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                disabled={loading || loadingData}
-              >
-                <option value="">Add builder...</option>
-                {availableCompanies.map((c) => (
-                  <option key={c._id} value={c._id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="space-y-3 pt-2 border-t">
-            <div>
-              <label className="block text-sm font-medium mb-2">Description (optional)</label>
-              <input
-                type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Brief description..."
-                className="w-full px-3 py-2 rounded-md border-2 border-border bg-card text-card-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                disabled={loading || loadingData}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Location (optional)</label>
-              <input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g., Celina, Texas"
-                className="w-full px-3 py-2 rounded-md border-2 border-border bg-card text-card-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                disabled={loading || loadingData}
-              />
-            </div>
+            <label className="block text-sm font-medium mb-2">Location (optional)</label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g., Celina, Texas"
+              className="w-full px-3 py-2 rounded-md border-2 border-border bg-card text-card-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              disabled={loading || loadingData}
+            />
           </div>
 
           {error && <ErrorMessage message={error} />}
@@ -272,18 +275,13 @@ export default function AddSubcommunityModal({
           <div className="flex justify-end pt-2">
             <Button
               onClick={handleSubmit}
-              disabled={
-                loading ||
-                loadingData ||
-                !subcommunityName.trim() ||
-                !(defaultParentId || selectedParentId)
-              }
+              disabled={loading || loadingData || !selectedCommunityId}
               className="gap-2"
             >
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Adding...
+                  Linking...
                 </>
               ) : (
                 <>

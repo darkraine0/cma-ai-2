@@ -599,23 +599,26 @@ export default function ManagePage() {
                     </CardHeader>
                     <CardContent>
                       {childCommunities.length === 0 ? (
-                        <div className="text-center py-6 bg-muted/50 rounded-lg">
-                          <p className="text-sm text-muted-foreground mb-3">No subcommunities yet.</p>
+                        <div className="text-left">
+                          <p className="text-sm text-muted-foreground mb-4">No subcommunities yet.</p>
                           {isEditor && selectedCommunity._id && (
-                            <AddSubcommunityModal
-                              defaultParentId={selectedCommunity._id}
-                              onSuccess={() => {
-                                fetchCommunities();
-                                fetchChildCommunities(selectedCommunity._id!);
-                                setError("");
-                              }}
-                              trigger={
-                                <Button variant="outline" size="sm" className="flex items-center gap-2">
-                                  <Plus className="h-4 w-4" />
-                                  Add Subcommunity
-                                </Button>
-                              }
-                            />
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <span className="text-sm font-medium">Add Subcommunity to {selectedCommunity.name}</span>
+                              <AddSubcommunityModal
+                                defaultParentId={selectedCommunity._id}
+                                onSuccess={() => {
+                                  fetchCommunities();
+                                  fetchChildCommunities(selectedCommunity._id!);
+                                  setError("");
+                                }}
+                                trigger={
+                                  <Button variant="outline" size="sm" className="flex items-center gap-2">
+                                    <Plus className="h-4 w-4" />
+                                    Add Subcommunity
+                                  </Button>
+                                }
+                              />
+                            </div>
                           )}
                         </div>
                       ) : (

@@ -21,18 +21,28 @@ export async function GET(request: NextRequest) {
     const includeChildren = searchParams.get('includeChildren') === 'true';
     const parentsOnly = searchParams.get('parentsOnly') === 'true';
     const parentId = searchParams.get('parentId');
+    const linkableAsSubcommunity = searchParams.get('linkableAsSubcommunity') === 'true';
     
     let query: any = {};
     
     // If parentId is set, return only child communities of that parent
     if (parentId && mongoose.Types.ObjectId.isValid(parentId)) {
       query.parentCommunityId = new mongoose.Types.ObjectId(parentId);
+    } else if (linkableAsSubcommunity) {
+      // Communities that have no parent (missing or null) AND are not themselves a parent — can be linked as subcommunity
+      query.$or = [
+        { parentCommunityId: { $exists: false } },
+        { parentCommunityId: null },
+      ];
     } else if (parentsOnly) {
-      // If parentsOnly is true, only return communities without a parent
-      query.parentCommunityId = { $exists: false };
+      // If parentsOnly is true, return communities that are parents: no parent (field missing or null)
+      query.$or = [
+        { parentCommunityId: { $exists: false } },
+        { parentCommunityId: null },
+      ];
     }
     
-    const communities = await Community.find(query)
+    let communities = await Community.find(query)
       .sort({ name: 1 })
       .populate({
         path: 'companies',
@@ -43,6 +53,16 @@ export async function GET(request: NextRequest) {
         path: 'parentCommunityId',
         select: 'name _id',
       });
+
+    // If linkableAsSubcommunity, exclude communities that are parents (have any children)
+    if (linkableAsSubcommunity && communities.length > 0) {
+      const ids = communities.map((c: any) => c._id);
+      const parentIdsWithChildren = await Community.distinct('parentCommunityId', {
+        parentCommunityId: { $in: ids, $exists: true }
+      });
+      const parentIdSet = new Set(parentIdsWithChildren.map((id: any) => id?.toString()).filter(Boolean));
+      communities = communities.filter((c: any) => !parentIdSet.has(c._id.toString()));
+    }
     
     // If includeChildren is true, also fetch child communities for each parent
     let communitiesWithChildren = communities;

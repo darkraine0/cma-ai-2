@@ -177,10 +177,8 @@ export default function CommunitiesPage() {
     hasFetched.current = true;
     
     fetchUser();
-    // Only fetch if not already loaded from cache
-    if (communities.length === 0) {
-      fetchCommunities();
-    }
+    // Always fetch fresh parent list on mount so new communities (e.g. parentCommunityId: null) appear
+    fetchCommunities(true);
   }, []);
 
   // Filter communities based on search query (parent communities only)

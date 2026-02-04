@@ -43,8 +43,6 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
   const [selectedCommunity, setSelectedCommunity] = useState<CommunityRecommendation | null>(null);
   const [showRecommendations, setShowRecommendations] = useState(false);
   const [activeTab, setActiveTab] = useState("ai");
-  const [parentCommunities, setParentCommunities] = useState<Array<{_id: string; name: string}>>([]);
-  const [selectedParentId, setSelectedParentId] = useState<string>("");
 
   const resetForm = () => {
     setCommunityName("");
@@ -56,7 +54,6 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
     setSelectedCommunity(null);
     setShowRecommendations(false);
     setActiveTab("ai");
-    setSelectedParentId("");
   };
 
   const handleClose = () => {
@@ -71,22 +68,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
       setOpen(newOpen);
       if (!newOpen) {
         resetForm();
-      } else {
-        // Fetch parent communities when modal opens
-        fetchParentCommunities();
       }
-    }
-  };
-
-  const fetchParentCommunities = async () => {
-    try {
-      const res = await fetch(API_URL + "/communities?parentsOnly=true");
-      if (res.ok) {
-        const data = await res.json();
-        setParentCommunities(data.map((c: any) => ({ _id: c._id, name: c.name })));
-      }
-    } catch (err) {
-      // Silently fail - parent selection is optional
     }
   };
 
@@ -108,7 +90,6 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
           name: communityName.trim(),
           description: description.trim() || undefined,
           location: location.trim() || undefined,
-          parentCommunityId: selectedParentId || undefined,
         }),
       });
 
@@ -364,28 +345,6 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
                       disabled={loading || loadingAI}
                     />
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Parent Community (Optional)
-                    </label>
-                    <select
-                      value={selectedParentId}
-                      onChange={(e) => setSelectedParentId(e.target.value)}
-                      className="w-full px-3 py-2 rounded-md border-2 border-border bg-card text-card-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                      disabled={loading || loadingAI}
-                    >
-                      <option value="">None (This is a parent community)</option>
-                      {parentCommunities.map((parent) => (
-                        <option key={parent._id} value={parent._id}>
-                          {parent.name}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Select a parent UnionMain community if this is a competitor community
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -483,28 +442,6 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
                   className="w-full px-3 py-2 rounded-md border-2 border-border bg-card text-card-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   disabled={loading || loadingAI}
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Parent Community (Optional)
-                </label>
-                <select
-                  value={selectedParentId}
-                  onChange={(e) => setSelectedParentId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-md border-2 border-border bg-card text-card-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  disabled={loading || loadingAI}
-                >
-                  <option value="">None (This is a parent community)</option>
-                  {parentCommunities.map((parent) => (
-                    <option key={parent._id} value={parent._id}>
-                      {parent.name}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Select a parent UnionMain community if this is a competitor community
-                </p>
               </div>
             </TabsContent>
           </Tabs>
