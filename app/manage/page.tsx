@@ -8,6 +8,7 @@ import { Badge } from "../components/ui/badge";
 import Loader from "../components/Loader";
 import ErrorMessage from "../components/ErrorMessage";
 import AddCommunityModal from "../components/AddCommunityModal";
+import AddSubcommunityModal from "../components/AddSubcommunityModal";
 import SelectCompanyModal from "../components/SelectCompanyModal";
 import PendingApprovalBanner from "../components/PendingApprovalBanner";
 import { Plus, X, Trash2, Loader2, Search } from "lucide-react";
@@ -61,6 +62,7 @@ export default function ManagePage() {
   
   const [deletingCommunityId, setDeletingCommunityId] = useState<string | null>(null);
   const [deletingAll, setDeletingAll] = useState(false);
+  const [childCommunities, setChildCommunities] = useState<Community[]>([]);
   const hasFetched = useRef(false);
 
   const loadPlansData = async () => {
@@ -178,6 +180,37 @@ export default function ManagePage() {
     );
     setFilteredCommunities(filtered);
   }, [searchQuery, communities]);
+
+  const fetchChildCommunities = React.useCallback(async (parentId: string) => {
+    try {
+      const res = await fetch(`${API_URL}/communities?parentId=${parentId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setChildCommunities(Array.isArray(data) ? data : []);
+    } catch {
+      setChildCommunities([]);
+    }
+  }, []);
+
+  // Fetch subcommunities when a community is selected (so we can show them in the detail card)
+  useEffect(() => {
+    if (!selectedCommunity?._id) {
+      setChildCommunities([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`${API_URL}/communities?parentId=${selectedCommunity._id}`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (!cancelled) setChildCommunities(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setChildCommunities([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCommunity?._id]);
 
   const fetchUser = async () => {
     try {
@@ -411,6 +444,7 @@ export default function ManagePage() {
                     </CardContent>
                   </Card>
                 ) : (
+                  <>
                   <Card>
                     <CardHeader>
                       <div className="flex items-start justify-between">
@@ -522,6 +556,76 @@ export default function ManagePage() {
                       </div>
                     </CardContent>
                   </Card>
+
+                  <Card className="mt-6">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">Subcommunities</CardTitle>
+                        {childCommunities.length > 0 && (
+                          <Badge variant="secondary" className="text-sm">{childCommunities.length}</Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {childCommunities.length === 0 ? (
+                        <div className="text-center py-6 bg-muted/50 rounded-lg">
+                          <p className="text-sm text-muted-foreground mb-3">No subcommunities yet.</p>
+                          {isEditor && selectedCommunity._id && (
+                            <AddSubcommunityModal
+                              defaultParentId={selectedCommunity._id}
+                              onSuccess={() => {
+                                fetchCommunities();
+                                fetchChildCommunities(selectedCommunity._id!);
+                                setError("");
+                              }}
+                              trigger={
+                                <Button variant="outline" size="sm" className="flex items-center gap-2">
+                                  <Plus className="h-4 w-4" />
+                                  Add Subcommunity
+                                </Button>
+                              }
+                            />
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+                            {childCommunities.map((child) => (
+                              <div
+                                key={child._id || child.name}
+                                className="flex items-center justify-between p-3 bg-muted rounded-md"
+                              >
+                                <span className="text-sm font-medium">{child.name}</span>
+                                {child.location && (
+                                  <span className="text-xs text-muted-foreground">📍 {child.location}</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          {isEditor && selectedCommunity._id && (
+                            <div className="flex items-center justify-between">
+                              <label className="block text-sm font-medium">Add Subcommunity to {selectedCommunity.name}</label>
+                              <AddSubcommunityModal
+                                defaultParentId={selectedCommunity._id}
+                                onSuccess={() => {
+                                  fetchCommunities();
+                                  fetchChildCommunities(selectedCommunity._id!);
+                                  setError("");
+                                }}
+                                trigger={
+                                  <Button variant="outline" size="sm" className="flex items-center gap-2">
+                                    <Plus className="h-4 w-4" />
+                                    Add Subcommunity
+                                  </Button>
+                                }
+                              />
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                  </>
                 )}
               </div>
             </div>
