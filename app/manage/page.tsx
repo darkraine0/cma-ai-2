@@ -65,6 +65,7 @@ export default function ManagePage() {
   const [deletingSubcommunityId, setDeletingSubcommunityId] = useState<string | null>(null);
   const [deletingAll, setDeletingAll] = useState(false);
   const [childCommunities, setChildCommunities] = useState<Community[]>([]);
+  const [loadingSubcommunities, setLoadingSubcommunities] = useState(false);
   const hasFetched = useRef(false);
 
   const loadPlansData = async () => {
@@ -203,16 +204,23 @@ export default function ManagePage() {
   useEffect(() => {
     if (!selectedCommunity?._id) {
       setChildCommunities([]);
+      setLoadingSubcommunities(false);
       return;
     }
     let cancelled = false;
+    setLoadingSubcommunities(true);
     fetch(`${API_URL}/communities?parentId=${selectedCommunity._id}`)
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
-        if (!cancelled) setChildCommunities(Array.isArray(data) ? data : []);
+        if (!cancelled) {
+          setChildCommunities(Array.isArray(data) ? data : []);
+        }
       })
       .catch(() => {
         if (!cancelled) setChildCommunities([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSubcommunities(false);
       });
     return () => {
       cancelled = true;
@@ -592,13 +600,18 @@ export default function ManagePage() {
                     <CardHeader>
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-lg">Subcommunities</CardTitle>
-                        {childCommunities.length > 0 && (
+                        {!loadingSubcommunities && childCommunities.length > 0 && (
                           <Badge variant="secondary" className="text-sm">{childCommunities.length}</Badge>
                         )}
                       </div>
                     </CardHeader>
                     <CardContent>
-                      {childCommunities.length === 0 ? (
+                      {loadingSubcommunities ? (
+                        <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          <span className="text-sm">Loading subcommunities...</span>
+                        </div>
+                      ) : childCommunities.length === 0 ? (
                         <div className="text-left">
                           <p className="text-sm text-muted-foreground mb-4">No subcommunities yet.</p>
                           {isEditor && selectedCommunity._id && (
