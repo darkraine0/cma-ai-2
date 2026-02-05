@@ -55,15 +55,18 @@ export default function ScrapingDialog({
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ScrapingResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const hasScrapedRef = React.useRef(false);
 
   useEffect(() => {
-    if (open && companyName && communityName) {
+    if (open && companyName && communityName && !hasScrapedRef.current) {
+      hasScrapedRef.current = true;
       startScraping();
     } else if (!open) {
       // Reset state when dialog closes
       setResult(null);
       setError(null);
       setLoading(false);
+      hasScrapedRef.current = false; // Reset for next time
     }
   }, [open, companyName, communityName]);
 

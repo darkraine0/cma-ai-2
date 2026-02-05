@@ -34,6 +34,8 @@ interface SelectCompanyModalProps {
   existingCompanies: string[]; // Array of company names already in the community
   onSuccess?: () => void;
   trigger?: React.ReactNode;
+  open?: boolean; // Controlled mode
+  onOpenChange?: (open: boolean) => void; // Controlled mode
 }
 
 export default function SelectCompanyModal({
@@ -42,8 +44,10 @@ export default function SelectCompanyModal({
   existingCompanies,
   onSuccess,
   trigger,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
 }: SelectCompanyModalProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(false);
@@ -53,6 +57,11 @@ export default function SelectCompanyModal({
   const [showAddCompanyModal, setShowAddCompanyModal] = useState(false);
   const [showScrapingDialog, setShowScrapingDialog] = useState(false);
   const [scrapingCompanyName, setScrapingCompanyName] = useState<string>("");
+
+  // Use controlled mode if provided, otherwise use internal state
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled ? (controlledOnOpenChange || (() => {})) : setInternalOpen;
 
   useEffect(() => {
     if (open) {
@@ -179,14 +188,16 @@ export default function SelectCompanyModal({
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          {trigger || (
-            <Button variant="outline" size="sm" className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Add Company
-            </Button>
-          )}
-        </DialogTrigger>
+        {!isControlled && (
+          <DialogTrigger asChild>
+            {trigger || (
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Add Company
+              </Button>
+            )}
+          </DialogTrigger>
+        )}
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Company to {communityName || 'Community'}</DialogTitle>

@@ -9,10 +9,12 @@ import Loader from "../components/Loader";
 import ErrorMessage from "../components/ErrorMessage";
 import AddCommunityModal from "../components/AddCommunityModal";
 import AddSubcommunityModal from "../components/AddSubcommunityModal";
-import SelectCompanyModal from "../components/SelectCompanyModal";
+import SelectCompanyForAddModal from "../components/SelectCompanyForAddModal";
+import SelectCommunityNameModal from "../components/SelectCommunityNameModal";
 import PendingApprovalBanner from "../components/PendingApprovalBanner";
 import CompanySubcommunityBadges from "../components/CompanySubcommunityBadges";
 import ManageSubcommunitiesModal from "../components/ManageSubcommunitiesModal";
+import ScrapingDialog from "../components/ScrapingDialog";
 import { Plus, X, Trash2, Loader2, Search } from "lucide-react";
 import API_URL from '../config';
 import { getCompanyColor } from '../utils/colors';
@@ -69,12 +71,28 @@ export default function ManagePage() {
   const [deletingAll, setDeletingAll] = useState(false);
   const [childCommunities, setChildCommunities] = useState<Community[]>([]);
   const [loadingSubcommunities, setLoadingSubcommunities] = useState(false);
+  
+  // Manage subcommunities modal states
   const [manageSubcommunitiesOpen, setManageSubcommunitiesOpen] = useState(false);
   const [selectedCompanyForManage, setSelectedCompanyForManage] = useState<{
     id?: string;
     name: string;
     subcommunities: string[];
   } | null>(null);
+  
+  // Add company flow states
+  const [showCompanySelectionModal, setShowCompanySelectionModal] = useState(false);
+  const [showCommunityNameModal, setShowCommunityNameModal] = useState(false);
+  const [selectedCompanyForAdd, setSelectedCompanyForAdd] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [showScrapingDialog, setShowScrapingDialog] = useState(false);
+  const [scrapingTarget, setScrapingTarget] = useState<{
+    companyName: string;
+    communityName: string;
+  } | null>(null);
+  
   const hasFetched = useRef(false);
 
   const loadPlansData = async () => {
@@ -270,6 +288,94 @@ export default function ManagePage() {
     },
     [getCompanySubcommunities]
   );
+
+  const handleAddCompanyClick = () => {
+    setShowCompanySelectionModal(true);
+  };
+
+  const handleCompanySelected = (companyId: string, companyName: string) => {
+    setSelectedCompanyForAdd({ id: companyId, name: companyName });
+    setShowCompanySelectionModal(false);
+    setShowCommunityNameModal(true);
+  };
+
+  const handleCommunityNameSelected = async (communityId: string, communityName: string) => {
+    if (!selectedCompanyForAdd || !selectedCommunity?._id) return;
+
+    setShowCommunityNameModal(false);
+    
+    try {
+      const isSubcommunity = communityId !== selectedCommunity._id;
+
+      // Add company to communities without triggering any automatic scraping
+      // We'll handle scraping manually once at the end
+      
+      // 1. Always add company to parent community first
+      const parentRes = await fetch(
+        `${API_URL}/communities/${selectedCommunity._id}/companies`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ companyId: selectedCompanyForAdd.id }),
+        }
+      );
+
+      // Don't fail if company already exists in parent
+      if (!parentRes.ok) {
+        const data = await parentRes.json();
+        if (!data.error?.includes("already in this community")) {
+          throw new Error(data.error || "Failed to add company to parent community");
+        }
+      }
+
+      // 2. If a subcommunity was selected, also add to that subcommunity
+      if (isSubcommunity) {
+        const subRes = await fetch(
+          `${API_URL}/communities/${communityId}/companies`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ companyId: selectedCompanyForAdd.id }),
+          }
+        );
+
+        if (!subRes.ok) {
+          const data = await subRes.json();
+          if (!data.error?.includes("already in this community")) {
+            throw new Error(data.error || "Failed to add company to subcommunity");
+          }
+        }
+      }
+
+      // 3. Trigger scraping ONLY ONCE for the selected community name
+      // This ensures we scrape with the correct name for this company
+      setScrapingTarget({
+        companyName: selectedCompanyForAdd.name,
+        communityName: communityName, // Use the selected name (parent or sub)
+      });
+      setSelectedCompanyForAdd(null);
+      setShowScrapingDialog(true);
+    } catch (err: any) {
+      setError(err.message || "Failed to add company");
+      setSelectedCompanyForAdd(null);
+    }
+  };
+
+  const handleScrapingComplete = async () => {
+    setShowScrapingDialog(false);
+    setScrapingTarget(null);
+    
+    // Refresh data after scraping
+    await fetchCommunities();
+    if (selectedCommunity?._id) {
+      await fetchChildCommunities(selectedCommunity._id);
+    }
+    setError("");
+  };
 
   const fetchUser = async () => {
     try {
@@ -630,21 +736,15 @@ export default function ManagePage() {
                           <div className="pt-4 border-t">
                             <div className="flex items-center justify-between">
                               <label className="block text-sm font-medium">Add Company to {selectedCommunity.name}</label>
-                              <SelectCompanyModal
-                                communityId={selectedCommunity._id || undefined}
-                                communityName={selectedCommunity.name}
-                                existingCompanies={selectedCommunity.companies.map(c => typeof c === 'string' ? c : c.name)}
-                                onSuccess={() => {
-                                  fetchCommunities();
-                                  setError("");
-                                }}
-                                trigger={
-                                  <Button variant="outline" size="sm" className="flex items-center gap-2">
-                                    <Plus className="h-4 w-4" />
-                                    Add Company
-                                  </Button>
-                                }
-                              />
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="flex items-center gap-2"
+                                onClick={handleAddCompanyClick}
+                              >
+                                <Plus className="h-4 w-4" />
+                                Add Company
+                              </Button>
                             </div>
                           </div>
                         )}
@@ -752,6 +852,39 @@ export default function ManagePage() {
           </>
         )}
       </div>
+
+      {/* Step 1: Select Company to Add */}
+      {selectedCommunity && (
+        <SelectCompanyForAddModal
+          open={showCompanySelectionModal}
+          onOpenChange={setShowCompanySelectionModal}
+          existingCompanies={selectedCommunity.companies.map(c => typeof c === 'string' ? c : c.name)}
+          onSelect={handleCompanySelected}
+        />
+      )}
+
+      {/* Step 2: Select Community Name */}
+      {selectedCommunity?._id && selectedCompanyForAdd && (
+        <SelectCommunityNameModal
+          open={showCommunityNameModal}
+          onOpenChange={setShowCommunityNameModal}
+          parentCommunityId={selectedCommunity._id}
+          parentCommunityName={selectedCommunity.name}
+          companyName={selectedCompanyForAdd.name}
+          onSelect={handleCommunityNameSelected}
+        />
+      )}
+
+      {/* Scraping Dialog */}
+      {scrapingTarget && (
+        <ScrapingDialog
+          open={showScrapingDialog}
+          onOpenChange={setShowScrapingDialog}
+          companyName={scrapingTarget.companyName}
+          communityName={scrapingTarget.communityName}
+          onComplete={handleScrapingComplete}
+        />
+      )}
 
       {/* Manage Subcommunities Modal */}
       {selectedCommunity && selectedCompanyForManage && (

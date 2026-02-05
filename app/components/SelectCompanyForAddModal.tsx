@@ -1,0 +1,215 @@
+"use client"
+
+import React, { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from "./ui/dialog";
+import { Card, CardContent } from "./ui/card";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Search, Loader2 } from "lucide-react";
+import ErrorMessage from "./ErrorMessage";
+import API_URL from '../config';
+import { getCompanyColor } from '../utils/colors';
+
+interface Company {
+  _id: string;
+  name: string;
+  description?: string;
+  website?: string;
+  headquarters?: string;
+  founded?: string;
+}
+
+interface SelectCompanyForAddModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  existingCompanies: string[]; // Array of company names already in the community
+  onSelect: (companyId: string, companyName: string) => void;
+}
+
+export default function SelectCompanyForAddModal({
+  open,
+  onOpenChange,
+  existingCompanies,
+  onSelect,
+}: SelectCompanyForAddModalProps) {
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      fetchCompanies();
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredCompanies(companies);
+    } else {
+      const query = searchQuery.toLowerCase();
+      setFilteredCompanies(
+        companies.filter(
+          (company) =>
+            company.name.toLowerCase().includes(query) ||
+            company.description?.toLowerCase().includes(query) ||
+            company.headquarters?.toLowerCase().includes(query)
+        )
+      );
+    }
+  }, [searchQuery, companies]);
+
+  const fetchCompanies = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(API_URL + "/companies");
+      if (!res.ok) throw new Error("Failed to fetch companies");
+      const data = await res.json();
+      setCompanies(data);
+    } catch (err: any) {
+      setError(err.message || "Unknown error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter out companies that are already in the community (case-insensitive)
+  const existingCompaniesLower = existingCompanies.map(c => c.trim().toLowerCase());
+  const availableCompanies = filteredCompanies.filter(
+    (company) => !existingCompaniesLower.includes(company.name.trim().toLowerCase())
+  );
+
+  const handleSelectCompany = (company: Company) => {
+    onSelect(company._id, company.name);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Select Company to Add</DialogTitle>
+        </DialogHeader>
+        <DialogClose />
+
+        {error && (
+          <div className="mb-4">
+            <ErrorMessage message={error} />
+          </div>
+        )}
+
+        <div className="space-y-4">
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search companies..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pl-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+
+          {/* Loading State */}
+          {loading && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          )}
+
+          {/* Companies List */}
+          {!loading && availableCompanies.length === 0 && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center py-8">
+                  <p className="text-sm text-muted-foreground">
+                    {searchQuery
+                      ? "No companies found matching your search."
+                      : "No available companies to add. All companies are already in this community."}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {!loading && availableCompanies.length > 0 && (
+            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+              {availableCompanies.map((company) => (
+                <Card
+                  key={company._id}
+                  className="hover:bg-muted/50 transition-colors cursor-pointer"
+                  onClick={() => handleSelectCompany(company)}
+                >
+                  <CardContent className="pt-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span
+                            className="inline-block w-3 h-3 rounded-full border"
+                            style={{
+                              backgroundColor: getCompanyColor(company.name),
+                              borderColor: getCompanyColor(company.name),
+                            }}
+                          />
+                          <h3 className="font-semibold">{company.name}</h3>
+                        </div>
+                        {company.description && (
+                          <p className="text-sm text-muted-foreground mb-2">
+                            {company.description}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap gap-2">
+                          {company.headquarters && (
+                            <Badge variant="secondary" className="text-xs">
+                              📍 {company.headquarters}
+                            </Badge>
+                          )}
+                          {company.founded && (
+                            <Badge variant="secondary" className="text-xs">
+                              🏛️ Founded {company.founded}
+                            </Badge>
+                          )}
+                          {company.website && (
+                            <a
+                              href={company.website}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-block"
+                            >
+                              <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-secondary/80 transition-colors">
+                                🌐 Website
+                              </Badge>
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectCompany(company);
+                        }}
+                        className="ml-4"
+                      >
+                        Select
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
