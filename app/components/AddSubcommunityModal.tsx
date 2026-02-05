@@ -123,7 +123,7 @@ export default function AddSubcommunityModal({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
         <DialogHeader className="text-left">
           <DialogTitle>Add Subcommunity</DialogTitle>
         </DialogHeader>
@@ -131,22 +131,45 @@ export default function AddSubcommunityModal({
 
         <div className="space-y-4 mt-2">
           <div>
-            <label className="block text-sm font-medium mb-2">Subcommunity *</label>
-            <select
-              value={selectedCommunityId}
-              onChange={(e) => setSelectedCommunityId(e.target.value)}
-              className="w-full px-3 py-2 rounded-md border-2 border-border bg-card text-card-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              disabled={loading || loadingData}
-            >
-              <option value="">Select community to add as subcommunity...</option>
-              {linkableCommunities.map((c) => (
-                <option key={c._id} value={c._id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-muted-foreground mt-1">
-              Only communities that are not already a parent and have no parent are listed.
+            <label className="block text-sm font-medium mb-3">Select Community *</label>
+            {loadingData ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : linkableCommunities.length === 0 ? (
+              <div className="text-center py-6 px-4 bg-muted/50 rounded-lg border-2 border-dashed border-border">
+                <p className="text-sm text-muted-foreground">
+                  No available communities to link as subcommunity.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {linkableCommunities.map((community) => (
+                  <div
+                    key={community._id}
+                    className={`p-3 rounded-lg border-2 transition-all cursor-pointer ${
+                      selectedCommunityId === community._id
+                        ? 'border-primary bg-primary/10 shadow-sm'
+                        : 'border-border hover:border-primary/50 hover:bg-muted/30'
+                    }`}
+                    onClick={() => setSelectedCommunityId(community._id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold">{community.name}</span>
+                      {selectedCommunityId === community._id && (
+                        <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                          <svg className="h-3 w-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground mt-2">
+              Available communities that can be linked as subcommunities
             </p>
           </div>
 
