@@ -11,6 +11,7 @@ import AddCommunityModal from "../components/AddCommunityModal";
 import AddSubcommunityModal from "../components/AddSubcommunityModal";
 import SelectCompanyModal from "../components/SelectCompanyModal";
 import PendingApprovalBanner from "../components/PendingApprovalBanner";
+import CompanySubcommunityBadges from "../components/CompanySubcommunityBadges";
 import { Plus, X, Trash2, Loader2, Search } from "lucide-react";
 import API_URL from '../config';
 import { getCompanyColor } from '../utils/colors';
@@ -27,6 +28,7 @@ interface Company {
 interface CommunityCompany {
   _id: string;
   name: string;
+  subcommunities?: string[]; // Names of subcommunities this company belongs to
 }
 
 interface Plan {
@@ -226,6 +228,36 @@ export default function ManagePage() {
       cancelled = true;
     };
   }, [selectedCommunity?._id]);
+
+  // Memoized helper to get subcommunities for a specific company
+  const getCompanySubcommunities = React.useCallback(
+    (companyId: string | undefined, companyName: string): string[] => {
+      if (!childCommunities.length) return [];
+      
+      const normalizedCompanyName = companyName.toLowerCase();
+      
+      return childCommunities
+        .filter(({ companies = [] }) => 
+          companies.some((c: any) => {
+            if (typeof c === 'string') {
+              return c.toLowerCase() === normalizedCompanyName;
+            }
+            // Prefer ID match, fallback to name match
+            return companyId ? c._id === companyId : c.name?.toLowerCase() === normalizedCompanyName;
+          })
+        )
+        .map(({ name }) => name);
+    },
+    [childCommunities]
+  );
+
+  const handleManageSubcommunities = React.useCallback(
+    (companyName: string, companyId?: string) => {
+      // TODO: Implement subcommunity assignment modal
+      console.log(`Manage subcommunities for ${companyName} (${companyId || 'no id'})`);
+    },
+    []
+  );
 
   const fetchUser = async () => {
     try {
@@ -537,28 +569,40 @@ export default function ManagePage() {
                               {selectedCommunity.companies.map((company) => {
                                 const companyName = typeof company === 'string' ? company : company.name;
                                 const companyKey = typeof company === 'string' ? company : company._id;
+                                const companyId = typeof company === 'string' ? undefined : company._id;
+                                const subcommunities = getCompanySubcommunities(companyId, companyName);
                                 
                                 return (
                                   <div
                                     key={companyKey}
-                                    className="flex items-center justify-between p-3 bg-muted rounded-md"
+                                    className="flex items-start justify-between p-3 bg-muted rounded-md"
                                   >
-                                    <div className="flex items-center gap-2 flex-1">
-                                      <span
-                                        className="inline-block w-3 h-3 rounded-full border"
-                                        style={{
-                                          backgroundColor: getCompanyColor(companyName),
-                                          borderColor: getCompanyColor(companyName),
-                                        }}
+                                    <div className="flex flex-col gap-2 flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span
+                                          className="inline-block w-3 h-3 rounded-full border flex-shrink-0"
+                                          style={{
+                                            backgroundColor: getCompanyColor(companyName),
+                                            borderColor: getCompanyColor(companyName),
+                                          }}
+                                        />
+                                        <span className="text-sm font-medium truncate">{companyName}</span>
+                                      </div>
+                                      <CompanySubcommunityBadges
+                                        companyName={companyName}
+                                        companyId={companyId}
+                                        subcommunities={subcommunities}
+                                        isEditor={isEditor}
+                                        hasSubcommunities={childCommunities.length > 0}
+                                        onManageClick={handleManageSubcommunities}
                                       />
-                                      <span className="text-sm font-medium">{companyName}</span>
                                     </div>
                                     {isEditor && (
                                       <Button
                                         variant="ghost"
                                         size="icon"
                                         onClick={() => handleRemoveCompanyFromCommunity(selectedCommunity, companyName)}
-                                        className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
                                       >
                                         <X className="h-3.5 w-3.5" />
                                       </Button>
