@@ -12,6 +12,7 @@ import AddSubcommunityModal from "../components/AddSubcommunityModal";
 import SelectCompanyModal from "../components/SelectCompanyModal";
 import PendingApprovalBanner from "../components/PendingApprovalBanner";
 import CompanySubcommunityBadges from "../components/CompanySubcommunityBadges";
+import ManageSubcommunitiesModal from "../components/ManageSubcommunitiesModal";
 import { Plus, X, Trash2, Loader2, Search } from "lucide-react";
 import API_URL from '../config';
 import { getCompanyColor } from '../utils/colors';
@@ -68,6 +69,12 @@ export default function ManagePage() {
   const [deletingAll, setDeletingAll] = useState(false);
   const [childCommunities, setChildCommunities] = useState<Community[]>([]);
   const [loadingSubcommunities, setLoadingSubcommunities] = useState(false);
+  const [manageSubcommunitiesOpen, setManageSubcommunitiesOpen] = useState(false);
+  const [selectedCompanyForManage, setSelectedCompanyForManage] = useState<{
+    id?: string;
+    name: string;
+    subcommunities: string[];
+  } | null>(null);
   const hasFetched = useRef(false);
 
   const loadPlansData = async () => {
@@ -253,10 +260,15 @@ export default function ManagePage() {
 
   const handleManageSubcommunities = React.useCallback(
     (companyName: string, companyId?: string) => {
-      // TODO: Implement subcommunity assignment modal
-      console.log(`Manage subcommunities for ${companyName} (${companyId || 'no id'})`);
+      const subcommunities = getCompanySubcommunities(companyId, companyName);
+      setSelectedCompanyForManage({
+        id: companyId,
+        name: companyName,
+        subcommunities,
+      });
+      setManageSubcommunitiesOpen(true);
     },
-    []
+    [getCompanySubcommunities]
   );
 
   const fetchUser = async () => {
@@ -740,6 +752,26 @@ export default function ManagePage() {
           </>
         )}
       </div>
+
+      {/* Manage Subcommunities Modal */}
+      {selectedCommunity && selectedCompanyForManage && (
+        <ManageSubcommunitiesModal
+          open={manageSubcommunitiesOpen}
+          onOpenChange={setManageSubcommunitiesOpen}
+          companyId={selectedCompanyForManage.id}
+          companyName={selectedCompanyForManage.name}
+          parentCommunityId={selectedCommunity._id!}
+          parentCommunityName={selectedCommunity.name}
+          currentSubcommunities={selectedCompanyForManage.subcommunities}
+          onSuccess={async () => {
+            await fetchCommunities();
+            if (selectedCommunity._id) {
+              await fetchChildCommunities(selectedCommunity._id);
+            }
+            setError("");
+          }}
+        />
+      )}
     </div>
   );
 }

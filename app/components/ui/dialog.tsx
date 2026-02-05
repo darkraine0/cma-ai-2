@@ -134,6 +134,22 @@ const DialogHeader = ({ children, className, ...props }: DialogHeaderProps) => {
   )
 }
 
+interface DialogFooterProps {
+  children: React.ReactNode
+  className?: string
+}
+
+const DialogFooter = ({ children, className, ...props }: DialogFooterProps) => {
+  return (
+    <div
+      className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)}
+      {...props}
+    >
+      {children}
+    </div>
+  )
+}
+
 interface DialogTitleProps {
   children: React.ReactNode
   className?: string
@@ -177,10 +193,11 @@ DialogDescription.displayName = "DialogDescription"
 interface DialogCloseProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children?: React.ReactNode
   className?: string
+  asChild?: boolean
 }
 
 const DialogClose = React.forwardRef<HTMLButtonElement, DialogCloseProps>(
-  ({ className, onClick, ...props }, ref) => {
+  ({ className, onClick, asChild, ...props }, ref) => {
     const { onOpenChange } = React.useContext(DialogContext)
 
     const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -194,6 +211,27 @@ const DialogClose = React.forwardRef<HTMLButtonElement, DialogCloseProps>(
       onOpenChange(false)
     }
 
+    // If asChild is true and there's a single child element, clone it with the close handler
+    if (asChild && React.Children.count(props.children) === 1) {
+      const child = React.Children.only(props.children);
+      if (React.isValidElement(child)) {
+        return React.cloneElement(child as React.ReactElement<any>, {
+          onClick: (e: React.MouseEvent<HTMLButtonElement>) => {
+            const childProps = (child.props as any);
+            if (childProps.onClick) {
+              childProps.onClick(e);
+            }
+            if (!props.disabled) {
+              if (onClick) {
+                onClick(e);
+              }
+              onOpenChange(false);
+            }
+          },
+        });
+      }
+    }
+
     return (
       <button
         ref={ref}
@@ -205,8 +243,12 @@ const DialogClose = React.forwardRef<HTMLButtonElement, DialogCloseProps>(
         )}
         {...props}
       >
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
+        {props.children || (
+          <>
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </>
+        )}
       </button>
     )
   }
@@ -218,6 +260,7 @@ export {
   DialogTrigger,
   DialogContent,
   DialogHeader,
+  DialogFooter,
   DialogTitle,
   DialogDescription,
   DialogClose,

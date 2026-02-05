@@ -19,6 +19,7 @@ interface ScrapingDialogProps {
   onOpenChange: (open: boolean) => void;
   companyName: string;
   communityName: string;
+  subcommunities?: string[]; // Optional: specific subcommunities to scrape
   onComplete?: () => void;
 }
 
@@ -48,6 +49,7 @@ export default function ScrapingDialog({
   onOpenChange,
   companyName,
   communityName,
+  subcommunities = [],
   onComplete,
 }: ScrapingDialogProps) {
   const [loading, setLoading] = useState(false);
@@ -71,24 +73,78 @@ export default function ScrapingDialog({
     setResult(null);
 
     try {
-      const res = await fetch(API_URL + "/scrape", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          company: companyName,
-          community: communityName,
-        }),
-      });
+      // If specific subcommunities provided, scrape each one
+      if (subcommunities && subcommunities.length > 0) {
+        let totalSaved = 0;
+        let totalErrors = 0;
+        let totalNowSaved = 0;
+        let totalNowErrors = 0;
+        let totalPlanSaved = 0;
+        let totalPlanErrors = 0;
+        const allPlans: any[] = [];
+        const allErrorDetails: any[] = [];
 
-      const data = await res.json();
+        for (const subcommunity of subcommunities) {
+          const res = await fetch(API_URL + "/scrape", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              company: companyName,
+              community: subcommunity,
+            }),
+          });
 
-      if (!res.ok) {
-        throw new Error(data.error || data.message || "Failed to scrape plans");
+          const data = await res.json();
+
+          if (res.ok) {
+            totalSaved += data.saved || 0;
+            totalErrors += data.errors || 0;
+            if (data.breakdown) {
+              totalNowSaved += data.breakdown.now?.saved || 0;
+              totalNowErrors += data.breakdown.now?.errors || 0;
+              totalPlanSaved += data.breakdown.plan?.saved || 0;
+              totalPlanErrors += data.breakdown.plan?.errors || 0;
+            }
+            if (data.plans) allPlans.push(...data.plans);
+            if (data.errorDetails) allErrorDetails.push(...data.errorDetails);
+          }
+        }
+
+        setResult({
+          success: true,
+          message: `Scraped ${subcommunities.length} subcommunity${subcommunities.length > 1 ? 'ies' : ''}: ${subcommunities.join(", ")}`,
+          saved: totalSaved,
+          errors: totalErrors,
+          breakdown: {
+            now: { saved: totalNowSaved, errors: totalNowErrors },
+            plan: { saved: totalPlanSaved, errors: totalPlanErrors },
+          },
+          plans: allPlans,
+          errorDetails: allErrorDetails,
+        });
+      } else {
+        // Single community scrape
+        const res = await fetch(API_URL + "/scrape", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            company: companyName,
+            community: communityName,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || data.message || "Failed to scrape plans");
+        }
+
+        setResult(data);
       }
-
-      setResult(data);
     } catch (err: any) {
       setError(err.message || "Unknown error occurred during scraping");
     } finally {
@@ -110,7 +166,16 @@ export default function ScrapingDialog({
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            Scraping Plans for {companyName} - {communityName}
+            Scraping Plans for {companyName}
+            {subcommunities && subcommunities.length > 0 ? (
+              <span className="text-sm font-normal text-muted-foreground block mt-2">
+                Subcommunities: {subcommunities.join(", ")}
+              </span>
+            ) : (
+              <span className="text-sm font-normal text-muted-foreground block mt-1">
+                {communityName}
+              </span>
+            )}
           </DialogTitle>
         </DialogHeader>
         <DialogClose disabled={loading} />
@@ -122,8 +187,20 @@ export default function ScrapingDialog({
               <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
               <p className="text-lg font-medium">Scraping plans...</p>
               <p className="text-sm text-muted-foreground mt-2">
-                This may take a few moments. Please wait.
+                {subcommunities && subcommunities.length > 0 
+                  ? `Scraping ${subcommunities.length} subcommunity${subcommunities.length > 1 ? 'ies' : ''}. This may take a few moments.`
+                  : "This may take a few moments. Please wait."
+                }
               </p>
+              {subcommunities && subcommunities.length > 0 && (
+                <div className="mt-3 text-xs text-muted-foreground max-w-md text-center">
+                  {subcommunities.map((sub, idx) => (
+                    <Badge key={sub} variant="secondary" className="mx-1 mb-1">
+                      {sub}
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
