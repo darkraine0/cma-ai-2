@@ -110,7 +110,7 @@ export default function ManageSubcommunitiesModal({
         return;
       }
 
-      const changedCommunityNames: string[] = [];
+      let newCommunityName: string | null = null;
 
       // Remove from original location (if it was in a subcommunity)
       if (originalSubcommunity) {
@@ -122,7 +122,6 @@ export default function ManageSubcommunitiesModal({
           const data = await res.json();
           throw new Error(data.error || "Failed to remove company from original subcommunity");
         }
-        changedCommunityNames.push(originalSubcommunity.name);
       }
 
       // Add to new location (if it's a subcommunity, not parent)
@@ -138,13 +137,16 @@ export default function ManageSubcommunitiesModal({
         }
         const selectedSub = subcommunities.find((sub) => sub._id === selectedCommunityId);
         if (selectedSub) {
-          changedCommunityNames.push(selectedSub.name);
+          newCommunityName = selectedSub.name;
         }
+      } else {
+        // If moving to parent, use parent name
+        newCommunityName = parentCommunityName;
       }
 
-      // Trigger rescraping for changed communities
-      if (changedCommunityNames.length > 0) {
-        setChangedSubcommunities(changedCommunityNames);
+      // Only scrape the NEW community that was just assigned
+      if (newCommunityName) {
+        setChangedSubcommunities([newCommunityName]);
         onOpenChange(false);
         setShowScrapingDialog(true);
       } else {
