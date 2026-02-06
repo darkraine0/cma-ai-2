@@ -141,8 +141,8 @@ export default function ManagePage() {
     );
   };
 
-  const fetchCommunities = async () => {
-    setLoading(true);
+  const fetchCommunities = async (options?: { silent?: boolean }) => {
+    if (!options?.silent) setLoading(true);
     setError("");
     try {
       const [communitiesRes, plansData] = await Promise.all([
@@ -165,7 +165,7 @@ export default function ManagePage() {
     } catch (err: any) {
       setError(err.message || "Unknown error");
     } finally {
-      setLoading(false);
+      if (!options?.silent) setLoading(false);
     }
   };
 
@@ -347,10 +347,10 @@ export default function ManagePage() {
         }
       }
 
-      // Refresh list once so the new company appears, then run scraping in background (no refresh when done)
+      // Refresh list once (silent – no full-page loader) so the new company appears, then run scraping in background
       const companyName = selectedCompanyForAdd.name;
       setSelectedCompanyForAdd(null);
-      await fetchCommunities();
+      await fetchCommunities({ silent: true });
       if (selectedCommunity?._id) {
         await fetchChildCommunities(selectedCommunity._id);
       }

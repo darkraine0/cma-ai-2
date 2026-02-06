@@ -164,7 +164,7 @@ export default function SelectCommunityNameModal({
               Cancel
             </Button>
           </DialogClose>
-          <Button onClick={handleContinue} disabled={loading}>
+          <Button type="button" onClick={handleContinue} disabled={loading}>
             Continue
           </Button>
         </DialogFooter>
