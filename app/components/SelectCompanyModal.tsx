@@ -15,7 +15,7 @@ import { Badge } from "./ui/badge";
 import { Plus, Search, Loader2 } from "lucide-react";
 import ErrorMessage from "./ErrorMessage";
 import AddCompanyModal from "./AddCompanyModal";
-import ScrapingDialog from "./ScrapingDialog";
+import { useScrapingProgress } from "../contexts/ScrapingProgressContext";
 import API_URL from '../config';
 import { getCompanyColor } from '../utils/colors';
 
@@ -55,8 +55,7 @@ export default function SelectCompanyModal({
   const [searchQuery, setSearchQuery] = useState("");
   const [addingCompanyId, setAddingCompanyId] = useState<string | null>(null);
   const [showAddCompanyModal, setShowAddCompanyModal] = useState(false);
-  const [showScrapingDialog, setShowScrapingDialog] = useState(false);
-  const [scrapingCompanyName, setScrapingCompanyName] = useState<string>("");
+  const { startBackgroundScraping } = useScrapingProgress();
 
   // Use controlled mode if provided, otherwise use internal state
   const isControlled = controlledOpen !== undefined;
@@ -150,11 +149,16 @@ export default function SelectCompanyModal({
         throw new Error(errorMessage);
       }
 
-      // Company added successfully, now trigger scraping
+      // Refresh list once so the new company appears, then run scraping in background (no refresh when done)
+      if (onSuccess) onSuccess();
       setOpen(false);
       setSearchQuery("");
-      setScrapingCompanyName(company.name);
-      setShowScrapingDialog(true);
+      if (communityName) {
+        startBackgroundScraping({
+          companyName: company.name,
+          communityName,
+        });
+      }
     } catch (err: any) {
       setError(err.message || "Unknown error");
     } finally {
@@ -332,26 +336,6 @@ export default function SelectCompanyModal({
           <div style={{ display: "none" }} />
         }
       />
-
-      {/* Scraping Dialog */}
-      {communityName && (
-        <ScrapingDialog
-          open={showScrapingDialog}
-          onOpenChange={(open) => {
-            setShowScrapingDialog(open);
-            if (!open && onSuccess) {
-              onSuccess();
-            }
-          }}
-          companyName={scrapingCompanyName}
-          communityName={communityName}
-          onComplete={() => {
-            if (onSuccess) {
-              onSuccess();
-            }
-          }}
-        />
-      )}
     </>
   );
 }

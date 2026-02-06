@@ -14,7 +14,7 @@ import SelectCommunityNameModal from "../components/SelectCommunityNameModal";
 import PendingApprovalBanner from "../components/PendingApprovalBanner";
 import CompanySubcommunityBadges from "../components/CompanySubcommunityBadges";
 import ManageSubcommunitiesModal from "../components/ManageSubcommunitiesModal";
-import ScrapingDialog from "../components/ScrapingDialog";
+import { useScrapingProgress } from "../contexts/ScrapingProgressContext";
 import { Plus, X, Trash2, Loader2, Search } from "lucide-react";
 import API_URL from '../config';
 import { getCompanyColor } from '../utils/colors';
@@ -87,11 +87,7 @@ export default function ManagePage() {
     id: string;
     name: string;
   } | null>(null);
-  const [showScrapingDialog, setShowScrapingDialog] = useState(false);
-  const [scrapingTarget, setScrapingTarget] = useState<{
-    companyName: string;
-    communityName: string;
-  } | null>(null);
+  const { startBackgroundScraping } = useScrapingProgress();
   
   const hasFetched = useRef(false);
 
@@ -351,30 +347,19 @@ export default function ManagePage() {
         }
       }
 
-      // 3. Trigger scraping ONLY ONCE for the selected community name
-      // This ensures we scrape with the correct name for this company
-      setScrapingTarget({
-        companyName: selectedCompanyForAdd.name,
-        communityName: communityName, // Use the selected name (parent or sub)
-      });
+      // Refresh list once so the new company appears, then run scraping in background (no refresh when done)
+      const companyName = selectedCompanyForAdd.name;
       setSelectedCompanyForAdd(null);
-      setShowScrapingDialog(true);
+      await fetchCommunities();
+      if (selectedCommunity?._id) {
+        await fetchChildCommunities(selectedCommunity._id);
+      }
+      setError("");
+      startBackgroundScraping({ companyName, communityName });
     } catch (err: any) {
       setError(err.message || "Failed to add company");
       setSelectedCompanyForAdd(null);
     }
-  };
-
-  const handleScrapingComplete = async () => {
-    setShowScrapingDialog(false);
-    setScrapingTarget(null);
-    
-    // Refresh data after scraping
-    await fetchCommunities();
-    if (selectedCommunity?._id) {
-      await fetchChildCommunities(selectedCommunity._id);
-    }
-    setError("");
   };
 
   const fetchUser = async () => {
@@ -872,17 +857,6 @@ export default function ManagePage() {
           parentCommunityName={selectedCommunity.name}
           companyName={selectedCompanyForAdd.name}
           onSelect={handleCommunityNameSelected}
-        />
-      )}
-
-      {/* Scraping Dialog */}
-      {scrapingTarget && (
-        <ScrapingDialog
-          open={showScrapingDialog}
-          onOpenChange={setShowScrapingDialog}
-          companyName={scrapingTarget.companyName}
-          communityName={scrapingTarget.communityName}
-          onComplete={handleScrapingComplete}
         />
       )}
 

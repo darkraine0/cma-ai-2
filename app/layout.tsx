@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "./components/theme-provider";
+import { ScrapingProgressProvider } from "./contexts/ScrapingProgressContext";
 import Navbar from "./components/Navbar";
 import AuthGuard from "./components/AuthGuard";
 import { Toaster } from "./components/ui/toaster";
@@ -38,8 +39,10 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthGuard>
-            <Navbar />
-            {children}
+            <ScrapingProgressProvider>
+              <Navbar />
+              {children}
+            </ScrapingProgressProvider>
           </AuthGuard>
           <Toaster />
         </ThemeProvider>

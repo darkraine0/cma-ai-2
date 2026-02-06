@@ -15,7 +15,7 @@ import { Badge } from "./ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import { Plus, Loader2, Sparkles, Search } from "lucide-react";
 import ErrorMessage from "./ErrorMessage";
-import ScrapingDialog from "./ScrapingDialog";
+import { useScrapingProgress } from "../contexts/ScrapingProgressContext";
 import API_URL from '../config';
 
 interface AddCompanyModalProps {
@@ -60,8 +60,7 @@ export default function AddCompanyModal({ onSuccess, trigger, autoAddToCommunity
   const [selectedCompany, setSelectedCompany] = useState<CompanyRecommendation | null>(null);
   const [showRecommendations, setShowRecommendations] = useState(false);
   const [activeTab, setActiveTab] = useState("ai");
-  const [showScrapingDialog, setShowScrapingDialog] = useState(false);
-  const [scrapingCompanyName, setScrapingCompanyName] = useState<string>("");
+  const { startBackgroundScraping } = useScrapingProgress();
 
   const resetForm = () => {
     setName("");
@@ -75,8 +74,6 @@ export default function AddCompanyModal({ onSuccess, trigger, autoAddToCommunity
     setSelectedCompany(null);
     setShowRecommendations(false);
     setActiveTab("ai");
-    setShowScrapingDialog(false);
-    setScrapingCompanyName("");
   };
 
   const handleClose = () => {
@@ -169,12 +166,15 @@ export default function AddCompanyModal({ onSuccess, trigger, autoAddToCommunity
             console.warn("Failed to add company to community:", addError);
             // Don't throw - company was created successfully, just failed to add to community
           } else {
-            // Company was successfully added to community, trigger scraping
+            // Refresh parent once so new company appears, then run scraping in background (no refresh when done)
             if (autoAddToCommunity) {
-              setScrapingCompanyName(data.name);
-              setShowScrapingDialog(true);
               handleClose();
-              return; // Don't call onSuccess yet, wait for scraping to complete
+              if (onSuccess) onSuccess(data.name);
+              startBackgroundScraping({
+                companyName: data.name,
+                communityName: autoAddToCommunity,
+              });
+              return;
             }
           }
         } catch (addError) {
@@ -618,26 +618,6 @@ export default function AddCompanyModal({ onSuccess, trigger, autoAddToCommunity
           )}
         </div>
       </DialogContent>
-
-      {/* Scraping Dialog - only show when auto-adding to community */}
-      {autoAddToCommunity && scrapingCompanyName && (
-        <ScrapingDialog
-          open={showScrapingDialog}
-          onOpenChange={(open) => {
-            setShowScrapingDialog(open);
-            if (!open && onSuccess) {
-              onSuccess(scrapingCompanyName);
-            }
-          }}
-          companyName={scrapingCompanyName}
-          communityName={autoAddToCommunity}
-          onComplete={() => {
-            if (onSuccess) {
-              onSuccess(scrapingCompanyName);
-            }
-          }}
-        />
-      )}
     </Dialog>
   );
 }

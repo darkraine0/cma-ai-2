@@ -13,7 +13,7 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Loader2 } from "lucide-react";
 import ErrorMessage from "./ErrorMessage";
-import ScrapingDialog from "./ScrapingDialog";
+import { useScrapingProgress } from "../contexts/ScrapingProgressContext";
 import API_URL from '../config';
 
 interface Subcommunity {
@@ -48,8 +48,7 @@ export default function ManageSubcommunitiesModal({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [showScrapingDialog, setShowScrapingDialog] = useState(false);
-  const [changedSubcommunities, setChangedSubcommunities] = useState<string[]>([]);
+  const { startBackgroundScraping } = useScrapingProgress();
 
   // Fetch available subcommunities when modal opens
   useEffect(() => {
@@ -144,11 +143,15 @@ export default function ManageSubcommunitiesModal({
         newCommunityName = parentCommunityName;
       }
 
-      // Only scrape the NEW community that was just assigned
+      // Refresh parent once, then run scraping in background (no refresh when done)
       if (newCommunityName) {
-        setChangedSubcommunities([newCommunityName]);
         onOpenChange(false);
-        setShowScrapingDialog(true);
+        if (onSuccess) onSuccess();
+        startBackgroundScraping({
+          companyName,
+          communityName: parentCommunityName,
+          subcommunities: [newCommunityName],
+        });
       } else {
         onOpenChange(false);
         if (onSuccess) onSuccess();
@@ -284,23 +287,6 @@ export default function ManageSubcommunitiesModal({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Scraping Dialog - shows after successful save if there were changes */}
-      <ScrapingDialog
-        open={showScrapingDialog}
-        onOpenChange={(open) => {
-          setShowScrapingDialog(open);
-          if (!open && onSuccess) {
-            onSuccess();
-          }
-        }}
-        companyName={companyName}
-        communityName={parentCommunityName}
-        subcommunities={changedSubcommunities}
-        onComplete={() => {
-          if (onSuccess) onSuccess();
-        }}
-      />
     </>
   );
 }
