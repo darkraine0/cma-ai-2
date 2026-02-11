@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import mongoose from 'mongoose';
 import connectDB from '@/app/lib/mongodb';
 import Plan from '@/app/models/Plan';
 import PriceHistory from '@/app/models/PriceHistory';
 import Company from '@/app/models/Company';
 import Community from '@/app/models/Community';
+import ProductSegment from '@/app/models/ProductSegment';
+import { identifyForScrape } from '@/app/lib/identify';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -37,12 +40,16 @@ async function scrapePlansForType(
   company: string,
   community: string,
   type: 'now' | 'plan',
-  openai: OpenAI
+  openai: OpenAI,
+  segmentRef?: { _id: mongoose.Types.ObjectId; name: string; label: string },
+  /** If set, use this in the AI prompt instead of `community` (e.g. company-specific alias). */
+  communityNameForPrompt?: string
 ): Promise<ScrapeResult> {
   // Use AI web search for all requests
   const typeDescription = type === 'now' ? 'quick move-ins' : 'floor plans';
-  
-  const prompt = `Web search for getting the list of the ${typeDescription} from ${company}, for ${community} community. Give me that as the json structure of list. Give me most current and kind of accurate list of it.
+  const communityInPrompt = communityNameForPrompt?.trim() || community;
+
+  const prompt = `Web search for getting the list of the ${typeDescription} from ${company}, for ${communityInPrompt} community. Give me that as the json structure of list. Give me most current and kind of accurate list of it.
 
 Return a JSON object with a "plans" array. Each plan object should have:
 - plan_name (string, required): The name/model of the plan or address for quick move-ins
@@ -178,13 +185,22 @@ Return ONLY valid JSON, no additional text.`;
         location: communityDoc.location,
       };
 
-      // Find existing plan using embedded structure
-      const existingPlan = await Plan.findOne({
+      // Find existing plan using embedded structure (scoped by segment if provided)
+      const planQuery: any = {
         plan_name: planData.plan_name,
         'company.name': company.trim(),
         'community.name': community.trim(),
         type: type,
-      });
+      };
+
+      if (segmentRef) {
+        planQuery['segment._id'] = segmentRef._id;
+      } else {
+        // Plans without segment should not accidentally collide with segmented ones
+        planQuery['segment._id'] = { $exists: false };
+      }
+
+      const existingPlan = await Plan.findOne(planQuery);
 
       if (existingPlan) {
         // Check if price changed
@@ -216,6 +232,13 @@ Return ONLY valid JSON, no additional text.`;
         // Update embedded references in case company/community metadata changed
         existingPlan.company = companyRef;
         existingPlan.community = communityRef;
+        if (segmentRef) {
+          existingPlan.segment = {
+            _id: segmentRef._id,
+            name: segmentRef.name,
+            label: segmentRef.label,
+          } as any;
+        }
 
         await existingPlan.save();
         savedPlans.push(existingPlan);
@@ -229,6 +252,13 @@ Return ONLY valid JSON, no additional text.`;
           price_per_sqft: price_per_sqft,
           company: companyRef,
           community: communityRef,
+          segment: segmentRef
+            ? {
+                _id: segmentRef._id,
+                name: segmentRef.name,
+                label: segmentRef.label,
+              }
+            : undefined,
           type: type,
           beds: planData.beds?.toString(),
           baths: planData.baths?.toString(),
@@ -263,7 +293,7 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
     const body = await request.json();
-    const { company, community } = body;
+    const { company, community, segmentId } = body;
 
     if (!company || !community) {
       return NextResponse.json(
@@ -272,10 +302,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Resolve alias: name this company uses for this community (for AI prompt)
+    const resolved = await identifyForScrape({
+      companyName: company,
+      communityName: community,
+      segmentId,
+    });
+    const companyForDb = resolved?.companyName ?? company.trim();
+    const communityForDb = resolved?.communityName ?? community.trim();
+    const communityNameForPrompt = resolved?.communityNameForScrape || communityForDb;
+
+    // Optional: resolve product segment (lot-size line) if provided
+    let segmentRef:
+      | { _id: mongoose.Types.ObjectId; name: string; label: string }
+      | undefined;
+
+    if (segmentId && mongoose.Types.ObjectId.isValid(segmentId)) {
+      const segmentDoc = await ProductSegment.findById(segmentId);
+      if (segmentDoc) {
+        segmentRef = {
+          _id: segmentDoc._id,
+          name: segmentDoc.name,
+          label: segmentDoc.label,
+        };
+      }
+    }
+
     // Get data for both types in parallel (static or AI-powered)
     const [nowResults, planResults] = await Promise.allSettled([
-      scrapePlansForType(company, community, 'now', openai),
-      scrapePlansForType(company, community, 'plan', openai),
+      scrapePlansForType(companyForDb, communityForDb, 'now', openai, segmentRef, communityNameForPrompt),
+      scrapePlansForType(companyForDb, communityForDb, 'plan', openai, segmentRef, communityNameForPrompt),
     ]);
 
     // Combine results

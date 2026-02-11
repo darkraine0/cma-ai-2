@@ -14,6 +14,7 @@ import SelectCommunityNameModal from "../components/SelectCommunityNameModal";
 import PendingApprovalBanner from "../components/PendingApprovalBanner";
 import CompanySubcommunityBadges from "../components/CompanySubcommunityBadges";
 import ManageSubcommunitiesModal from "../components/ManageSubcommunitiesModal";
+import ProductLinesCard from "../components/ProductLinesCard";
 import { useScrapingProgress } from "../contexts/ScrapingProgressContext";
 import { Plus, X, Trash2, Loader2, Search } from "lucide-react";
 import API_URL from '../config';
@@ -53,6 +54,34 @@ interface Community {
   parentCommunityId?: string | { _id: string; name: string } | null;
 }
 
+interface ProductSegment {
+  _id: string;
+  communityId: string;
+  communityName?: string;
+  name: string;
+  label: string;
+  description?: string | null;
+  isActive: boolean;
+  displayOrder?: number;
+}
+
+interface SegmentCompanyRow {
+  _id: string;
+  segmentId: string;
+  segmentName?: string;
+  segmentLabel?: string;
+  communityId?: string;
+  companyId: string;
+  companyName: string;
+  role: 'primary' | 'competitor' | 'cross_community_comp';
+  sourceCommunityId?: string | null;
+  sourceCommunityName?: string | null;
+  notes?: string | null;
+  keyType: 'Plan_Names' | 'Series_Name';
+  values: string[];
+  planNames: string[];
+}
+
 export default function ManagePage() {
   const router = useRouter();
   const [communities, setCommunities] = useState<Community[]>([]);
@@ -71,6 +100,9 @@ export default function ManagePage() {
   const [deletingAll, setDeletingAll] = useState(false);
   const [childCommunities, setChildCommunities] = useState<Community[]>([]);
   const [loadingSubcommunities, setLoadingSubcommunities] = useState(false);
+  const [segments, setSegments] = useState<ProductSegment[]>([]);
+  const [segmentCompanies, setSegmentCompanies] = useState<SegmentCompanyRow[]>([]);
+  const [loadingSegments, setLoadingSegments] = useState(false);
   
   // Manage subcommunities modal states
   const [manageSubcommunitiesOpen, setManageSubcommunitiesOpen] = useState(false);
@@ -223,6 +255,43 @@ export default function ManagePage() {
     }
   }, []);
 
+  const loadSegments = React.useCallback(async () => {
+    if (!selectedCommunity?._id) {
+      setSegments([]);
+      setSegmentCompanies([]);
+      setLoadingSegments(false);
+      return;
+    }
+    try {
+      setLoadingSegments(true);
+      const [segmentsRes, segCompaniesRes] = await Promise.all([
+        fetch(`${API_URL}/product-segments?communityId=${selectedCommunity._id}`),
+        fetch(`${API_URL}/segment-companies?communityId=${selectedCommunity._id}`),
+      ]);
+      if (segmentsRes.ok) {
+        const segs = await segmentsRes.json();
+        setSegments(segs || []);
+      } else {
+        setSegments([]);
+      }
+      if (segCompaniesRes.ok) {
+        const rows = await segCompaniesRes.json();
+        setSegmentCompanies(rows || []);
+      } else {
+        setSegmentCompanies([]);
+      }
+    } catch {
+      setSegments([]);
+      setSegmentCompanies([]);
+    } finally {
+      setLoadingSegments(false);
+    }
+  }, [selectedCommunity?._id]);
+
+  useEffect(() => {
+    loadSegments();
+  }, [loadSegments]);
+
   // Fetch subcommunities when a community is selected (so we can show them in the detail card)
   useEffect(() => {
     if (!selectedCommunity?._id) {
@@ -306,7 +375,7 @@ export default function ManagePage() {
       // Add company to communities without triggering any automatic scraping
       // We'll handle scraping manually once at the end
       
-      // 1. Always add company to parent community first
+      // 1. Always add company to parent community first (store alias: name this company uses)
       const parentRes = await fetch(
         `${API_URL}/communities/${selectedCommunity._id}/companies`,
         {
@@ -314,19 +383,34 @@ export default function ManagePage() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ companyId: selectedCompanyForAdd.id }),
+          body: JSON.stringify({
+            companyId: selectedCompanyForAdd.id,
+            nameUsedByCompany: communityName,
+          }),
         }
       );
 
-      // Don't fail if company already exists in parent
+      // Don't fail if company already exists in parent; still update alias if we have a selected name
       if (!parentRes.ok) {
         const data = await parentRes.json();
         if (!data.error?.includes("already in this community")) {
           throw new Error(data.error || "Failed to add company to parent community");
         }
+        // Company already in parent: update alias so scrape uses the selected name
+        await fetch(
+          `${API_URL}/communities/${selectedCommunity._id}/companies`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              companyId: selectedCompanyForAdd.id,
+              nameUsedByCompany: communityName,
+            }),
+          }
+        );
       }
 
-      // 2. If a subcommunity was selected, also add to that subcommunity
+      // 2. If a subcommunity was selected, also add to that subcommunity (with same alias for that community)
       if (isSubcommunity) {
         const subRes = await fetch(
           `${API_URL}/communities/${communityId}/companies`,
@@ -335,7 +419,10 @@ export default function ManagePage() {
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ companyId: selectedCompanyForAdd.id }),
+            body: JSON.stringify({
+              companyId: selectedCompanyForAdd.id,
+              nameUsedByCompany: communityName,
+            }),
           }
         );
 
@@ -830,6 +917,20 @@ export default function ManagePage() {
                       )}
                     </CardContent>
                   </Card>
+
+                  {selectedCommunity._id && (
+                    <ProductLinesCard
+                      communityId={selectedCommunity._id}
+                      communityName={selectedCommunity.name}
+                      segments={segments}
+                      segmentCompanies={segmentCompanies}
+                      companies={companies}
+                      communities={filteredCommunities.map((c) => ({ _id: c._id ?? undefined, name: c.name }))}
+                      loading={loadingSegments}
+                      onRefetch={loadSegments}
+                      isEditor={!!isEditor}
+                    />
+                  )}
                   </>
                 )}
               </div>

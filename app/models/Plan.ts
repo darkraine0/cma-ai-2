@@ -13,6 +13,13 @@ interface ICommunityReference {
   location?: string;
 }
 
+// Embedded product segment reference (lot-size / line inside a community)
+interface IProductSegmentReference {
+  _id: Types.ObjectId;
+  name: string;   // internal segment name, e.g. "elevon_40s"
+  label: string;  // display label, e.g. "40' Lots"
+}
+
 export interface IPlan extends Document {
   plan_name: string;
   price: number;
@@ -22,6 +29,7 @@ export interface IPlan extends Document {
   last_updated: Date;
   company: ICompanyReference;
   community: ICommunityReference;
+  segment?: IProductSegmentReference;  // Optional: product line / lot-size segment
   type: 'plan' | 'now';
   beds?: string;
   baths?: string;
@@ -61,6 +69,24 @@ const CommunityReferenceSchema = new Schema<ICommunityReference>({
   },
 }, { _id: false });
 
+const ProductSegmentReferenceSchema = new Schema<IProductSegmentReference>({
+  _id: {
+    type: Schema.Types.ObjectId,
+    ref: 'ProductSegment',
+    required: true,
+  },
+  name: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  label: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+}, { _id: false });
+
 const PlanSchema = new Schema<IPlan>(
   {
     plan_name: {
@@ -92,6 +118,10 @@ const PlanSchema = new Schema<IPlan>(
     community: {
       type: CommunityReferenceSchema,
       required: true,
+    },
+    segment: {
+      type: ProductSegmentReferenceSchema,
+      required: false,
     },
     type: {
       type: String,
@@ -133,14 +163,19 @@ const PlanSchema = new Schema<IPlan>(
 
 // Indexes for efficient queries
 PlanSchema.index({ 'company._id': 1, 'community._id': 1, type: 1 });
+PlanSchema.index({ 'segment._id': 1, type: 1 });
+PlanSchema.index({ 'community._id': 1, 'segment._id': 1, type: 1 });
 PlanSchema.index({ 'company.name': 1, type: 1 });
 PlanSchema.index({ 'community.name': 1, type: 1 });
 PlanSchema.index({ 'community._id': 1, type: 1 });
 PlanSchema.index({ price: 1 });
 PlanSchema.index({ last_updated: -1 });
 
-// Compound index for uniqueness (using embedded names)
-PlanSchema.index({ plan_name: 1, 'company.name': 1, 'community.name': 1, type: 1 }, { unique: true });
+// Compound index for uniqueness (using embedded names + segment where present)
+PlanSchema.index(
+  { plan_name: 1, 'company.name': 1, 'community.name': 1, 'segment.name': 1, type: 1 },
+  { unique: true }
+);
 
 export default mongoose.models.Plan || mongoose.model<IPlan>('Plan', PlanSchema);
 
