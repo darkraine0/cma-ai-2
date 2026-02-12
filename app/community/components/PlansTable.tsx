@@ -56,6 +56,7 @@ export default function PlansTable({
             <TableHead>$/Sq Ft</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>Company</TableHead>
+            <TableHead>Product Line</TableHead>
             <TableHead className="cursor-pointer" onClick={() => onSort("last_updated")}>
               Last Updated
             </TableHead>
@@ -96,6 +97,9 @@ export default function PlansTable({
                     style={{ backgroundColor: color, borderColor: color }}
                   />
                   {planCompany}
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {plan.segment?.label ?? plan.segment?.name ?? "—"}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {new Date(plan.last_updated).toLocaleString()}

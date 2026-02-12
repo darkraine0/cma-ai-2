@@ -22,6 +22,7 @@ import { Plan } from "../types";
 import { extractCompanyName } from "../utils/companyHelpers";
 import { ProductLineOption } from "../hooks/usePlansFilter";
 import API_URL from "../../config";
+import { cn } from "../../utils/utils";
 
 function getCommunityName(community: string | { _id: string; name: string } | undefined): string {
   if (typeof community === "string") return community;
@@ -224,7 +225,11 @@ export default function EditPlanDialog({
                 <label htmlFor="segment" className="block text-sm font-medium mb-1">Product line</label>
                 <Select value={segmentId} onValueChange={setSegmentId}>
                   <SelectTrigger id="segment">
-                    <SelectValue placeholder="Product line" />
+                    <span className={cn(!segmentId || segmentId === "__none__" ? "text-muted-foreground" : "")}>
+                      {segmentId === "__none__" || !segmentId
+                        ? "Product line"
+                        : productLines.find((p) => p._id === segmentId)?.label ?? segmentId}
+                    </span>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">None</SelectItem>
