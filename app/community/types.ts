@@ -1,4 +1,11 @@
+export interface PlanSegment {
+  _id: string;
+  name: string;
+  label: string;
+}
+
 export interface Plan {
+  _id?: string;
   plan_name: string;
   price: number;
   sqft: number;
@@ -6,8 +13,9 @@ export interface Plan {
   price_per_sqft: number;
   last_updated: string;
   price_changed_recently: boolean;
-  company: string;
-  community: string;
+  company: string | { _id: string; name: string };
+  community: string | { _id: string; name: string };
+  segment?: PlanSegment | null;
   type: string;
   address?: string;
 }

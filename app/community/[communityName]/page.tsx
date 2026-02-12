@@ -34,9 +34,31 @@ export default function CommunityDetail() {
   const [selectedSubcommunity, setSelectedSubcommunity] = useState<Community | null>(null);
   const [subcommunityPlans, setSubcommunityPlans] = useState<Plan[]>([]);
   const [subcommunityPlansLoading, setSubcommunityPlansLoading] = useState(false);
+  const [productLines, setProductLines] = useState<{ _id: string; name: string; label: string }[]>([]);
 
   // Fetch community, plans, and child communities
   const { community, plans, childCommunities, loading, error, refetch } = useCommunityData(communitySlug);
+
+  // Fetch product lines (segments) for the current display community
+  const displayCommunityId = selectedSubcommunity?._id ?? community?._id;
+  React.useEffect(() => {
+    if (!displayCommunityId) {
+      setProductLines([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`${API_URL}/product-segments?communityId=${displayCommunityId}`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: { _id: string; name: string; label: string }[]) => {
+        if (!cancelled) setProductLines(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setProductLines([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [displayCommunityId]);
 
   // When a subcommunity is selected, fetch its plans (no route change)
   React.useEffect(() => {
@@ -88,12 +110,14 @@ export default function CommunityDetail() {
     setSelectedCompany,
     selectedType,
     setSelectedType,
+    selectedProductLineId,
+    setSelectedProductLineId,
     page,
     setPage,
     paginatedPlans,
     totalPages,
     handleSort,
-  } = usePlansFilter(displayPlans, companyNamesSet);
+  } = usePlansFilter(displayPlans, companyNamesSet, productLines);
 
   // Handle sync/re-scrape (use current display community)
   const handleSync = async () => {
@@ -181,17 +205,22 @@ export default function CommunityDetail() {
     }
   };
 
-  // Handle CSV export (use display plans)
+  // Handle CSV export (use display plans, respect product line filter)
   const handleExportCSV = () => {
     const filteredPlans = displayPlans.filter((plan) => {
       const planCompany = extractCompanyName(plan.company);
-      
+      const planSegmentId = plan.segment?._id ?? null;
+      const matchProductLine =
+        selectedProductLineId === '__all__' ||
+        (selectedProductLineId === '__none__' && !planSegmentId) ||
+        planSegmentId === selectedProductLineId;
       return (
         companyNamesSet.has(planCompany) &&
         (selectedCompany === 'All' || planCompany === selectedCompany) &&
-        (selectedType === 'Plan' || selectedType === 'Now' 
-          ? plan.type === selectedType.toLowerCase() 
-          : true)
+        (selectedType === 'Plan' || selectedType === 'Now'
+          ? plan.type === selectedType.toLowerCase()
+          : true) &&
+        matchProductLine
       );
     });
 
@@ -216,6 +245,9 @@ export default function CommunityDetail() {
               childCommunities={childCommunities}
               selectedSubcommunity={selectedSubcommunity}
               onSubcommunityChange={setSelectedSubcommunity}
+              productLines={productLines}
+              selectedProductLineId={selectedProductLineId}
+              onProductLineChange={setSelectedProductLineId}
               selectedType={selectedType}
               onTypeChange={setSelectedType}
               sortKey={sortKey}
@@ -280,6 +312,14 @@ export default function CommunityDetail() {
                       totalPages={totalPages}
                       onPageChange={setPage}
                       onSort={handleSort}
+                      productLines={productLines}
+                      onPlanUpdated={async () => {
+                        await refetch();
+                        if (selectedSubcommunity?._id) {
+                          const res = await fetch(`${API_URL}/communities/${selectedSubcommunity._id}/plans`);
+                          if (res.ok) setSubcommunityPlans(await res.json());
+                        }
+                      }}
                     />
                   )}
                 </div>

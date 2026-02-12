@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
 
     // Map to response format - maintain backward compatibility with string format
     const result = plans.map((plan) => ({
+      _id: plan._id.toString(),
       plan_name: plan.plan_name,
       price: plan.price,
       sqft: plan.sqft || null,
@@ -65,6 +66,7 @@ export async function GET(request: NextRequest) {
       companyObj: plan.company,
       community: plan.community?.name || plan.community,
       communityObj: plan.community,
+      segment: plan.segment ? { _id: plan.segment._id.toString(), name: plan.segment.name, label: plan.segment.label } : null,
       type: plan.type,
       address: plan.address || null,
       price_changed_recently: changedPlanIds.has(plan._id.toString()),

@@ -6,6 +6,7 @@ import { getCommunityImage } from "../../utils/communityImages";
 import { cn } from "../../utils/utils";
 import { SortKey, SortOrder } from "../types";
 import { Community } from "../types";
+import { ProductLineOption } from "../hooks/usePlansFilter";
 import { RefreshCw } from "lucide-react";
 
 interface CommunityHeaderProps {
@@ -18,6 +19,10 @@ interface CommunityHeaderProps {
   selectedSubcommunity?: Community | null;
   /** Called when user selects a subcommunity from dropdown; pass null for "All" */
   onSubcommunityChange?: (community: Community | null) => void;
+  /** Product lines (segments) for this community */
+  productLines?: ProductLineOption[];
+  selectedProductLineId?: string;
+  onProductLineChange?: (id: string) => void;
   selectedType: string;
   onTypeChange: (type: string) => void;
   sortKey: SortKey;
@@ -36,6 +41,9 @@ export default function CommunityHeader({
   childCommunities = [],
   selectedSubcommunity = null,
   onSubcommunityChange,
+  productLines = [],
+  selectedProductLineId = "__all__",
+  onProductLineChange,
   selectedType,
   onTypeChange,
   sortKey,
@@ -123,11 +131,44 @@ export default function CommunityHeader({
           </div>
         </div>
 
-        {/* Bottom Row: Type Tabs and Sort Controls */}
+        {/* Bottom Row: Type Tabs + Product line, and Sort Controls */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
-          {/* Type Tabs */}
-          <div className="flex justify-start">
+          {/* Type Tabs + Product line (next to Plan button) */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <TypeTabs selected={selectedType} onSelect={onTypeChange} />
+            {productLines.length > 0 && onProductLineChange && (
+              <div className="inline-flex items-center gap-1 bg-white/10 backdrop-blur-sm rounded-lg p-1">
+                <button
+                  type="button"
+                  onClick={() => onProductLineChange("__all__")}
+                  className={cn(
+                    "px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md border transition-all duration-200",
+                    "border-white/20",
+                    selectedProductLineId === "__all__"
+                      ? "bg-white/20 text-white shadow-sm backdrop-blur-sm"
+                      : "text-white/70 hover:text-white hover:bg-white/5"
+                  )}
+                >
+                  All
+                </button>
+                {productLines.map((seg) => (
+                  <button
+                    key={seg._id}
+                    type="button"
+                    onClick={() => onProductLineChange(seg._id)}
+                    className={cn(
+                      "px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md border transition-all duration-200",
+                      "border-white/20",
+                      selectedProductLineId === seg._id
+                        ? "bg-white/20 text-white shadow-sm backdrop-blur-sm"
+                        : "text-white/70 hover:text-white hover:bg-white/5"
+                    )}
+                  >
+                    {seg.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Sort Controls */}

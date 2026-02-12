@@ -2,6 +2,12 @@ import { useState, useEffect, useMemo } from "react";
 import { Plan, SortKey, SortOrder, PAGE_SIZE } from "../types";
 import { extractCompanyName } from "../utils/companyHelpers";
 
+export interface ProductLineOption {
+  _id: string;
+  name: string;
+  label: string;
+}
+
 interface UsePlansFilterReturn {
   sortKey: SortKey;
   setSortKey: (key: SortKey) => void;
@@ -11,6 +17,8 @@ interface UsePlansFilterReturn {
   setSelectedCompany: (company: string) => void;
   selectedType: string;
   setSelectedType: (type: string) => void;
+  selectedProductLineId: string;
+  setSelectedProductLineId: (id: string) => void;
   page: number;
   setPage: (page: number) => void;
   paginatedPlans: Plan[];
@@ -20,34 +28,42 @@ interface UsePlansFilterReturn {
 
 export function usePlansFilter(
   plans: Plan[],
-  companyNames: Set<string>
+  companyNames: Set<string>,
+  productLines: ProductLineOption[] = []
 ): UsePlansFilterReturn {
   const [sortKey, setSortKey] = useState<SortKey>("price");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [selectedCompany, setSelectedCompany] = useState<string>('All');
   const [selectedType, setSelectedType] = useState<string>('Now');
+  const [selectedProductLineId, setSelectedProductLineId] = useState<string>('__all__');
   const [page, setPage] = useState(1);
 
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [sortKey, sortOrder, selectedCompany, selectedType]);
+  }, [sortKey, sortOrder, selectedCompany, selectedType, selectedProductLineId]);
 
   // Filter plans
   const filteredPlans = useMemo(() => {
     return plans.filter((plan) => {
       const planCompany = extractCompanyName(plan.company);
       const isCompanyInCommunity = companyNames.has(planCompany);
+      const planSegmentId = plan.segment?._id ?? null;
+      const matchProductLine =
+        selectedProductLineId === '__all__' ||
+        (selectedProductLineId === '__none__' && !planSegmentId) ||
+        planSegmentId === selectedProductLineId;
 
       return (
         isCompanyInCommunity &&
         (selectedCompany === 'All' || planCompany === selectedCompany) &&
-        (selectedType === 'Plan' || selectedType === 'Now' 
-          ? plan.type === selectedType.toLowerCase() 
-          : true)
+        (selectedType === 'Plan' || selectedType === 'Now'
+          ? plan.type === selectedType.toLowerCase()
+          : true) &&
+        matchProductLine
       );
     });
-  }, [plans, companyNames, selectedCompany, selectedType]);
+  }, [plans, companyNames, selectedCompany, selectedType, selectedProductLineId]);
 
   // Sort plans
   const sortedPlans = useMemo(() => {
@@ -90,6 +106,8 @@ export function usePlansFilter(
     setSelectedCompany,
     selectedType,
     setSelectedType,
+    selectedProductLineId,
+    setSelectedProductLineId,
     page,
     setPage,
     paginatedPlans,
