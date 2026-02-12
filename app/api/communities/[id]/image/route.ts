@@ -16,13 +16,13 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid community ID' }, { status: 400 });
     }
 
-    const community = await Community.findById(communityId).select('imageData').lean();
-    if (!community?.imageData) {
+    const doc = await Community.findById(communityId).select('imageData').lean();
+    const community = Array.isArray(doc) ? null : doc;
+    const dataUrl = community?.imageData;
+    if (!dataUrl) {
       return NextResponse.json({ error: 'No image for this community' }, { status: 404 });
     }
-
-    const dataUrl = community.imageData as string;
-    const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+    const match = String(dataUrl).match(/^data:([^;]+);base64,(.+)$/);
     if (!match) {
       return NextResponse.json({ error: 'Invalid image data' }, { status: 400 });
     }
