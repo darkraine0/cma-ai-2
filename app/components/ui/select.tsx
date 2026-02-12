@@ -22,7 +22,7 @@ interface SelectContentProps {
   className?: string
 }
 
-interface SelectTriggerProps {
+interface SelectTriggerProps extends React.ComponentPropsWithoutRef<"button"> {
   children: React.ReactNode
   className?: string
 }
@@ -61,13 +61,14 @@ const Select = ({ value, onValueChange, children, className }: SelectProps) => {
 const SelectTrigger = React.forwardRef<
   HTMLButtonElement,
   SelectTriggerProps
->(({ children, className }, ref) => {
+>(({ children, className, ...rest }, ref) => {
   const { isOpen, setIsOpen, triggerRef } = React.useContext(SelectContext)
   
   return (
     <button
       ref={triggerRef}
       type="button"
+      {...rest}
       className={cn(
         "flex h-10 w-full items-center justify-between rounded-md border-2 border-border bg-card px-3 py-2 text-sm font-semibold ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 shadow-sm hover:bg-muted transition-all duration-200",
         className

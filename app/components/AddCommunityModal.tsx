@@ -14,7 +14,7 @@ import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
-import { Plus, Loader2, Sparkles, Check, Search } from "lucide-react";
+import { Plus, Loader2, Sparkles, Search, ImagePlus, X } from "lucide-react";
 import ErrorMessage from "./ErrorMessage";
 import API_URL from '../config';
 
@@ -43,6 +43,8 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
   const [selectedCommunity, setSelectedCommunity] = useState<CommunityRecommendation | null>(null);
   const [showRecommendations, setShowRecommendations] = useState(false);
   const [activeTab, setActiveTab] = useState("ai");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
   const resetForm = () => {
     setCommunityName("");
@@ -54,6 +56,28 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
     setSelectedCommunity(null);
     setShowRecommendations(false);
     setActiveTab("ai");
+    setImageFile(null);
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    setImagePreviewUrl(null);
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Please select an image file (e.g. JPG, PNG)");
+      return;
+    }
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    setImageFile(file);
+    setImagePreviewUrl(URL.createObjectURL(file));
+    setError("");
+  };
+
+  const clearImage = () => {
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    setImageFile(null);
+    setImagePreviewUrl(null);
   };
 
   const handleClose = () => {
@@ -81,6 +105,22 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
     setLoading(true);
     setError("");
     try {
+      let imagePath: string | undefined;
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append("image", imageFile);
+        formData.append("name", communityName.trim());
+        const uploadRes = await fetch(API_URL + "/communities/upload-image", {
+          method: "POST",
+          body: formData,
+        });
+        if (!uploadRes.ok) {
+          const errData = await uploadRes.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to upload image");
+        }
+        const { path: uploadedPath } = await uploadRes.json();
+        imagePath = uploadedPath;
+      }
       const res = await fetch(API_URL + "/communities", {
         method: "POST",
         headers: {
@@ -90,6 +130,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
           name: communityName.trim(),
           description: description.trim() || undefined,
           location: location.trim() || undefined,
+          imagePath: imagePath || undefined,
         }),
       });
 
@@ -442,6 +483,48 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
                   className="w-full px-3 py-2 rounded-md border-2 border-border bg-card text-card-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   disabled={loading || loadingAI}
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Image (Optional)
+                </label>
+                <div className="space-y-2">
+                  {imagePreviewUrl ? (
+                    <div className="relative inline-block">
+                      <img
+                        src={imagePreviewUrl}
+                        alt="Community preview"
+                        className="h-32 w-auto rounded-md border-2 border-border object-cover"
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="icon"
+                        className="absolute -top-2 -right-2 h-7 w-7 rounded-full"
+                        onClick={clearImage}
+                        disabled={loading || loadingAI}
+                        aria-label="Remove image"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <label key={imagePreviewUrl ?? "image-upload"} className="flex flex-col items-center justify-center w-full h-24 rounded-md border-2 border-dashed border-border bg-muted/50 hover:bg-muted transition-colors cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleImageChange}
+                        disabled={loading || loadingAI}
+                      />
+                      <ImagePlus className="h-8 w-8 text-muted-foreground mb-1" />
+                      <span className="text-sm text-muted-foreground">
+                        Add picture
+                      </span>
+                    </label>
+                  )}
+                </div>
               </div>
             </TabsContent>
           </Tabs>

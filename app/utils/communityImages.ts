@@ -30,11 +30,20 @@ const communityImageMap: Record<string, string> = {
 
 /**
  * Get the image path for a community
- * @param communityName - The name of the community (can be full name or slug/first word)
+ * @param communityName - The name of the community, or an object with name, _id, and optional hasImage
  * @returns The path to the community image, or a default placeholder if not found
  */
-export const getCommunityImage = (communityName: string | { name?: string } | any): string => {
-  // Handle different input types
+export const getCommunityImage = (communityName: string | { name?: string; _id?: string; hasImage?: boolean; imagePath?: string | null } | any): string => {
+  // If community has an uploaded file path (new flow), use it
+  if (communityName && typeof communityName === 'object' && communityName.imagePath) {
+    return communityName.imagePath;
+  }
+  // Legacy: image stored as base64, serve via API
+  if (communityName && typeof communityName === 'object' && communityName._id && communityName.hasImage) {
+    return `/api/communities/${communityName._id}/image`;
+  }
+
+  // Handle different input types for name-based lookup
   let name: string;
   if (typeof communityName === 'string') {
     name = communityName;

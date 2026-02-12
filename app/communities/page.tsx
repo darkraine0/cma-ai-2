@@ -36,6 +36,8 @@ interface Community {
   description?: string;
   location?: string;
   _id?: string | null;
+  hasImage?: boolean;
+  imagePath?: string | null;
   fromPlans?: boolean;
   parentCommunityId?: string | null;
   children?: Community[];
@@ -148,6 +150,8 @@ export default function CommunitiesPage() {
           description: comm.description,
           location: comm.location,
           _id: comm._id,
+          hasImage: comm.hasImage || false,
+          imagePath: comm.imagePath || null,
           fromPlans: comm.fromPlans || false,
           parentCommunityId: comm.parentCommunityId || null,
         };
@@ -234,7 +238,7 @@ export default function CommunitiesPage() {
         <div className="relative overflow-hidden h-48">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={getCommunityImage(community.name)}
+            src={getCommunityImage(community)}
             alt={community.name}
             className="w-full h-full object-cover"
           />

@@ -106,6 +106,8 @@ export async function GET(request: NextRequest) {
       name: community.name,
       description: community.description || null,
       location: community.location || null,
+      hasImage: !!(community.imagePath || community.imageData),
+      imagePath: community.imagePath || null,
       parentCommunityId: community.parentCommunityId 
         ? (typeof community.parentCommunityId === 'object' 
           ? { _id: community.parentCommunityId._id.toString(), name: community.parentCommunityId.name }
@@ -129,6 +131,8 @@ export async function GET(request: NextRequest) {
         name: child.name,
         description: child.description || null,
         location: child.location || null,
+        hasImage: !!(child.imagePath || child.imageData),
+        imagePath: child.imagePath || null,
         companies: (child.companies || [])
           .map((c: any) => {
             if (c && typeof c === 'object' && c._id && c.name) {
@@ -183,7 +187,7 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
     const body = await request.json();
-    const { name, description, location, parentCommunityId } = body;
+    const { name, description, location, parentCommunityId, imagePath } = body;
 
     if (!name) {
       return NextResponse.json(
@@ -216,6 +220,7 @@ export async function POST(request: NextRequest) {
       name: name.trim(),
       description,
       location,
+      imagePath: imagePath || undefined,
       companies: [],
       parentCommunityId: parentCommunityId || null,
     });
