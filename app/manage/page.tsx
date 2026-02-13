@@ -5,6 +5,14 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "../components/ui/dialog";
 import Loader from "../components/Loader";
 import ErrorMessage from "../components/ErrorMessage";
 import AddCommunityModal from "../components/AddCommunityModal";
@@ -81,6 +89,10 @@ export default function ManagePage() {
   const [deletingCommunityId, setDeletingCommunityId] = useState<string | null>(null);
   const [deletingSubcommunityId, setDeletingSubcommunityId] = useState<string | null>(null);
   const [deletingAll, setDeletingAll] = useState(false);
+  const [deleteSubcommunityConfirmOpen, setDeleteSubcommunityConfirmOpen] = useState(false);
+  const [subcommunityToDelete, setSubcommunityToDelete] = useState<Community | null>(null);
+  const [removeCompanyConfirmOpen, setRemoveCompanyConfirmOpen] = useState(false);
+  const [companyToRemove, setCompanyToRemove] = useState<{ community: Community; companyName: string } | null>(null);
   const [childCommunities, setChildCommunities] = useState<Community[]>([]);
   const [loadingSubcommunities, setLoadingSubcommunities] = useState(false);
   const [segments, setSegments] = useState<ProductSegment[]>([]);
@@ -436,14 +448,20 @@ export default function ManagePage() {
 
 
 
-  const handleRemoveCompanyFromCommunity = async (community: Community, companyName: string) => {
-    if (!window.confirm(`Remove ${companyName} from ${community.name}?`)) return;
+  const handleOpenRemoveCompanyConfirm = (community: Community, companyName: string) => {
+    setCompanyToRemove({ community, companyName });
+    setRemoveCompanyConfirmOpen(true);
+  };
+
+  const handleRemoveCompanyFromCommunity = async () => {
+    if (!companyToRemove) return;
 
     setError("");
+    setRemoveCompanyConfirmOpen(false);
     try {
-      const company = companies.find(c => c.name === companyName);
-      const queryParam = company ? `companyId=${company._id}` : `company=${encodeURIComponent(companyName)}`;
-      const identifier = community._id || encodeURIComponent(community.name);
+      const company = companies.find(c => c.name === companyToRemove.companyName);
+      const queryParam = company ? `companyId=${company._id}` : `company=${encodeURIComponent(companyToRemove.companyName)}`;
+      const identifier = companyToRemove.community._id || encodeURIComponent(companyToRemove.community.name);
       
       const res = await fetch(`${API_URL}/communities/${identifier}/companies?${queryParam}`, {
         method: "DELETE",
@@ -457,20 +475,28 @@ export default function ManagePage() {
       await fetchCommunities();
     } catch (err: any) {
       setError(err.message || "Unknown error");
+    } finally {
+      setCompanyToRemove(null);
     }
   };
 
-  const handleDeleteSubcommunity = async (child: Community) => {
+  const handleOpenDeleteSubcommunityConfirm = (child: Community) => {
     if (!child._id) {
       setError("Cannot delete this subcommunity.");
       return;
     }
-    if (!window.confirm(`Are you sure you want to delete "${child.name}"? This action cannot be undone.`)) return;
+    setSubcommunityToDelete(child);
+    setDeleteSubcommunityConfirmOpen(true);
+  };
 
-    setDeletingSubcommunityId(child._id);
+  const handleDeleteSubcommunity = async () => {
+    if (!subcommunityToDelete?._id) return;
+
+    setDeletingSubcommunityId(subcommunityToDelete._id);
+    setDeleteSubcommunityConfirmOpen(false);
     setError("");
     try {
-      const res = await fetch(`${API_URL}/communities?id=${child._id}`, { method: "DELETE" });
+      const res = await fetch(`${API_URL}/communities?id=${subcommunityToDelete._id}`, { method: "DELETE" });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || "Failed to delete subcommunity");
@@ -481,6 +507,7 @@ export default function ManagePage() {
       setError(err.message || "Unknown error");
     } finally {
       setDeletingSubcommunityId(null);
+      setSubcommunityToDelete(null);
     }
   };
 
@@ -759,7 +786,7 @@ export default function ManagePage() {
                                       <Button
                                         variant="ghost"
                                         size="icon"
-                                        onClick={() => handleRemoveCompanyFromCommunity(selectedCommunity, companyName)}
+                                        onClick={() => handleOpenRemoveCompanyConfirm(selectedCommunity, companyName)}
                                         className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
                                       >
                                         <X className="h-3.5 w-3.5" />
@@ -848,7 +875,7 @@ export default function ManagePage() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    onClick={() => handleDeleteSubcommunity(child)}
+                                    onClick={() => handleOpenDeleteSubcommunityConfirm(child)}
                                     disabled={deletingSubcommunityId === child._id}
                                     className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
                                   >
@@ -945,6 +972,78 @@ export default function ManagePage() {
           }}
         />
       )}
+
+      {/* Delete Subcommunity Confirmation Dialog */}
+      <Dialog open={deleteSubcommunityConfirmOpen} onOpenChange={setDeleteSubcommunityConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Subcommunity</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {subcommunityToDelete && (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Are you sure you want to delete the subcommunity <strong>&quot;{subcommunityToDelete.name}&quot;</strong>?
+                </p>
+                <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded">
+                  Warning: This action cannot be undone.
+                </p>
+              </>
+            )}
+          </div>
+          <DialogFooter className="mt-6 pt-4 border-t border-border flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button
+              variant="default"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDeleteSubcommunity}
+              disabled={deletingSubcommunityId !== null}
+            >
+              {deletingSubcommunityId === subcommunityToDelete?._id ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove Company Confirmation Dialog */}
+      <Dialog open={removeCompanyConfirmOpen} onOpenChange={setRemoveCompanyConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Company</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {companyToRemove && (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Are you sure you want to remove <strong>&quot;{companyToRemove.companyName}&quot;</strong> from{" "}
+                  <strong>&quot;{companyToRemove.community.name}&quot;</strong>?
+                </p>
+              </>
+            )}
+          </div>
+          <DialogFooter className="mt-6 pt-4 border-t border-border flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button
+              variant="default"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleRemoveCompanyFromCommunity}
+            >
+              Remove
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

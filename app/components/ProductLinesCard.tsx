@@ -45,6 +45,8 @@ export default function ProductLinesCard({
 }: ProductLinesCardProps) {
   const [addSegmentOpen, setAddSegmentOpen] = useState(false);
   const [editSegment, setEditSegment] = useState<ProductSegmentItem | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [segmentToDelete, setSegmentToDelete] = useState<ProductSegmentItem | null>(null);
 
   // Segment form (only name; label is derived from name, description removed)
   const [segName, setSegName] = useState("");
@@ -110,11 +112,17 @@ export default function ProductLinesCard({
     }
   };
 
-  const handleDeleteSegment = async (segmentId: string) => {
-    if (!confirm("Delete this product line? Builder configs in it will be removed.")) return;
-    setSegDeletingId(segmentId);
+  const handleOpenDeleteConfirm = (seg: ProductSegmentItem) => {
+    setSegmentToDelete(seg);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteSegment = async () => {
+    if (!segmentToDelete) return;
+    setSegDeletingId(segmentToDelete._id);
+    setDeleteConfirmOpen(false);
     try {
-      const res = await fetch(`${API_URL}/product-segments/${segmentId}`, { method: "DELETE", credentials: "include" });
+      const res = await fetch(`${API_URL}/product-segments/${segmentToDelete._id}`, { method: "DELETE", credentials: "include" });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || "Failed to delete segment");
@@ -124,6 +132,7 @@ export default function ProductLinesCard({
       alert(err.message || "Failed to delete segment");
     } finally {
       setSegDeletingId(null);
+      setSegmentToDelete(null);
     }
   };
 
@@ -190,7 +199,7 @@ export default function ProductLinesCard({
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDeleteSegment(seg._id)}
+                          onClick={() => handleOpenDeleteConfirm(seg)}
                           disabled={segDeletingId === seg._id}
                         >
                           {segDeletingId === seg._id ? (
@@ -285,6 +294,47 @@ export default function ProductLinesCard({
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Product Line</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {segmentToDelete && (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Are you sure you want to delete the product line <strong>&quot;{segmentToDelete.label}&quot;</strong>?
+                </p>
+                <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded">
+                  Warning: Builder configs in this product line will be removed.
+                </p>
+              </>
+            )}
+          </div>
+          <DialogFooter className="mt-6 pt-4 border-t border-border flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button
+              variant="default"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDeleteSegment}
+              disabled={segDeletingId !== null}
+            >
+              {segDeletingId === segmentToDelete?._id ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
