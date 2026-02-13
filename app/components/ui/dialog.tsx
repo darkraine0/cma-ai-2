@@ -101,16 +101,18 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
           className="fixed inset-0 z-50 bg-black/60 dark:bg-black/40 backdrop-blur-sm"
           onClick={() => onOpenChange(false)}
         />
-        <div
-          ref={ref}
-          className={cn(
-            "fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%] rounded-lg border-2 border-border bg-card p-6 shadow-lg",
-            className
-          )}
-          onClick={(e) => e.stopPropagation()}
-          {...props}
-        >
-          {children}
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto">
+          <div
+            ref={ref}
+            className={cn(
+              "relative w-full max-w-lg my-8 rounded-lg border-2 border-border bg-card p-6 shadow-lg",
+              className
+            )}
+            onClick={(e) => e.stopPropagation()}
+            {...props}
+          >
+            {children}
+          </div>
         </div>
       </>
     )

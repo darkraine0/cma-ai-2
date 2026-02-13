@@ -70,7 +70,7 @@ const SelectTrigger = React.forwardRef<
       type="button"
       {...rest}
       className={cn(
-        "flex h-10 w-full items-center justify-between rounded-md border-2 border-border bg-card px-3 py-2 text-sm font-semibold ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 shadow-sm hover:bg-muted transition-all duration-200",
+        "flex h-12 w-full items-center justify-between rounded-md border-2 border-border bg-card px-3 py-2 text-sm font-semibold ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 shadow-sm hover:bg-muted transition-all duration-200",
         className
       )}
       onClick={() => setIsOpen(!isOpen)}

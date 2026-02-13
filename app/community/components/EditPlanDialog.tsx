@@ -80,6 +80,19 @@ export default function EditPlanDialog({
     }
   }, [plan, open]);
 
+  useEffect(() => {
+    const priceNum = Number(price);
+    const sqftNum = Number(sqft);
+
+    if (priceNum > 0 && sqftNum > 0) {
+      // Match server logic: round to 2 decimal places
+      const calculated = Math.round((priceNum / sqftNum) * 100) / 100;
+      setPrice_per_sqft(String(calculated));
+    } else {
+      setPrice_per_sqft("");
+    }
+  }, [price, sqft]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!plan?._id) return;
@@ -119,7 +132,7 @@ export default function EditPlanDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl w-full">
         <DialogHeader>
           <DialogTitle>Edit plan / community info</DialogTitle>
         </DialogHeader>
@@ -127,8 +140,9 @@ export default function EditPlanDialog({
           {error && (
             <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded">{error}</p>
           )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2">
+          <div className="space-y-4">
+            {/* Plan name - full width */}
+            <div>
               <label htmlFor="plan_name" className="block text-sm font-medium mb-1">Plan name</label>
               <Input
                 id="plan_name"
@@ -137,63 +151,74 @@ export default function EditPlanDialog({
                 placeholder="Plan name"
               />
             </div>
-            <div>
-              <label htmlFor="price" className="block text-sm font-medium mb-1">Price</label>
-              <Input
-                id="price"
-                type="number"
-                min={0}
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="Price"
-              />
+
+            {/* Price, Sqft, Stories on one line (desktop) */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label htmlFor="price" className="block text-sm font-medium mb-1">Price</label>
+                <Input
+                  id="price"
+                  type="number"
+                  min={0}
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  placeholder="Price"
+                />
+              </div>
+              <div>
+                <label htmlFor="sqft" className="block text-sm font-medium mb-1">Sq Ft</label>
+                <Input
+                  id="sqft"
+                  type="number"
+                  min={0}
+                  value={sqft}
+                  onChange={(e) => setSqft(e.target.value)}
+                  placeholder="Sq Ft"
+                />
+              </div>
+              <div>
+                <label htmlFor="stories" className="block text-sm font-medium mb-1">Stories</label>
+                <Input
+                  id="stories"
+                  value={stories}
+                  onChange={(e) => setStories(e.target.value)}
+                  placeholder="e.g. 1, 2 Stories"
+                />
+              </div>
             </div>
-            <div>
-              <label htmlFor="sqft" className="block text-sm font-medium mb-1">Sq Ft</label>
-              <Input
-                id="sqft"
-                type="number"
-                min={0}
-                value={sqft}
-                onChange={(e) => setSqft(e.target.value)}
-                placeholder="Sq Ft"
-              />
+
+            {/* Price per sqft and Type on one line (desktop) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="price_per_sqft" className="block text-sm font-medium mb-1">Price / Sq ft</label>
+                <Input
+                  id="price_per_sqft"
+                  type="number"
+                  readOnly
+                  min={0}
+                  step={0.01}
+                  value={price_per_sqft}
+                  onChange={(e) => setPrice_per_sqft(e.target.value)}
+                  placeholder="Price per sq ft"
+                  className="bg-muted cursor-not-allowed"
+                />
+              </div>
+              <div>
+                <label htmlFor="type" className="block text-sm font-medium mb-1">Type</label>
+                <Select value={type} onValueChange={(v) => setType(v as "plan" | "now")}>
+                  <SelectTrigger id="type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="plan">Plan</SelectItem>
+                    <SelectItem value="now">Now</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
+            {/* Address - full width */}
             <div>
-              <label htmlFor="stories" className="block text-sm font-medium mb-1">Stories</label>
-              <Input
-                id="stories"
-                value={stories}
-                onChange={(e) => setStories(e.target.value)}
-                placeholder="e.g. 1, 2 Stories"
-              />
-            </div>
-            <div>
-              <label htmlFor="price_per_sqft" className="block text-sm font-medium mb-1">Price / Sq ft</label>
-              <Input
-                id="price_per_sqft"
-                type="number"
-                readOnly
-                min={0}
-                step={0.01}
-                value={price_per_sqft}
-                onChange={(e) => setPrice_per_sqft(e.target.value)}
-                placeholder="Price per sq ft"
-              />
-            </div>
-            <div>
-              <label htmlFor="type" className="block text-sm font-medium mb-1">Type</label>
-              <Select value={type} onValueChange={(v) => setType(v as "plan" | "now")}>
-                <SelectTrigger id="type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="plan">Plan</SelectItem>
-                  <SelectItem value="now">Now</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="sm:col-span-2">
               <label htmlFor="address" className="block text-sm font-medium mb-1">Address (for Now listings)</label>
               <Input
                 id="address"
@@ -202,74 +227,82 @@ export default function EditPlanDialog({
                 placeholder="Address"
               />
             </div>
-            <div>
-              <label htmlFor="company" className="block text-sm font-medium mb-1">Company</label>
-              <Input
-                id="company"
-                value={company}
-                readOnly
-                className="bg-muted cursor-not-allowed"
-                placeholder="Company / builder"
-              />
-            </div>
-            <div>
-              <label htmlFor="community" className="block text-sm font-medium mb-1">Community</label>
-              <Input
-                id="community"
-                value={community}
-                readOnly
-                className="bg-muted cursor-not-allowed"
-                placeholder="Community name"
-              />
-            </div>
-            {productLines.length > 0 && (
-              <div className="sm:col-span-2">
-                <label htmlFor="segment" className="block text-sm font-medium mb-1">Product line</label>
-                <Select value={segmentId} onValueChange={setSegmentId}>
-                  <SelectTrigger id="segment">
-                    <span className={cn(!segmentId || segmentId === "__none__" ? "text-muted-foreground" : "")}>
-                      {segmentId === "__none__" || !segmentId
-                        ? "Product line"
-                        : productLines.find((p) => p._id === segmentId)?.label ?? segmentId}
-                    </span>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">None</SelectItem>
-                    {productLines.map((seg) => (
-                      <SelectItem key={seg._id} value={seg._id}>
-                        {seg.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+            {/* Company, Community, Segment on one line (desktop) */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label htmlFor="company" className="block text-sm font-medium mb-1">Company</label>
+                <Input
+                  id="company"
+                  value={company}
+                  readOnly
+                  className="bg-muted cursor-not-allowed"
+                  placeholder="Company / builder"
+                />
               </div>
-            )}
-            <div>
-              <label htmlFor="beds" className="block text-sm font-medium mb-1">Beds</label>
-              <Input
-                id="beds"
-                value={beds}
-                onChange={(e) => setBeds(e.target.value)}
-                placeholder="Beds"
-              />
+              <div>
+                <label htmlFor="community" className="block text-sm font-medium mb-1">Community</label>
+                <Input
+                  id="community"
+                  value={community}
+                  readOnly
+                  className="bg-muted cursor-not-allowed"
+                  placeholder="Community name"
+                />
+              </div>
+              {productLines.length > 0 && (
+                <div>
+                  <label htmlFor="segment" className="block text-sm font-medium mb-1">Product line</label>
+                  <Select value={segmentId} onValueChange={setSegmentId}>
+                    <SelectTrigger id="segment">
+                      <span className={cn(!segmentId || segmentId === "__none__" ? "text-muted-foreground" : "")}>
+                        {segmentId === "__none__" || !segmentId
+                          ? "Product line"
+                          : productLines.find((p) => p._id === segmentId)?.label ?? segmentId}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">None</SelectItem>
+                      {productLines.map((seg) => (
+                        <SelectItem key={seg._id} value={seg._id}>
+                          {seg.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
-            <div>
-              <label htmlFor="baths" className="block text-sm font-medium mb-1">Baths</label>
-              <Input
-                id="baths"
-                value={baths}
-                onChange={(e) => setBaths(e.target.value)}
-                placeholder="Baths"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label htmlFor="design_number" className="block text-sm font-medium mb-1">Design number</label>
-              <Input
-                id="design_number"
-                value={design_number}
-                onChange={(e) => setDesign_number(e.target.value)}
-                placeholder="Design number"
-              />
+
+            {/* Beds, Baths, Design number on one line (desktop) */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label htmlFor="beds" className="block text-sm font-medium mb-1">Beds</label>
+                <Input
+                  id="beds"
+                  value={beds}
+                  onChange={(e) => setBeds(e.target.value)}
+                  placeholder="Beds"
+                />
+              </div>
+              <div>
+                <label htmlFor="baths" className="block text-sm font-medium mb-1">Baths</label>
+                <Input
+                  id="baths"
+                  value={baths}
+                  onChange={(e) => setBaths(e.target.value)}
+                  placeholder="Baths"
+                />
+              </div>
+              <div>
+                <label htmlFor="design_number" className="block text-sm font-medium mb-1">Design number</label>
+                <Input
+                  id="design_number"
+                  value={design_number}
+                  onChange={(e) => setDesign_number(e.target.value)}
+                  placeholder="Design number"
+                />
+              </div>
             </div>
           </div>
           <DialogFooter className="mt-6 pt-4 border-t">
