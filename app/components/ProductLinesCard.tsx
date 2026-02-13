@@ -164,26 +164,24 @@ export default function ProductLinesCard({
               )}
             </div>
           ) : (
-            <div className="space-y-4">
-              {sortedSegments.map((seg) => (
-                <div
-                  key={seg._id}
-                  className="rounded-lg border bg-muted/50 p-3 space-y-3"
-                >
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{seg.label}</span>
-                      <span className="text-xs text-muted-foreground">({seg.name})</span>
-                      {!seg.isActive && (
-                        <Badge variant="outline" className="text-xs">Inactive</Badge>
-                      )}
-                    </div>
+            <div className="flex flex-col items-start gap-3">
+              <div className="flex flex-wrap gap-2 justify-start">
+                {sortedSegments.map((seg) => (
+                  <div
+                    key={seg._id}
+                    className="inline-flex items-center gap-1.5 rounded-lg border bg-muted/50 px-3 py-2 w-fit max-w-full"
+                  >
+                    <span className="font-medium whitespace-nowrap">{seg.label}</span>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">({seg.name})</span>
+                    {!seg.isActive && (
+                      <Badge variant="outline" className="text-xs shrink-0">Inactive</Badge>
+                    )}
                     {isEditor && (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5 ml-1 shrink-0">
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-7 w-7"
                           onClick={() => handleOpenEditSegment(seg)}
                         >
                           <Pencil className="h-3.5 w-3.5" />
@@ -191,7 +189,7 @@ export default function ProductLinesCard({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                           onClick={() => handleDeleteSegment(seg._id)}
                           disabled={segDeletingId === seg._id}
                         >
@@ -203,12 +201,14 @@ export default function ProductLinesCard({
                         </Button>
                       </div>
                     )}
+                    {seg.description && (
+                      <span className="text-xs text-muted-foreground truncate max-w-[120px]" title={seg.description}>
+                        {seg.description}
+                      </span>
+                    )}
                   </div>
-                  {seg.description && (
-                    <p className="text-xs text-muted-foreground">{seg.description}</p>
-                  )}
-                </div>
-              ))}
+                ))}
+              </div>
               {isEditor && (
                 <Button variant="outline" size="sm" onClick={handleOpenAddSegment} className="flex items-center gap-2">
                   <Plus className="h-4 w-4" />

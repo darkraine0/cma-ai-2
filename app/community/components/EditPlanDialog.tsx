@@ -173,6 +173,7 @@ export default function EditPlanDialog({
               <Input
                 id="price_per_sqft"
                 type="number"
+                readOnly
                 min={0}
                 step={0.01}
                 value={price_per_sqft}
