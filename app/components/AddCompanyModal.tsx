@@ -99,7 +99,7 @@ export default function AddCompanyModal({ onSuccess, trigger, autoAddToCommunity
     }
   }, [externalOpen]);
 
-  const handleAddCompany = async () => {
+  const handleAddCompany = () => {
     if (!name.trim()) {
       setError("Please enter a company name");
       return;
@@ -107,91 +107,77 @@ export default function AddCompanyModal({ onSuccess, trigger, autoAddToCommunity
 
     setLoading(true);
     setError("");
-    try {
-      // Build request body - only include fields with values
-      const requestBody: any = {
-        name: name.trim(),
-      };
 
-      if (description && description.trim()) {
-        requestBody.description = description.trim();
-      }
-      if (website && website.trim()) {
-        requestBody.website = website.trim();
-      }
-      if (headquarters && headquarters.trim()) {
-        requestBody.headquarters = headquarters.trim();
-      }
-      if (founded) {
-        // Convert to string and trim (in case it's a number)
-        const foundedStr = String(founded).trim();
-        if (foundedStr) {
-          requestBody.founded = foundedStr;
-        }
-      }
+    const requestBody: any = {
+      name: name.trim(),
+    };
+    if (description && description.trim()) requestBody.description = description.trim();
+    if (website && website.trim()) requestBody.website = website.trim();
+    if (headquarters && headquarters.trim()) requestBody.headquarters = headquarters.trim();
+    if (founded) {
+      const foundedStr = String(founded).trim();
+      if (foundedStr) requestBody.founded = foundedStr;
+    }
 
-      const res = await fetch(API_URL + "/companies", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        const errorMessage = data.message || data.error || "Failed to add company";
-        throw new Error(errorMessage);
-      }
-
-      // If autoAddToCommunityId or autoAddToCommunity is provided, add company to that community
-      if ((autoAddToCommunityId || autoAddToCommunity) && data._id) {
-        try {
-          // Use communityId if available, otherwise fall back to communityName
-          // The route now handles both IDs and names
-          const identifier = autoAddToCommunityId || encodeURIComponent(autoAddToCommunity!.trim());
+    // If adding to a community, show "Scraping plans..." immediately then create + add + scrape
+    if (autoAddToCommunityId || autoAddToCommunity) {
+      const communityName = autoAddToCommunity || "";
+      startBackgroundScraping({
+        companyName: name.trim(),
+        communityName,
+        beforeScrape: async () => {
+          const res = await fetch(API_URL + "/companies", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.message || data.error || "Failed to add company");
+          }
+          const identifier = autoAddToCommunityId || encodeURIComponent(communityName.trim());
           const url = API_URL + `/communities/${identifier}/companies`;
-          
           const addToCommunityRes = await fetch(url, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ companyId: data._id }),
           });
-
           if (!addToCommunityRes.ok) {
             const addError = await addToCommunityRes.json();
             console.warn("Failed to add company to community:", addError);
-            // Don't throw - company was created successfully, just failed to add to community
-          } else {
-            // Refresh parent once so new company appears, then run scraping in background (no refresh when done)
-            if (autoAddToCommunity) {
-              handleClose();
-              if (onSuccess) onSuccess(data.name);
-              startBackgroundScraping({
-                companyName: data.name,
-                communityName: autoAddToCommunity,
-              });
-              return;
-            }
           }
-        } catch (addError) {
-          console.warn("Error adding company to community:", addError);
-          // Don't throw - company was created successfully, just failed to add to community
-        }
-      }
-
-      handleClose();
-      if (onSuccess) {
-        onSuccess(data.name);
-      }
-    } catch (err: any) {
-      setError(err.message || "Unknown error");
-    } finally {
-      setLoading(false);
+          handleClose();
+          if (onSuccess) onSuccess(data.name);
+        },
+        onComplete: () => setLoading(false),
+        onError: (err) => {
+          setError(err.message || "Unknown error");
+          setLoading(false);
+        },
+      });
+      return;
     }
+
+    // No community: just create company
+    (async () => {
+      try {
+        const res = await fetch(API_URL + "/companies", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.message || data.error || "Failed to add company");
+        }
+        handleClose();
+        if (onSuccess) onSuccess(data.name);
+      } catch (err: any) {
+        setError(err.message || "Unknown error");
+      } finally {
+        setLoading(false);
+      }
+    })();
   };
 
   const handleSearchCompanies = async () => {

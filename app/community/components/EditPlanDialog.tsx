@@ -97,8 +97,7 @@ export default function EditPlanDialog({
           price_per_sqft: price_per_sqft === "" ? undefined : Number(price_per_sqft),
           type,
           address: address.trim() || undefined,
-          company: company.trim() || undefined,
-          community: community.trim() || undefined,
+          // Company and community are read-only and never sent
           segmentId: segmentId === "__none__" ? null : segmentId,
           beds: beds.trim() || undefined,
           baths: baths.trim() || undefined,
@@ -170,7 +169,7 @@ export default function EditPlanDialog({
               />
             </div>
             <div>
-              <label htmlFor="price_per_sqft" className="block text-sm font-medium mb-1">$/Sq Ft</label>
+              <label htmlFor="price_per_sqft" className="block text-sm font-medium mb-1">Price / Sq ft</label>
               <Input
                 id="price_per_sqft"
                 type="number"
@@ -207,7 +206,8 @@ export default function EditPlanDialog({
               <Input
                 id="company"
                 value={company}
-                onChange={(e) => setCompany(e.target.value)}
+                readOnly
+                className="bg-muted cursor-not-allowed"
                 placeholder="Company / builder"
               />
             </div>
@@ -216,7 +216,8 @@ export default function EditPlanDialog({
               <Input
                 id="community"
                 value={community}
-                onChange={(e) => setCommunity(e.target.value)}
+                readOnly
+                className="bg-muted cursor-not-allowed"
                 placeholder="Community name"
               />
             </div>

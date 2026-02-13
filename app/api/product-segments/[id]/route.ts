@@ -25,8 +25,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Segment not found' }, { status: 404 });
     }
 
-    if (name !== undefined && name.trim()) segment.name = name.trim();
-    if (label !== undefined && label.trim()) segment.label = label.trim();
+    if (name !== undefined && name != null && String(name).trim()) segment.name = String(name).trim();
+    if (label !== undefined && label != null && String(label).trim()) segment.label = String(label).trim();
     if (description !== undefined) segment.description = description ?? null;
     if (typeof isActive === 'boolean') segment.isActive = isActive;
     if (typeof displayOrder === 'number') segment.displayOrder = displayOrder;

@@ -7,7 +7,9 @@ import ErrorMessage from "../components/ErrorMessage";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import AddCommunityModal from "../components/AddCommunityModal";
-import { Search, RefreshCw } from "lucide-react";
+import EditCommunityModal from "../components/EditCommunityModal";
+import type { EditCommunityModalCommunity } from "../components/EditCommunityModal";
+import { Search, RefreshCw, Pencil } from "lucide-react";
 import API_URL from '../config';
 import { getCompanyColor } from '../utils/colors';
 import { getCommunityImage } from '../utils/communityImages';
@@ -68,6 +70,8 @@ export default function CommunitiesPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [user, setUser] = useState<any>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [communityToEdit, setCommunityToEdit] = useState<EditCommunityModalCommunity | null>(null);
   const router = useRouter();
   const hasFetched = useRef(false);
 
@@ -249,8 +253,32 @@ export default function CommunitiesPage() {
           )}
         </div>
         
-        <CardHeader>
-          <CardTitle>{community.name}</CardTitle>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="text-lg">{community.name}</CardTitle>
+            {isEditor && community._id && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCommunityToEdit({
+                    _id: community._id!,
+                    name: community.name,
+                    description: community.description ?? null,
+                    location: community.location ?? null,
+                    imagePath: community.imagePath ?? null,
+                    hasImage: community.hasImage,
+                  });
+                  setEditModalOpen(true);
+                }}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                title="Edit community"
+                aria-label="Edit community"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </CardHeader>
           
           <CardContent>
@@ -395,6 +423,13 @@ export default function CommunitiesPage() {
             </CardContent>
           </Card>
         )}
+
+        <EditCommunityModal
+          community={communityToEdit}
+          open={editModalOpen}
+          onOpenChange={setEditModalOpen}
+          onSuccess={() => fetchCommunities(true)}
+        />
       </div>
     </div>
   );

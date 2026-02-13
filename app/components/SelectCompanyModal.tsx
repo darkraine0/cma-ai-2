@@ -15,7 +15,7 @@ import { Badge } from "./ui/badge";
 import { Plus, Search, Loader2 } from "lucide-react";
 import ErrorMessage from "./ErrorMessage";
 import AddCompanyModal from "./AddCompanyModal";
-import { useScrapingProgress } from "../contexts/ScrapingProgressContext";
+import { useScrapingProgress, SkipScrapeError } from "../contexts/ScrapingProgressContext";
 import API_URL from '../config';
 import { getCompanyColor } from '../utils/colors';
 
@@ -105,7 +105,7 @@ export default function SelectCompanyModal({
     (company) => !existingCompaniesLower.includes(company.name.trim().toLowerCase())
   );
 
-  const handleAddCompany = async (company: Company) => {
+  const handleAddCompany = (company: Company) => {
     if (!communityId && (!communityName || !communityName.trim() || communityName === 'undefined')) {
       setError("Invalid community ID or name");
       return;
@@ -118,52 +118,46 @@ export default function SelectCompanyModal({
 
     setAddingCompanyId(company._id);
     setError("");
-    try {
-      // Use communityId if available, otherwise fall back to communityName
-      // The route now handles both IDs and names
-      const identifier = communityId || encodeURIComponent(communityName!.trim());
-      const url = API_URL + `/communities/${identifier}/companies`;
-      
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ companyId: company._id }),
-      });
 
-      if (!res.ok) {
-        const data = await res.json();
-        const errorMessage = data.error || "Failed to add company to community";
-        // If company already exists, refresh the list and close modal
-        if (data.error && data.error.includes("already in this community")) {
-          // Refresh companies to update the list
-          await fetchCompanies();
-          setOpen(false);
-          setSearchQuery("");
-          if (onSuccess) {
-            onSuccess();
-          }
-          return; // Don't throw error, just refresh and close
-        }
-        throw new Error(errorMessage);
-      }
-
-      // Refresh list once so the new company appears, then run scraping in background (no refresh when done)
-      if (onSuccess) onSuccess();
-      setOpen(false);
-      setSearchQuery("");
-      if (communityName) {
-        startBackgroundScraping({
-          companyName: company.name,
-          communityName,
-        });
-      }
-    } catch (err: any) {
-      setError(err.message || "Unknown error");
-    } finally {
+    if (!communityName) {
       setAddingCompanyId(null);
+      return;
     }
+
+    // Show "Scraping plans..." immediately; add company then scrape in background
+    startBackgroundScraping({
+      companyName: company.name,
+      communityName,
+      beforeScrape: async () => {
+        const identifier = communityId || encodeURIComponent(communityName.trim());
+        const url = API_URL + `/communities/${identifier}/companies`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ companyId: company._id }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          const errorMessage = data.error || "Failed to add company to community";
+          if (data.error && data.error.includes("already in this community")) {
+            await fetchCompanies();
+            setOpen(false);
+            setSearchQuery("");
+            onSuccess?.();
+            setAddingCompanyId(null);
+            throw new SkipScrapeError();
+          }
+          throw new Error(errorMessage);
+        }
+
+        if (onSuccess) onSuccess();
+        setOpen(false);
+        setSearchQuery("");
+      },
+      onComplete: () => setAddingCompanyId(null),
+      onError: () => setAddingCompanyId(null),
+    });
   };
 
   const handleNewCompanyAdded = (companyName?: string) => {

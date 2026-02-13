@@ -24,7 +24,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { parentCommunityId, description, location } = body;
+    const { name, parentCommunityId, description, location, imagePath } = body;
 
     const community = await Community.findById(communityId);
     if (!community) {
@@ -32,6 +32,27 @@ export async function PATCH(
         { error: 'Community not found' },
         { status: 404 }
       );
+    }
+
+    if (name !== undefined) {
+      const trimmedName = typeof name === 'string' ? name.trim() : '';
+      if (!trimmedName) {
+        return NextResponse.json(
+          { error: 'Community name is required' },
+          { status: 400 }
+        );
+      }
+      const existing = await Community.findOne({
+        name: trimmedName,
+        _id: { $ne: communityId },
+      });
+      if (existing) {
+        return NextResponse.json(
+          { error: 'A community with this name already exists' },
+          { status: 409 }
+        );
+      }
+      community.name = trimmedName;
     }
 
     if (parentCommunityId !== undefined) {
@@ -63,6 +84,7 @@ export async function PATCH(
 
     if (description !== undefined) community.description = description ?? null;
     if (location !== undefined) community.location = location ?? null;
+    if (imagePath !== undefined) community.imagePath = imagePath ?? null;
 
     await community.save();
 

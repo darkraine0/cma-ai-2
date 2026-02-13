@@ -106,6 +106,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
     setError("");
     try {
       let imagePath: string | undefined;
+      let imageData: string | undefined;
       if (imageFile) {
         const formData = new FormData();
         formData.append("image", imageFile);
@@ -118,8 +119,10 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
           const errData = await uploadRes.json().catch(() => ({}));
           throw new Error(errData.error || "Failed to upload image");
         }
-        const { path: uploadedPath } = await uploadRes.json();
-        imagePath = uploadedPath;
+        const uploadJson = await uploadRes.json();
+        // API returns path (Cloudinary URL) or imageData (base64 fallback)
+        imageData = uploadJson.imageData;
+        imagePath = uploadJson.path;
       }
       const res = await fetch(API_URL + "/communities", {
         method: "POST",
@@ -131,6 +134,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
           description: description.trim() || undefined,
           location: location.trim() || undefined,
           imagePath: imagePath || undefined,
+          imageData: imageData || undefined,
         }),
       });
 

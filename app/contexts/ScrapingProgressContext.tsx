@@ -22,10 +22,21 @@ interface ScrapingProgressContextValue {
     communityName: string;
     subcommunities?: string[];
     onComplete?: () => void;
+    onError?: (err: Error) => void;
+    /** Run before starting the scrape (e.g. add company to community). Bar shows immediately; this runs after. */
+    beforeScrape?: () => Promise<void>;
   }) => void;
 }
 
 const ScrapingProgressContext = createContext<ScrapingProgressContextValue | null>(null);
+
+/** Throw from beforeScrape to hide the bar and skip the scrape (e.g. company already in community). */
+export class SkipScrapeError extends Error {
+  constructor(message = "Skip scrape") {
+    super(message);
+    this.name = "SkipScrapeError";
+  }
+}
 
 async function runScrape(params: {
   companyName: string;
@@ -68,7 +79,10 @@ export function ScrapingProgressProvider({ children }: { children: React.ReactNo
       communityName: string;
       subcommunities?: string[];
       onComplete?: () => void;
+      onError?: (err: Error) => void;
+      beforeScrape?: () => Promise<void>;
     }) => {
+      // Show "Scraping plans..." immediately so there's no delay after button press
       setJob({
         companyName: params.companyName,
         communityName: params.communityName,
@@ -77,12 +91,14 @@ export function ScrapingProgressProvider({ children }: { children: React.ReactNo
         onComplete: params.onComplete,
       });
 
-      runScrape({
-        companyName: params.companyName,
-        communityName: params.communityName,
-        subcommunities: params.subcommunities,
-      })
-        .then(() => {
+      const run = async () => {
+        try {
+          await params.beforeScrape?.();
+          await runScrape({
+            companyName: params.companyName,
+            communityName: params.communityName,
+            subcommunities: params.subcommunities,
+          });
           setJob((prev) =>
             prev ? { ...prev, status: "success", error: null } : null
           );
@@ -93,13 +109,18 @@ export function ScrapingProgressProvider({ children }: { children: React.ReactNo
               return null;
             });
           }, 2000);
-        })
-        .catch((err: Error) => {
+        } catch (err) {
+          if (err instanceof SkipScrapeError) {
+            setJob(null);
+            return;
+          }
+          const error = err instanceof Error ? err : new Error(String(err));
           setJob((prev) =>
             prev
-              ? { ...prev, status: "error", error: err.message || "Scraping failed" }
+              ? { ...prev, status: "error", error: error.message || "Scraping failed" }
               : null
           );
+          params.onError?.(error);
           setTimeout(() => {
             setJob((prev) => {
               const onComplete = prev?.onComplete;
@@ -107,7 +128,9 @@ export function ScrapingProgressProvider({ children }: { children: React.ReactNo
               return null;
             });
           }, 5000);
-        });
+        }
+      };
+      run();
     },
     []
   );

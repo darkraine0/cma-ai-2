@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
     const body = await request.json();
-    const { name, description, location, parentCommunityId, imagePath } = body;
+    const { name, description, location, parentCommunityId, imagePath, imageData } = body;
 
     if (!name) {
       return NextResponse.json(
@@ -221,6 +221,7 @@ export async function POST(request: NextRequest) {
       description,
       location,
       imagePath: imagePath || undefined,
+      imageData: imageData || undefined,
       companies: [],
       parentCommunityId: parentCommunityId || null,
     });
