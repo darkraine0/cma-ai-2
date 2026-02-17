@@ -31,13 +31,10 @@ export async function GET(
       );
     }
 
-    // Verify community exists
+    // If community doesn't exist, return empty plans (200) instead of 404
     const community = await Community.findById(communityId);
     if (!community) {
-      return NextResponse.json(
-        { error: 'Community not found' },
-        { status: 404 }
-      );
+      return NextResponse.json([]);
     }
 
     // Calculate timestamp for 24 hours ago

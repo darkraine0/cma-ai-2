@@ -97,10 +97,8 @@ export function useCommunityData(communitySlug: string): UseCommunityDataReturn 
 
   useEffect(() => {
     if (communitySlug) {
-      // Only fetch if not already loaded from cache
-      if (!community) {
-        fetchCommunity();
-      }
+      // Always fetch fresh data so we don't show stale sessionStorage cache
+      fetchCommunity();
     }
   }, [communitySlug]);
 
