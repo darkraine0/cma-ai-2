@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import API_URL from "../../config";
 import { Community, Plan } from "../types";
+import { communityNameToSlug } from "../utils/formatCommunityName";
 
 interface UseCommunityDataReturn {
   community: Community | null;
@@ -48,10 +49,9 @@ export function useCommunityData(communitySlug: string): UseCommunityDataReturn 
         communitiesCache = communities;
       }
 
-      const foundCommunity = communities.find(comm => {
-        const firstWord = comm.name.split(' ')[0].toLowerCase();
-        return firstWord === communitySlug;
-      });
+      const foundCommunity = communities.find(comm => 
+        communityNameToSlug(comm.name) === communitySlug
+      );
 
       if (foundCommunity) {
         setCommunity(foundCommunity);

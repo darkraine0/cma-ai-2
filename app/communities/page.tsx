@@ -13,6 +13,7 @@ import { Search, RefreshCw, Pencil } from "lucide-react";
 import API_URL from '../config';
 import { getCompanyColor } from '../utils/colors';
 import { getCommunityImage } from '../utils/communityImages';
+import { communityNameToSlug } from '../community/utils/formatCommunityName';
 
 interface Plan {
   plan_name: string;
@@ -227,9 +228,8 @@ export default function CommunitiesPage() {
   };
 
   const handleCommunityClick = (community: Community) => {
-    // Use the first word of the community name as the URL slug
-    const firstWord = community.name.split(' ')[0].toLowerCase();
-    router.push(`/community/${firstWord}`);
+    const slug = communityNameToSlug(community.name);
+    router.push(`/community/${slug}`);
   };
 
   const renderCommunityCard = (community: Community) => {
