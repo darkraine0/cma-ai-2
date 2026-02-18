@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/app/lib/mongodb';
 import Community from '@/app/models/Community';
 import Company from '@/app/models/Company';
+import Plan from '@/app/models/Plan';
+import ProductSegment from '@/app/models/ProductSegment';
+import CommunityCompany from '@/app/models/CommunityCompany';
+import SegmentCompany from '@/app/models/SegmentCompany';
+import PriceHistory from '@/app/models/PriceHistory';
 import mongoose from 'mongoose';
 import { requirePermission } from '@/app/lib/admin';
 
@@ -267,7 +272,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Delete single community by ID
+    // Delete single community by ID (with cascade)
     if (!id) {
       return NextResponse.json(
         { error: 'Community ID is required' },
@@ -275,14 +280,40 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const community = await Community.findByIdAndDelete(id);
-    
+    const communityId = new mongoose.Types.ObjectId(id);
+    const community = await Community.findById(communityId);
     if (!community) {
       return NextResponse.json(
         { error: 'Community not found' },
         { status: 404 }
       );
     }
+
+    // 1. Unset parent for any subcommunities that had this community as parent
+    await Community.updateMany(
+      { parentCommunityId: communityId },
+      { $set: { parentCommunityId: null } }
+    );
+
+    // 2. Delete plans for this community and their price history
+    const planIds = await Plan.distinct('_id', { 'community._id': communityId });
+    if (planIds.length > 0) {
+      await PriceHistory.deleteMany({ plan_id: { $in: planIds } });
+      await Plan.deleteMany({ 'community._id': communityId });
+    }
+
+    // 3. Delete product segments (product lines) and their segment-company links
+    const segmentIds = await ProductSegment.distinct('_id', { communityId });
+    if (segmentIds.length > 0) {
+      await SegmentCompany.deleteMany({ segmentId: { $in: segmentIds } });
+    }
+    await ProductSegment.deleteMany({ communityId });
+
+    // 4. Delete community-company links
+    await CommunityCompany.deleteMany({ communityId });
+
+    // 5. Delete the community
+    await Community.findByIdAndDelete(communityId);
 
     return NextResponse.json(
       { message: 'Community deleted successfully', community },
