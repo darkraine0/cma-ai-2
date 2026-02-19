@@ -7,6 +7,7 @@ import { Badge } from "../components/ui/badge";
 import { PasswordInput } from "../components/ui/password-input";
 import { useToast } from "../components/ui/use-toast";
 import Loader from "../components/Loader";
+import { useAuth } from "../contexts/AuthContext";
 import { User, Lock, Shield, Eye, Edit, CheckCircle2, Clock, FileText, Trash2, Settings } from "lucide-react";
 
 interface UserProfile {
@@ -27,51 +28,33 @@ interface PermissionRequest {
 
 export default function ProfilePage() {
   const { toast } = useToast();
+  const { user: authUser, refetchUser } = useAuth();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-  
-  // Profile form state
+
   const [name, setName] = useState("");
-  
-  // Password form state
+
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  
-  // Permission request state
+
   const [pendingRequest, setPendingRequest] = useState<PermissionRequest | null>(null);
   const [requestLoading, setRequestLoading] = useState(false);
 
   useEffect(() => {
-    fetchUser();
-  }, []);
+    if (authUser) {
+      setUser(authUser);
+      setName(authUser.name || "");
+    }
+    setLoading(false);
+  }, [authUser]);
 
   useEffect(() => {
     if (user?.id) {
       checkPendingRequest();
     }
   }, [user?.id]);
-
-  const fetchUser = async () => {
-    try {
-      const response = await fetch("/api/auth/me");
-      if (!response.ok) throw new Error("Failed to fetch user");
-      
-      const data = await response.json();
-      setUser(data.user);
-      setName(data.user.name || "");
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to load profile. Please try again.",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const checkPendingRequest = async () => {
     if (!user?.id) return;
@@ -112,7 +95,7 @@ export default function ProfilePage() {
         title: "Success",
         description: data.message,
       });
-      await fetchUser();
+      await refetchUser();
     } catch (error: any) {
       toast({
         variant: "destructive",

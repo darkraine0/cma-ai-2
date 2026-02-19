@@ -11,6 +11,7 @@ import AddCompanyModal from "../components/AddCompanyModal";
 import PendingApprovalBanner from "../components/PendingApprovalBanner";
 import { ExternalLink, Trash2, Search } from "lucide-react";
 import API_URL from '../config';
+import { useAuth } from "../contexts/AuthContext";
 
 interface Company {
   _id: string;
@@ -55,7 +56,7 @@ export default function CompaniesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [deletingCompanyId, setDeletingCompanyId] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
+  const { user } = useAuth();
   const hasFetched = useRef(false);
 
   const sortCompanies = (companiesList: Company[], plansData: Plan[]) => {
@@ -130,9 +131,7 @@ export default function CompaniesPage() {
   useEffect(() => {
     if (hasFetched.current) return;
     hasFetched.current = true;
-    
     fetchCompanies();
-    fetchUser();
   }, []);
 
   useEffect(() => {
@@ -150,28 +149,6 @@ export default function CompaniesPage() {
     );
     setFilteredCompanies(filtered);
   }, [searchQuery, companies]);
-
-  const fetchUser = async () => {
-    try {
-      const response = await fetch("/api/auth/me");
-      if (response.ok) {
-        const data = await response.json();
-        const user = data.user;
-        
-        // If user is not email verified (and not admin), redirect to signin
-        // AuthGuard will handle the redirect, but this is a safeguard
-        if (user.role !== "admin" && !user.emailVerified) {
-          router.push("/signin");
-          return;
-        }
-        
-        setUser(user);
-      }
-    } catch (error) {
-      // User not authenticated
-    }
-  };
-
 
   const handleDeleteCompany = async (companyId: string, companyName: string) => {
     if (!window.confirm(`Are you sure you want to delete "${companyName}"? This action cannot be undone.`)) {

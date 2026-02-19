@@ -113,6 +113,8 @@ export async function GET(request: NextRequest) {
       location: community.location || null,
       hasImage: !!(community.imagePath || community.imageData),
       imagePath: community.imagePath || null,
+      totalPlans: community.totalPlans ?? 0,
+      totalQuickMoveIns: community.totalQuickMoveIns ?? 0,
       parentCommunityId: community.parentCommunityId 
         ? (typeof community.parentCommunityId === 'object' 
           ? { _id: community.parentCommunityId._id.toString(), name: community.parentCommunityId.name }
@@ -138,6 +140,8 @@ export async function GET(request: NextRequest) {
         location: child.location || null,
         hasImage: !!(child.imagePath || child.imageData),
         imagePath: child.imagePath || null,
+        totalPlans: child.totalPlans ?? 0,
+        totalQuickMoveIns: child.totalQuickMoveIns ?? 0,
         companies: (child.companies || [])
           .map((c: any) => {
             if (c && typeof c === 'object' && c._id && c.name) {

@@ -24,6 +24,7 @@ import CompanySubcommunityBadges from "../components/CompanySubcommunityBadges";
 import ManageSubcommunitiesModal from "../components/ManageSubcommunitiesModal";
 import ProductLinesCard from "../components/ProductLinesCard";
 import { useScrapingProgress } from "../contexts/ScrapingProgressContext";
+import { useAuth } from "../contexts/AuthContext";
 import { Plus, X, Trash2, Loader2, Search } from "lucide-react";
 import API_URL from '../config';
 import { getCompanyColor } from '../utils/colors';
@@ -83,7 +84,7 @@ export default function ManagePage() {
   const [loading, setLoading] = useState(true);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
   const [error, setError] = useState("");
-  const [user, setUser] = useState<any>(null);
+  const { user } = useAuth();
   const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null);
   
   const [deletingCommunityId, setDeletingCommunityId] = useState<string | null>(null);
@@ -212,10 +213,8 @@ export default function ManagePage() {
   useEffect(() => {
     if (hasFetched.current) return;
     hasFetched.current = true;
-    
     fetchCommunities();
     fetchCompanies();
-    fetchUser();
   }, []);
 
   useEffect(() => {
@@ -428,25 +427,6 @@ export default function ManagePage() {
       },
     });
   };
-
-  const fetchUser = async () => {
-    try {
-      const response = await fetch("/api/auth/me");
-      if (response.ok) {
-        const data = await response.json();
-        const user = data.user;
-        
-        if (user.role !== "admin" && !user.emailVerified) {
-          router.push("/signin");
-          return;
-        }
-        
-        setUser(user);
-      }
-    } catch (error) {}
-  };
-
-
 
   const handleOpenRemoveCompanyConfirm = (community: Community, companyName: string) => {
     setCompanyToRemove({ community, companyName });

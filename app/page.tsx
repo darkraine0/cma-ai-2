@@ -1,53 +1,26 @@
 "use client"
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardTitle } from "./components/ui/card";
 import { Button } from "./components/ui/button";
+import { useAuth } from "./contexts/AuthContext";
 
 export default function HomePage() {
   const router = useRouter();
-  const [isPending, setIsPending] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
-    // Check user authentication and redirect accordingly
-    const checkAndRedirect = async () => {
-      try {
-        const response = await fetch("/api/auth/me");
-        if (response.ok) {
-          const data = await response.json();
-          const user = data.user;
-          
-          // If user is not email verified (and not admin), redirect to signin
-          if (user.role !== "admin" && !user.emailVerified) {
-            router.replace("/signin");
-            return;
-          }
-          
-          // If user is pending approval, show pending page
-          if (user.status === "pending") {
-            setIsPending(true);
-            return;
-          }
-          
-          // User is authenticated and approved - redirect to communities
-          router.replace("/communities");
-        } else {
-          // Not authenticated - redirect to signin
-          router.replace("/signin");
-        }
-      } catch (error) {
-        // Error checking auth - redirect to signin
-        router.replace("/signin");
-      }
-    };
+    if (!user) return;
+    if (user.role !== "admin" && !user.emailVerified) {
+      router.replace("/signin");
+      return;
+    }
+    if (user.status === "pending") return;
+    router.replace("/communities");
+  }, [user, router]);
 
-    checkAndRedirect();
-  }, [router]);
-
-  // Only show pending UI if user is confirmed to be pending
-  // Otherwise show nothing (redirecting in background)
-  if (!isPending) {
+  if (!user || user.status !== "pending") {
     return null;
   }
 

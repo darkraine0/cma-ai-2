@@ -6,45 +6,21 @@ import Link from "next/link"
 import { Button } from "@/app/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/app/components/ui/sheet"
 import Loader from "@/app/components/Loader"
+import { useAuth } from "@/app/contexts/AuthContext"
 import { Shield, LayoutDashboard, Users, Menu } from "lucide-react"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useEffect(() => {
-    checkAdminAccess()
-  }, [])
+    if (!user) return
+    if (user.role !== "admin") router.replace("/")
+  }, [user, router])
 
-  const checkAdminAccess = async () => {
-    try {
-      const response = await fetch("/api/auth/me")
-      if (response.ok) {
-        const data = await response.json()
-        if (data.user?.role === "admin") {
-          setUser(data.user)
-        } else {
-          // Not admin, redirect
-          router.replace("/")
-          return
-        }
-      } else {
-        // Not authenticated
-        router.replace("/signin")
-        return
-      }
-    } catch (error) {
-      router.replace("/signin")
-      return
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (loading) {
+  if (!user || user.role !== "admin") {
     return <Loader />
   }
 

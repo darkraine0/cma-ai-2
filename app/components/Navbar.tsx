@@ -2,23 +2,22 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Fragment, useState, useEffect } from "react";
+import { Fragment, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "./ui/button";
 import { ThemeToggle } from "./theme-toggle";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "./ui/sheet";
 import { LogOut, Menu, X } from "lucide-react";
+import { useAuth } from "@/app/contexts/AuthContext";
 
 const Navbar = () => {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const publicRoutes = ["/signin", "/signup", "/forgot-password", "/reset-password", "/verify-email"];
 
-  // Get initials from name
   const getInitials = (name: string) => {
     if (!name) return "U";
     const parts = name.trim().split(/\s+/);
@@ -26,28 +25,6 @@ const Navbar = () => {
       return parts[0].charAt(0).toUpperCase();
     }
     return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
-  };
-
-  useEffect(() => {
-    if (!publicRoutes.includes(pathname)) {
-      fetchUser();
-    } else {
-      setLoading(false);
-    }
-  }, [pathname]);
-
-  const fetchUser = async () => {
-    try {
-      const response = await fetch("/api/auth/me");
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-      }
-    } catch (error) {
-      // User not authenticated
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleSignOut = async () => {
@@ -60,16 +37,10 @@ const Navbar = () => {
     }
   };
 
-  // Don't show navbar on auth pages
   if (publicRoutes.includes(pathname)) {
     return null;
   }
 
-  if (loading) {
-    return null;
-  }
-
-  // Don't show navbar if user is pending (they'll see a special pending page)
   if (user?.status === "pending") {
     return null;
   }

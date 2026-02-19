@@ -14,19 +14,7 @@ import API_URL from '../config';
 import { getCompanyColor } from '../utils/colors';
 import { getCommunityImage } from '../utils/communityImages';
 import { communityNameToSlug } from '../community/utils/formatCommunityName';
-
-interface Plan {
-  plan_name: string;
-  price: number;
-  sqft: number;
-  stories: string;
-  price_per_sqft: number;
-  last_updated: string;
-  price_changed_recently: boolean;
-  company: string;
-  community: string;
-  type: string;
-}
+import { useAuth } from "../contexts/AuthContext";
 
 interface Community {
   name: string;
@@ -70,7 +58,7 @@ export default function CommunitiesPage() {
   const [loading, setLoading] = useState(communities.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
-  const [user, setUser] = useState<any>(null);
+  const { user } = useAuth();
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [communityToEdit, setCommunityToEdit] = useState<EditCommunityModalCommunity | null>(null);
   const router = useRouter();
@@ -103,55 +91,24 @@ export default function CommunitiesPage() {
     }
     setError("");
     try {
-      // Fetch only parent communities (no children)
       const communitiesRes = await fetch(API_URL + "/communities?parentsOnly=true");
       if (!communitiesRes.ok) throw new Error("Failed to fetch communities");
       const communitiesData: any[] = await communitiesRes.json();
-      
-      // Fetch plans to calculate statistics for each community
-      const plansRes = await fetch(API_URL + "/plans");
-      if (!plansRes.ok) throw new Error("Failed to fetch plans");
-      const plans: Plan[] = await plansRes.json();
-      
-      // Group plans by community for statistics
-      const communityPlansMap = new Map<string, Plan[]>();
-      plans.forEach(plan => {
-        const communityName = typeof plan.community === 'string' ? plan.community : (plan.community as any)?.name || plan.community;
-        if (!communityPlansMap.has(communityName)) {
-          communityPlansMap.set(communityName, []);
-        }
-        communityPlansMap.get(communityName)!.push(plan);
-      });
 
-      // Map communities data to include statistics from plans
-      const communityData: Community[] = communitiesData.map(comm => {
-        const plansForCommunity = communityPlansMap.get(comm.name) || [];
-        // Extract company names from the companies array (handle both object and string formats)
+      const communityData: Community[] = communitiesData.map((comm: any) => {
         const companyNames = (comm.companies || []).map((c: any) => {
           if (typeof c === 'string') return c;
           if (c && typeof c === 'object' && c.name) return c.name;
           return '';
         }).filter((name: string) => name);
-        // Fallback to extracting from plans if no companies in community
-        const companies = companyNames.length > 0 
-          ? companyNames 
-          : Array.from(new Set(plansForCommunity.map(p => typeof p.company === 'string' ? p.company : (p.company as any)?.name || p.company)));
-        const prices = plansForCommunity.map(p => p.price).filter(p => p > 0);
-        const recentChanges = plansForCommunity.filter(p => p.price_changed_recently).length;
-        const totalPlans = plansForCommunity.filter(p => p.type === 'plan').length;
-        const totalNow = plansForCommunity.filter(p => p.type === 'now').length;
-        
         return {
           name: comm.name,
-          companies: companies.length > 0 ? companies : [],
-          totalPlans,
-          totalNow,
-          avgPrice: prices.length > 0 ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : 0,
-          priceRange: {
-            min: prices.length > 0 ? Math.min(...prices) : 0,
-            max: prices.length > 0 ? Math.max(...prices) : 0
-          },
-          recentChanges,
+          companies: companyNames,
+          totalPlans: comm.totalPlans ?? 0,
+          totalNow: comm.totalQuickMoveIns ?? 0,
+          avgPrice: 0,
+          priceRange: { min: 0, max: 0 },
+          recentChanges: 0,
           description: comm.description,
           location: comm.location,
           _id: comm._id,
@@ -181,12 +138,8 @@ export default function CommunitiesPage() {
   };
 
   useEffect(() => {
-    // Prevent duplicate calls in React StrictMode (development)
     if (hasFetched.current) return;
     hasFetched.current = true;
-    
-    fetchUser();
-    // Always fetch fresh parent list on mount so new communities (e.g. parentCommunityId: null) appear
     fetchCommunities(true);
   }, []);
 
@@ -214,18 +167,6 @@ export default function CommunitiesPage() {
     
     setFilteredCommunities(filtered);
   }, [searchQuery, communities]);
-
-  const fetchUser = async () => {
-    try {
-      const response = await fetch("/api/auth/me");
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-      }
-    } catch (error) {
-      // User not authenticated - AuthGuard will handle redirect
-    }
-  };
 
   const handleCommunityClick = (community: Community) => {
     const slug = communityNameToSlug(community.name);
@@ -304,19 +245,20 @@ export default function CommunitiesPage() {
                 </Badge>
               </div>
               
-              {/* Price Info */}
+              {/* Price Info (— when no plan data) */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Avg Price:</span>
                   <span className="font-semibold text-primary">
-                    ${community.avgPrice.toLocaleString()}
+                    {community.avgPrice > 0 ? `$${community.avgPrice.toLocaleString()}` : "—"}
                   </span>
                 </div>
-                
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Price Range:</span>
                   <span className="font-semibold text-foreground text-sm">
-                    ${community.priceRange.min.toLocaleString()} - ${community.priceRange.max.toLocaleString()}
+                    {community.priceRange.max > 0
+                      ? `$${community.priceRange.min.toLocaleString()} - $${community.priceRange.max.toLocaleString()}`
+                      : "—"}
                   </span>
                 </div>
               </div>
