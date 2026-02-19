@@ -185,7 +185,7 @@ export default function CommunityHeader({
                       {selectedSubcommunity ? selectedSubcommunity.name : "Select subcommunity"}
                     </span>
                   </SelectTrigger>
-                  <SelectContent className="z-50">
+                  <SelectContent>
                     <SelectItem value="__all__">All</SelectItem>
                     {childCommunities.map((child) => (
                       <SelectItem key={child._id} value={child._id}>
@@ -197,12 +197,12 @@ export default function CommunityHeader({
               </>
             )}
             <span className="text-xs sm:text-sm font-medium text-white/90 hidden sm:inline">Sort by:</span>
-            <div className="relative z-50 flex-1 sm:flex-initial">
+            <div className="relative flex-1 sm:flex-initial">
               <Select value={sortKey} onValueChange={(value) => onSortKeyChange(value as SortKey)}>
                 <SelectTrigger className="w-full sm:w-[140px] md:w-[180px] h-8 sm:h-10 text-xs sm:text-sm bg-white/20 hover:bg-white/30 text-white border-white/20 backdrop-blur-sm">
                   <SelectValue placeholder="Sort" />
                 </SelectTrigger>
-                <SelectContent className="z-50">
+                <SelectContent>
                   <SelectItem value="plan_name">Plan Name</SelectItem>
                   <SelectItem value="price">Price</SelectItem>
                   <SelectItem value="sqft">Sq Ft</SelectItem>

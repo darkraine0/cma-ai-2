@@ -152,7 +152,7 @@ const SelectContent = React.forwardRef<
     <div
       ref={ref}
       className={cn(
-        "fixed bg-popover text-popover-foreground border-2 border-border rounded-lg shadow-lg",
+        "fixed bg-popover text-popover-foreground border-2 border-border rounded-lg shadow-lg overflow-y-auto max-h-60",
         className
       )}
       style={{
