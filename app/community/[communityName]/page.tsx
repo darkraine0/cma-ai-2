@@ -39,7 +39,8 @@ export default function CommunityDetail() {
   // Fetch community, plans, and child communities
   const { community, plans, childCommunities, loading, error, refetch } = useCommunityData(communitySlug);
 
-  // Fetch product lines (segments) for the current display community
+  // Fetch product lines (segments) for the current display community.
+  // When viewing a subcommunity, segments are often stored under the parent — if the subcommunity has none, use parent's.
   const displayCommunityId = selectedSubcommunity?._id ?? community?._id;
   React.useEffect(() => {
     if (!displayCommunityId) {
@@ -49,8 +50,25 @@ export default function CommunityDetail() {
     let cancelled = false;
     fetch(`${API_URL}/product-segments?communityId=${displayCommunityId}`)
       .then((res) => (res.ok ? res.json() : []))
-      .then((data: { _id: string; name: string; label: string }[]) => {
-        if (!cancelled) setProductLines(Array.isArray(data) ? data : []);
+      .then(async (data: { _id: string; name: string; label: string }[]) => {
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : [];
+        if (list.length > 0) {
+          setProductLines(list);
+          return;
+        }
+        // When showing a subcommunity with no segments, use parent community's product lines
+        if (selectedSubcommunity?._id && community?._id && displayCommunityId === selectedSubcommunity._id) {
+          try {
+            const parentRes = await fetch(`${API_URL}/product-segments?communityId=${community._id}`);
+            const parentData = parentRes.ok ? await parentRes.json() : [];
+            if (!cancelled) setProductLines(Array.isArray(parentData) ? parentData : []);
+          } catch {
+            if (!cancelled) setProductLines([]);
+          }
+        } else {
+          setProductLines([]);
+        }
       })
       .catch(() => {
         if (!cancelled) setProductLines([]);
@@ -58,7 +76,7 @@ export default function CommunityDetail() {
     return () => {
       cancelled = true;
     };
-  }, [displayCommunityId]);
+  }, [displayCommunityId, selectedSubcommunity?._id, community?._id]);
 
   // When a subcommunity is selected, fetch its plans (no route change)
   React.useEffect(() => {
