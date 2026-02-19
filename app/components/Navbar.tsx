@@ -9,6 +9,7 @@ import { ThemeToggle } from "./theme-toggle";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "./ui/sheet";
 import { LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "@/app/contexts/AuthContext";
+import { cn } from "@/app/utils/utils";
 
 const Navbar = () => {
   const router = useRouter();
@@ -72,25 +73,40 @@ const Navbar = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground font-semibold"
+                      className={cn(
+                        "font-semibold",
+                        pathname === "/communities" || pathname.startsWith("/community/")
+                          ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground"
+                          : "bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground"
+                      )}
                     >
                       Communities
                     </Button>
                   </Link>
                   <Link href="/companies">
-                    <Button 
+                    <Button
                       variant="outline"
                       size="sm"
-                      className="bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground font-semibold"
+                      className={cn(
+                        "font-semibold",
+                        pathname === "/companies"
+                          ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground"
+                          : "bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground"
+                      )}
                     >
                       Companies
                     </Button>
                   </Link>
                   <Link href="/manage">
-                    <Button 
+                    <Button
                       variant="outline"
                       size="sm"
-                      className="bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground font-semibold"
+                      className={cn(
+                        "font-semibold",
+                        pathname === "/manage"
+                          ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground"
+                          : "bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground"
+                      )}
                     >
                       Manage
                     </Button>
@@ -115,7 +131,12 @@ const Navbar = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground font-semibold"
+                        className={cn(
+                          "font-semibold",
+                          pathname?.startsWith("/admin")
+                            ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground"
+                            : "bg-card text-card-foreground border-border hover:bg-muted hover:text-muted-foreground"
+                        )}
                       >
                         Admin
                       </Button>
@@ -173,7 +194,10 @@ const Navbar = () => {
                         <Link href="/communities" onClick={() => setMobileMenuOpen(false)}>
                           <Button
                             variant="ghost"
-                            className="w-full justify-start text-base font-semibold"
+                            className={cn(
+                              "w-full justify-start text-base font-semibold",
+                              (pathname === "/communities" || pathname?.startsWith("/community/")) && "bg-primary/10 text-primary"
+                            )}
                           >
                             Communities
                           </Button>
@@ -181,7 +205,10 @@ const Navbar = () => {
                         <Link href="/companies" onClick={() => setMobileMenuOpen(false)}>
                           <Button
                             variant="ghost"
-                            className="w-full justify-start text-base font-semibold"
+                            className={cn(
+                              "w-full justify-start text-base font-semibold",
+                              pathname === "/companies" && "bg-primary/10 text-primary"
+                            )}
                           >
                             Companies
                           </Button>
@@ -189,7 +216,10 @@ const Navbar = () => {
                         <Link href="/manage" onClick={() => setMobileMenuOpen(false)}>
                           <Button
                             variant="ghost"
-                            className="w-full justify-start text-base font-semibold"
+                            className={cn(
+                              "w-full justify-start text-base font-semibold",
+                              pathname === "/manage" && "bg-primary/10 text-primary"
+                            )}
                           >
                             Manage
                           </Button>
@@ -198,7 +228,10 @@ const Navbar = () => {
                           <Link href="/admin/dashboard" onClick={() => setMobileMenuOpen(false)}>
                             <Button
                               variant="ghost"
-                              className="w-full justify-start text-base font-semibold"
+                              className={cn(
+                                "w-full justify-start text-base font-semibold",
+                                pathname?.startsWith("/admin") && "bg-primary/10 text-primary"
+                              )}
                             >
                               Admin Dashboard
                             </Button>
