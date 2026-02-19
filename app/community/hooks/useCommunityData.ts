@@ -10,6 +10,8 @@ interface UseCommunityDataReturn {
   loading: boolean;
   error: string;
   refetch: () => void;
+  /** Update a single plan in local state (e.g. after product line change) without refetching. */
+  updatePlan: (planId: string, updates: Partial<Plan>) => void;
 }
 
 // Cache for communities list
@@ -114,5 +116,11 @@ export function useCommunityData(communitySlug: string): UseCommunityDataReturn 
     }
   };
 
-  return { community, plans, childCommunities, loading, error, refetch };
+  const updatePlan = (planId: string, updates: Partial<Plan>) => {
+    setPlans((prev) =>
+      prev.map((p) => (p._id === planId ? { ...p, ...updates } : p))
+    );
+  };
+
+  return { community, plans, childCommunities, loading, error, refetch, updatePlan };
 }

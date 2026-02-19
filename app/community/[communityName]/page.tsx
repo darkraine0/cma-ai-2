@@ -37,7 +37,7 @@ export default function CommunityDetail() {
   const [productLines, setProductLines] = useState<{ _id: string; name: string; label: string }[]>([]);
 
   // Fetch community, plans, and child communities
-  const { community, plans, childCommunities, loading, error, refetch } = useCommunityData(communitySlug);
+  const { community, plans, childCommunities, loading, error, refetch, updatePlan } = useCommunityData(communitySlug);
 
   // Fetch product lines (segments) for the current display community.
   // When viewing a subcommunity, segments are often stored under the parent — if the subcommunity has none, use parent's.
@@ -337,6 +337,14 @@ export default function CommunityDetail() {
                         if (selectedSubcommunity?._id) {
                           const res = await fetch(`${API_URL}/communities/${selectedSubcommunity._id}/plans`);
                           if (res.ok) setSubcommunityPlans(await res.json());
+                        }
+                      }}
+                      onProductLineUpdated={(planId, segment) => {
+                        updatePlan(planId, { segment });
+                        if (selectedSubcommunity) {
+                          setSubcommunityPlans((prev) =>
+                            prev.map((p) => (p._id === planId ? { ...p, segment } : p))
+                          );
                         }
                       }}
                     />

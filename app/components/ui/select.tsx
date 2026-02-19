@@ -1,6 +1,6 @@
 import * as React from "react"
 import * as ReactDOM from "react-dom"
-import { ChevronDown, Check } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import { cn } from "@/app/utils/utils"
 
 interface SelectProps {
@@ -29,6 +29,7 @@ interface SelectTriggerProps extends React.ComponentPropsWithoutRef<"button"> {
 
 interface SelectValueProps {
   placeholder?: string
+  children?: React.ReactNode
 }
 
 const SelectContext = React.createContext<{
@@ -82,12 +83,13 @@ const SelectTrigger = React.forwardRef<
 })
 SelectTrigger.displayName = "SelectTrigger"
 
-const SelectValue = ({ placeholder }: SelectValueProps) => {
+const SelectValue = ({ placeholder, children }: SelectValueProps) => {
   const { value } = React.useContext(SelectContext)
-  
+  const display = children ?? value ?? placeholder
+
   return (
     <span className={cn(!value && "text-muted-foreground")}>
-      {value || placeholder}
+      {display}
     </span>
   )
 }
@@ -180,7 +182,7 @@ const SelectItem = React.forwardRef<
     <div
       ref={ref}
       className={cn(
-        "relative flex w-full cursor-default select-none items-center rounded-md py-2 pl-8 pr-3 text-sm font-semibold outline-none focus:bg-muted focus:text-muted-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 hover:bg-muted hover:text-muted-foreground transition-all duration-200",
+        "relative flex w-full cursor-default select-none items-center rounded-md py-2 pl-3 pr-3 text-sm font-semibold outline-none focus:bg-muted focus:text-muted-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 hover:bg-muted hover:text-muted-foreground transition-all duration-200",
         isSelected && "bg-muted text-muted-foreground",
         className
       )}
@@ -189,7 +191,6 @@ const SelectItem = React.forwardRef<
         setIsOpen(false)
       }}
     >
-      {isSelected && <Check className="absolute left-2 h-4 w-4" />}
       {children}
     </div>
   )
