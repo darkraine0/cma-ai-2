@@ -3,12 +3,22 @@ import { useRouter } from "next/navigation";
 import TypeTabs from "../../../../components/TypeTabs";
 import { getCommunityImage } from "../../../../utils/communityImages";
 import { RefreshCw } from "lucide-react";
+import { cn } from "../../../../utils/utils";
+
+interface ProductLineOption {
+  _id: string;
+  name: string;
+  label: string;
+}
 
 interface ChartHeaderProps {
   communityName: string;
   communitySlug: string;
   selectedType: string;
   onTypeChange: (type: string) => void;
+  productLines?: ProductLineOption[];
+  selectedProductLineId?: string;
+  onProductLineChange?: (id: string) => void;
   onSync?: () => void;
   isSyncing?: boolean;
 }
@@ -18,6 +28,9 @@ export default function ChartHeader({
   communitySlug,
   selectedType,
   onTypeChange,
+  productLines = [],
+  selectedProductLineId = "__all__",
+  onProductLineChange,
   onSync,
   isSyncing = false,
 }: ChartHeaderProps) {
@@ -76,9 +89,55 @@ export default function ChartHeader({
           </div>
         </div>
 
-        {/* Bottom Row: Type Tabs */}
-        <div className="flex justify-start">
+        {/* Bottom Row: Type Tabs + Product Line */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <TypeTabs selected={selectedType} onSelect={onTypeChange} />
+          {productLines.length > 0 && onProductLineChange && (
+            <div className="inline-flex items-center gap-1 bg-white/10 backdrop-blur-sm rounded-lg p-1">
+              <button
+                type="button"
+                onClick={() => onProductLineChange("__all__")}
+                className={cn(
+                  "px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md border transition-all duration-200",
+                  "border-white/20",
+                  selectedProductLineId === "__all__"
+                    ? "bg-white/20 text-white shadow-sm backdrop-blur-sm"
+                    : "text-white/70 hover:text-white hover:bg-white/5"
+                )}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                onClick={() => onProductLineChange("__none__")}
+                className={cn(
+                  "px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md border transition-all duration-200",
+                  "border-white/20",
+                  selectedProductLineId === "__none__"
+                    ? "bg-white/20 text-white shadow-sm backdrop-blur-sm"
+                    : "text-white/70 hover:text-white hover:bg-white/5"
+                )}
+              >
+                None
+              </button>
+              {productLines.map((seg) => (
+                <button
+                  key={seg._id}
+                  type="button"
+                  onClick={() => onProductLineChange(seg._id)}
+                  className={cn(
+                    "px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md border transition-all duration-200",
+                    "border-white/20",
+                    selectedProductLineId === seg._id
+                      ? "bg-white/20 text-white shadow-sm backdrop-blur-sm"
+                      : "text-white/70 hover:text-white hover:bg-white/5"
+                  )}
+                >
+                  {seg.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -205,15 +205,12 @@ export default function EditPlanDialog({
               </div>
               <div>
                 <label htmlFor="type" className="block text-sm font-medium mb-1">Type</label>
-                <Select value={type} onValueChange={(v) => setType(v as "plan" | "now")}>
-                  <SelectTrigger id="type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="plan">Plan</SelectItem>
-                    <SelectItem value="now">Now</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="type"
+                  value={type === "now" ? "Now" : "Plan"}
+                  readOnly
+                  className="bg-muted cursor-not-allowed"
+                />
               </div>
             </div>
 
@@ -250,9 +247,9 @@ export default function EditPlanDialog({
                   placeholder="Community name"
                 />
               </div>
-              {productLines.length > 0 && (
-                <div>
-                  <label htmlFor="segment" className="block text-sm font-medium mb-1">Product line</label>
+              <div>
+                <label htmlFor="segment" className="block text-sm font-medium mb-1">Product line</label>
+                {productLines.length > 0 ? (
                   <Select value={segmentId} onValueChange={setSegmentId}>
                     <SelectTrigger id="segment">
                       <span className={cn(!segmentId || segmentId === "__none__" ? "text-muted-foreground" : "")}>
@@ -270,8 +267,19 @@ export default function EditPlanDialog({
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-              )}
+                ) : (
+                  <Input
+                    id="segment"
+                    value={
+                      segmentId === "__none__" || !segmentId
+                        ? "None"
+                        : plan?.segment?.label ?? plan?.segment?.name ?? "None"
+                    }
+                    readOnly
+                    className="bg-muted cursor-not-allowed"
+                  />
+                )}
+              </div>
             </div>
 
             {/* Beds, Baths, Design number on one line (desktop) */}

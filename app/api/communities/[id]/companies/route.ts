@@ -3,6 +3,8 @@ import connectDB from '@/app/lib/mongodb';
 import Community from '@/app/models/Community';
 import Company from '@/app/models/Company';
 import CommunityCompany from '@/app/models/CommunityCompany';
+import Plan from '@/app/models/Plan';
+import PriceHistory from '@/app/models/PriceHistory';
 import mongoose from 'mongoose';
 import { requirePermission } from '@/app/lib/admin';
 
@@ -250,6 +252,19 @@ export async function DELETE(
       communityId: community._id,
       companyId: companyObjectId,
     });
+
+    // Delete all plans for this company in this community (and their price history)
+    const planIds = await Plan.distinct('_id', {
+      'community._id': new mongoose.Types.ObjectId(communityId),
+      'company._id': companyObjectId,
+    });
+    if (planIds.length > 0) {
+      await PriceHistory.deleteMany({ plan_id: { $in: planIds } });
+      await Plan.deleteMany({
+        'community._id': new mongoose.Types.ObjectId(communityId),
+        'company._id': companyObjectId,
+      });
+    }
 
     // Use MongoDB's $pull operator to remove the company ID
     const updateResult = await Community.updateOne(

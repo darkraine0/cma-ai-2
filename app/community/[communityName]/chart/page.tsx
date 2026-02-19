@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Card, CardContent } from "../../../components/ui/card";
 import { useToast } from "../../../components/ui/use-toast";
@@ -19,15 +19,36 @@ export default function ChartPage() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const [isSyncing, setIsSyncing] = useState(false);
-  
-  const communitySlug = params?.communityName 
-    ? decodeURIComponent(params.communityName as string).toLowerCase() 
+  const [productLines, setProductLines] = useState<{ _id: string; name: string; label: string }[]>([]);
+
+  const communitySlug = params?.communityName
+    ? decodeURIComponent(params.communityName as string).toLowerCase()
     : '';
   const formattedSlug = formatCommunitySlug(communitySlug);
   const urlType = searchParams?.get('type');
 
   // Fetch community and plans data
   const { community, plans, loading, error, refetch } = useCommunityData(communitySlug);
+
+  // Fetch product lines (segments) for this community
+  useEffect(() => {
+    if (!community?._id) {
+      setProductLines([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`${API_URL}/product-segments?communityId=${community._id}`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: { _id: string; name: string; label: string }[]) => {
+        if (!cancelled) setProductLines(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setProductLines([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [community?._id]);
 
   // Extract company names
   const companies = useMemo(
@@ -40,12 +61,14 @@ export default function ChartPage() {
     [companies]
   );
 
-  // Filter plans by type
-  const { selectedType, setSelectedType, filteredPlans } = useChartFilters(
-    plans,
-    companyNamesSet,
-    urlType
-  );
+  // Filter plans by type and product line
+  const {
+    selectedType,
+    setSelectedType,
+    selectedProductLineId,
+    setSelectedProductLineId,
+    filteredPlans,
+  } = useChartFilters(plans, companyNamesSet, urlType, productLines);
 
   // Handle sync/re-scrape
   const handleSync = async () => {
@@ -143,6 +166,9 @@ export default function ChartPage() {
               communitySlug={communitySlug}
               selectedType={selectedType}
               onTypeChange={setSelectedType}
+              productLines={productLines}
+              selectedProductLineId={selectedProductLineId}
+              onProductLineChange={setSelectedProductLineId}
               onSync={handleSync}
               isSyncing={isSyncing}
             />

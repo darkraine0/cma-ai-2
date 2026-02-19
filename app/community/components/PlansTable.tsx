@@ -59,7 +59,7 @@ export default function PlansTable({
             <TableHead>$/Sq Ft</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>Company</TableHead>
-            <TableHead>Product Line</TableHead>
+            <TableHead className="whitespace-nowrap">Product Line</TableHead>
             <TableHead className="cursor-pointer" onClick={() => onSort("last_updated")}>
               Last Updated
             </TableHead>
@@ -78,7 +78,7 @@ export default function PlansTable({
                 key={plan._id ?? `${plan.plan_name}-${plan.last_updated}-${extractCompanyName(plan.company)}`}
                 className={plan.price_changed_recently ? "bg-primary/5" : ""}
               >
-                <TableCell className="font-medium">
+                <TableCell className="font-medium whitespace-nowrap" title={plan.type === 'now' && plan.address ? plan.address : plan.plan_name}>
                   {plan.type === 'now' && plan.address ? plan.address : plan.plan_name}
                 </TableCell>
                 <TableCell className="font-semibold text-primary">
@@ -102,7 +102,7 @@ export default function PlansTable({
                   {planCompany}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
-                  {plan.segment?.label ?? plan.segment?.name ?? "—"}
+                  {plan.segment?.label ?? plan.segment?.name ?? ""}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {new Date(plan.last_updated).toLocaleString()}
