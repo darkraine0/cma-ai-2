@@ -37,17 +37,11 @@ export function useCommunityData(communitySlug: string): UseCommunityDataReturn 
 
   const fetchCommunity = async () => {
     try {
-      let communities: Community[];
-      
-      // Use cached communities if available
-      if (communitiesCache) {
-        communities = communitiesCache;
-      } else {
-        const res = await fetch(API_URL + "/communities");
-        if (!res.ok) throw new Error("Failed to fetch communities");
-        communities = await res.json();
-        communitiesCache = communities;
-      }
+      // Always fetch fresh so we get latest companies (e.g. after adding on Manage page)
+      const res = await fetch(API_URL + "/communities");
+      if (!res.ok) throw new Error("Failed to fetch communities");
+      const communities: Community[] = await res.json();
+      communitiesCache = communities;
 
       const foundCommunity = communities.find(comm => 
         communityNameToSlug(comm.name) === communitySlug
@@ -55,12 +49,14 @@ export function useCommunityData(communitySlug: string): UseCommunityDataReturn 
 
       if (foundCommunity) {
         setCommunity(foundCommunity);
-        // Cache in sessionStorage
         if (typeof window !== 'undefined') {
           sessionStorage.setItem(`community_${communitySlug}`, JSON.stringify(foundCommunity));
         }
       } else {
         setCommunity(null);
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem(`community_${communitySlug}`);
+        }
       }
     } catch (err: any) {
       console.error("Failed to fetch community:", err);

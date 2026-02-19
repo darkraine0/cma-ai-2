@@ -17,6 +17,8 @@ interface PlansTableProps {
   onSort: (key: SortKey) => void;
   productLines?: ProductLineOption[];
   onPlanUpdated?: () => void;
+  /** When set, shown instead of default message when there are no plans */
+  emptyMessage?: string;
 }
 
 export default function PlansTable({
@@ -27,13 +29,14 @@ export default function PlansTable({
   onSort,
   productLines = [],
   onPlanUpdated,
+  emptyMessage,
 }: PlansTableProps) {
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   if (plans.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
-        No plans found for this community.
+        {emptyMessage ?? "No plans found for this community."}
       </div>
     );
   }

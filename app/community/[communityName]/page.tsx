@@ -313,6 +313,7 @@ export default function CommunityDetail() {
                       onPageChange={setPage}
                       onSort={handleSort}
                       productLines={productLines}
+                      emptyMessage={companies.length > 0 ? "No plans yet. Use the Sync button above to load plans from the builder sites." : undefined}
                       onPlanUpdated={async () => {
                         await refetch();
                         if (selectedSubcommunity?._id) {
