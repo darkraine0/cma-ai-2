@@ -101,13 +101,15 @@ export default function CommunitiesPage() {
           if (c && typeof c === 'object' && c.name) return c.name;
           return '';
         }).filter((name: string) => name);
+        const minP = comm.minPrice ?? 0;
+        const maxP = comm.maxPrice ?? 0;
         return {
           name: comm.name,
           companies: companyNames,
           totalPlans: comm.totalPlans ?? 0,
           totalNow: comm.totalQuickMoveIns ?? 0,
-          avgPrice: 0,
-          priceRange: { min: 0, max: 0 },
+          avgPrice: comm.avgPrice ?? 0,
+          priceRange: { min: minP, max: maxP },
           recentChanges: 0,
           description: comm.description,
           location: comm.location,

@@ -104,17 +104,113 @@ export async function GET(request: NextRequest) {
         };
       });
     }
+
+    // Compute plan-based stats (totalPlans, totalNow, avgPrice, minPrice, maxPrice) from Plan collection
+    const parentIds = communities.map((c: any) => c._id);
+    let childrenForStats: any[] = [];
+    if (parentsOnly && parentIds.length > 0) {
+      childrenForStats = await Community.find(
+        { parentCommunityId: { $in: parentIds } },
+        { _id: 1 }
+      );
+    }
+    const parentToAllIds = new Map<string, mongoose.Types.ObjectId[]>();
+    communities.forEach((c: any) => {
+      const pid = c._id.toString();
+      parentToAllIds.set(pid, [c._id]);
+    });
+    childrenForStats.forEach((child: any) => {
+      const parentId = child.parentCommunityId?.toString();
+      if (parentId && parentToAllIds.has(parentId)) {
+        parentToAllIds.get(parentId)!.push(child._id);
+      }
+    });
+    const allCommunityIds = Array.from(new Set(
+      parentToAllIds.size > 0
+        ? ([] as mongoose.Types.ObjectId[]).concat(...parentToAllIds.values())
+        : communitiesWithChildren.map((c: any) => c._id)
+    ));
+    const allIdsAsObjectIds = allCommunityIds.map((id: any) =>
+      typeof id === 'string' ? new mongoose.Types.ObjectId(id) : id
+    );
+
+    let statsByCommunityId = new Map<string, { totalPlans: number; totalNow: number; totalPrice: number; planCount: number; minPrice: number; maxPrice: number }>();
+    if (allIdsAsObjectIds.length > 0 && mongoose.models.Plan) {
+      const planStats = await Plan.aggregate([
+        { $match: { 'community._id': { $in: allIdsAsObjectIds } } },
+        {
+          $group: {
+            _id: '$community._id',
+            totalPlans: { $sum: { $cond: [{ $eq: ['$type', 'plan'] }, 1, 0] } },
+            totalNow: { $sum: { $cond: [{ $eq: ['$type', 'now'] }, 1, 0] } },
+            totalPrice: { $sum: '$price' },
+            planCount: { $sum: 1 },
+            minPrice: { $min: '$price' },
+            maxPrice: { $max: '$price' },
+          },
+        },
+      ]);
+      planStats.forEach((row: any) => {
+        const id = row._id?.toString();
+        if (id) {
+          statsByCommunityId.set(id, {
+            totalPlans: row.totalPlans ?? 0,
+            totalNow: row.totalNow ?? 0,
+            totalPrice: row.totalPrice ?? 0,
+            planCount: row.planCount ?? 0,
+            minPrice: row.minPrice ?? 0,
+            maxPrice: row.maxPrice ?? 0,
+          });
+        }
+      });
+    }
+
+    function getMergedStats(communityIds: mongoose.Types.ObjectId[]) {
+      let totalPlans = 0;
+      let totalNow = 0;
+      let totalPrice = 0;
+      let planCount = 0;
+      let minPrice = Infinity;
+      let maxPrice = -Infinity;
+      communityIds.forEach((id) => {
+        const sid = id.toString();
+        const s = statsByCommunityId.get(sid);
+        if (s) {
+          totalPlans += s.totalPlans;
+          totalNow += s.totalNow;
+          totalPrice += s.totalPrice;
+          planCount += s.planCount;
+          if (s.minPrice != null && s.minPrice < minPrice) minPrice = s.minPrice;
+          if (s.maxPrice != null && s.maxPrice > maxPrice) maxPrice = s.maxPrice;
+        }
+      });
+      const avgPrice = planCount > 0 ? Math.round(totalPrice / planCount) : 0;
+      return {
+        totalPlans,
+        totalQuickMoveIns: totalNow,
+        avgPrice,
+        minPrice: minPrice === Infinity ? 0 : minPrice,
+        maxPrice: maxPrice === -Infinity ? 0 : maxPrice,
+      };
+    }
     
     // Map to response format
-    const result = communitiesWithChildren.map((community: any) => ({
+    const result = communitiesWithChildren.map((community: any) => {
+      const cid = community._id.toString();
+      const idsForStats = parentToAllIds.get(cid) || [community._id];
+      const merged = getMergedStats(idsForStats);
+      return {
       _id: community._id.toString(),
       name: community.name,
       description: community.description || null,
       location: community.location || null,
       hasImage: !!(community.imagePath || community.imageData),
       imagePath: community.imagePath || null,
-      totalPlans: community.totalPlans ?? 0,
-      totalQuickMoveIns: community.totalQuickMoveIns ?? 0,
+      totalPlans: merged.totalPlans,
+      totalQuickMoveIns: merged.totalQuickMoveIns,
+      avgPrice: merged.avgPrice,
+      minPrice: merged.minPrice,
+      maxPrice: merged.maxPrice,
       parentCommunityId: community.parentCommunityId 
         ? (typeof community.parentCommunityId === 'object' 
           ? { _id: community.parentCommunityId._id.toString(), name: community.parentCommunityId.name }
@@ -133,15 +229,17 @@ export async function GET(request: NextRequest) {
           return null;
         })
         .filter((company: any) => company !== null), // Filter out null entries
-      children: community.children ? community.children.map((child: any) => ({
+      children: community.children ? community.children.map((child: any) => {
+        const childMerged = getMergedStats([child._id]);
+        return {
         _id: child._id.toString(),
         name: child.name,
         description: child.description || null,
         location: child.location || null,
         hasImage: !!(child.imagePath || child.imageData),
         imagePath: child.imagePath || null,
-        totalPlans: child.totalPlans ?? 0,
-        totalQuickMoveIns: child.totalQuickMoveIns ?? 0,
+        totalPlans: childMerged.totalPlans,
+        totalQuickMoveIns: childMerged.totalQuickMoveIns,
         companies: (child.companies || [])
           .map((c: any) => {
             if (c && typeof c === 'object' && c._id && c.name) {
@@ -154,9 +252,11 @@ export async function GET(request: NextRequest) {
           })
           .filter((company: any) => company !== null),
         fromPlans: false,
-      })) : undefined,
+      };
+      }) : undefined,
       fromPlans: false, // All communities from database are not from plans
-    }));
+    };
+    });
     
     return NextResponse.json(result);
   } catch (error: any) {
