@@ -26,6 +26,13 @@ import ProductLinesCard from "../components/ProductLinesCard";
 import { useScrapingProgress } from "../contexts/ScrapingProgressContext";
 import { useAuth } from "../contexts/AuthContext";
 import { Plus, X, Trash2, Loader2, Search } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 import API_URL from '../config';
 import { getCompanyColor } from '../utils/colors';
 
@@ -81,6 +88,7 @@ export default function ManagePage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"name_asc" | "name_desc" | "builders_desc" | "plans_desc">("plans_desc");
   const [loading, setLoading] = useState(true);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
   const [error, setError] = useState("");
@@ -231,11 +239,25 @@ export default function ManagePage() {
     setFilteredCommunities(filtered);
   }, [searchQuery, communities]);
 
-  // Left sidebar shows only parent communities (no subcommunities)
-  const parentCommunitiesForSidebar = React.useMemo(
-    () => filteredCommunities.filter((c) => !c.parentCommunityId),
-    [filteredCommunities]
-  );
+  // Left sidebar: parent communities only, sorted
+  const parentCommunitiesForSidebar = React.useMemo(() => {
+    const parents = filteredCommunities.filter((c) => !c.parentCommunityId);
+    const builderCount = (c: Community) => (Array.isArray(c.companies) ? c.companies.length : 0);
+    const plansSum = (c: Community) => (c.totalPlans || 0) + (c.totalNow || 0);
+    return [...parents].sort((a, b) => {
+      switch (sortBy) {
+        case "name_asc":
+          return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+        case "name_desc":
+          return b.name.localeCompare(a.name, undefined, { sensitivity: "base" });
+        case "builders_desc":
+          return builderCount(b) - builderCount(a);
+        case "plans_desc":
+        default:
+          return plansSum(b) - plansSum(a);
+      }
+    });
+  }, [filteredCommunities, sortBy]);
 
   const fetchChildCommunities = React.useCallback(async (parentId: string) => {
     try {
@@ -594,6 +616,22 @@ export default function ManagePage() {
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pl-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       />
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Sort:</span>
+                      <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+                        <SelectTrigger className="w-[180px] h-10">
+                          <SelectValue placeholder="Sort by">
+                            {sortBy === "name_asc" ? "Alphabetical (A–Z)" : sortBy === "name_desc" ? "Alphabetical (Z–A)" : sortBy === "builders_desc" ? "Most Builders" : "Most Plans"}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="name_asc">Alphabetical (A–Z)</SelectItem>
+                          <SelectItem value="name_desc">Alphabetical (Z–A)</SelectItem>
+                          <SelectItem value="builders_desc">Most Builders</SelectItem>
+                          <SelectItem value="plans_desc">Most Plans</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     {isEditor && (
                       <AddCommunityModal 
