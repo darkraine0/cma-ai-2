@@ -74,6 +74,8 @@ interface ProductSegment {
   _id: string;
   communityId: string;
   communityName?: string;
+  companyId?: string | null;
+  companyName?: string;
   name: string;
   label: string;
   description?: string | null;
@@ -936,6 +938,9 @@ export default function ManagePage() {
                       communityId={selectedCommunity._id}
                       communityName={selectedCommunity.name}
                       segments={segments}
+                      companies={selectedCommunity.companies
+                        .map((c) => (typeof c === "string" ? null : { _id: c._id, name: c.name }))
+                        .filter((c): c is { _id: string; name: string } => c !== null)}
                       loading={loadingSegments}
                       onRefetch={loadSegments}
                       isEditor={!!isEditor}

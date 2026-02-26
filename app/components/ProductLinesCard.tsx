@@ -13,12 +13,21 @@ import {
   DialogClose,
 } from "@/app/components/ui/dialog";
 import { Input } from "@/app/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/ui/select";
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import API_URL from "@/app/config";
 
 export interface ProductSegmentItem {
   _id: string;
   communityId: string;
+  companyId?: string | null;
+  companyName?: string;
   name: string;
   label: string;
   description?: string | null;
@@ -26,10 +35,23 @@ export interface ProductSegmentItem {
   displayOrder?: number;
 }
 
+/** Company option for the "Add Product Line" company selector (unified card mode). */
+export interface ProductLineCompanyOption {
+  _id: string;
+  name: string;
+}
+
 interface ProductLinesCardProps {
   communityId: string;
   communityName: string;
+  /** When set, segments are scoped to this builder and new segments are created for this builder. */
+  companyId?: string | null;
+  /** Display name of the builder (e.g. "UnionMain", "D.R. Horton"). */
+  companyName?: string;
+  /** All segments for the community (when in unified mode). Show company name per segment. */
   segments: ProductSegmentItem[];
+  /** Companies in this community; when provided, use single card + Add modal with company selector. */
+  companies?: ProductLineCompanyOption[];
   loading: boolean;
   onRefetch: () => void;
   isEditor: boolean;
@@ -38,7 +60,10 @@ interface ProductLinesCardProps {
 export default function ProductLinesCard({
   communityId,
   communityName,
+  companyId,
+  companyName,
   segments,
+  companies,
   loading,
   onRefetch,
   isEditor,
@@ -50,11 +75,16 @@ export default function ProductLinesCard({
 
   // Segment form (only name; label is derived from name, description removed)
   const [segName, setSegName] = useState("");
+  /** Selected company in Add modal (unified mode). "" = Community-wide. */
+  const [addModalCompanyId, setAddModalCompanyId] = useState<string>("");
   const [segSaving, setSegSaving] = useState(false);
   const [segDeletingId, setSegDeletingId] = useState<string | null>(null);
 
+  const isUnifiedMode = Boolean(companies !== undefined && !companyId);
+
   const handleOpenAddSegment = () => {
     setSegName("");
+    setAddModalCompanyId(companies?.length ? (companies[0]._id ?? "") : "");
     setAddSegmentOpen(true);
   };
 
@@ -84,12 +114,14 @@ export default function ProductLinesCard({
         }
         setEditSegment(null);
       } else {
+        const effectiveCompanyId = isUnifiedMode ? (addModalCompanyId || null) : companyId;
         const res = await fetch(`${API_URL}/product-segments`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             communityId,
+            ...(effectiveCompanyId && { companyId: effectiveCompanyId }),
             name: segName.trim(),
             label: segName.trim(),
             description: null,
@@ -145,7 +177,9 @@ export default function ProductLinesCard({
       <Card className="mt-6">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">Product Lines</CardTitle>
+            <CardTitle className="text-lg">
+              {companyName ? `Product Lines — ${companyName}` : "Product Lines"}
+            </CardTitle>
             {!loading && segments.length > 0 && (
               <Badge variant="secondary" className="text-sm">
                 {segments.length} segment{segments.length !== 1 ? "s" : ""}
@@ -153,7 +187,11 @@ export default function ProductLinesCard({
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            Define product lines (e.g. 40&apos; vs 50&apos; lots) for this community.
+            {isUnifiedMode
+              ? "Define product lines (e.g. 40′ vs 50′ lots) per builder. One builder can have many lines; multiple builders can share the same line name."
+              : companyName
+                ? `Define product lines (e.g. 40′ vs 50′ lots) for ${companyName} in this community.`
+                : "Define product lines (e.g. 40′ vs 50′ lots) for this community."}
           </p>
         </CardHeader>
         <CardContent>
@@ -182,6 +220,11 @@ export default function ProductLinesCard({
                   >
                     <span className="font-medium whitespace-nowrap">{seg.label}</span>
                     <span className="text-xs text-muted-foreground whitespace-nowrap">({seg.name})</span>
+                    {isUnifiedMode && (
+                      <Badge variant="secondary" className="text-xs shrink-0">
+                        {seg.companyName ?? "Community-wide"}
+                      </Badge>
+                    )}
                     {!seg.isActive && (
                       <Badge variant="outline" className="text-xs shrink-0">Inactive</Badge>
                     )}
@@ -236,12 +279,36 @@ export default function ProductLinesCard({
             <DialogTitle>Add Product Line</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
+            {isUnifiedMode && companies && companies.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium mb-1">Company (builder)</label>
+                <Select value={addModalCompanyId} onValueChange={setAddModalCompanyId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select company">
+                      {addModalCompanyId
+                        ? (companies?.find((c) => c._id === addModalCompanyId)?.name ?? addModalCompanyId)
+                        : undefined}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {companies.map((c) => (
+                      <SelectItem key={c._id} value={c._id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  This product line will be assigned to the selected builder. Multiple builders can have the same line name (e.g. 40′ lots).
+                </p>
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium mb-1">Name (internal)</label>
               <Input
                 value={segName}
                 onChange={(e) => setSegName(e.target.value)}
-                placeholder="e.g. 40s"
+                placeholder="e.g. 40s or 50_60"
               />
             </div>
           </div>

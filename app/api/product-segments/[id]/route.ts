@@ -18,7 +18,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     }
 
     const body = await request.json();
-    const { name, label, description, isActive, displayOrder } = body;
+    const { name, label, description, isActive, displayOrder, companyId } = body;
 
     const segment = await ProductSegment.findById(id);
     if (!segment) {
@@ -30,12 +30,18 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (description !== undefined) segment.description = description ?? null;
     if (typeof isActive === 'boolean') segment.isActive = isActive;
     if (typeof displayOrder === 'number') segment.displayOrder = displayOrder;
+    if (companyId !== undefined) {
+      segment.companyId = (companyId && mongoose.Types.ObjectId.isValid(companyId))
+        ? new mongoose.Types.ObjectId(companyId)
+        : null;
+    }
 
     await segment.save();
 
     return NextResponse.json({
       _id: segment._id.toString(),
       communityId: segment.communityId.toString(),
+      companyId: segment.companyId?.toString() ?? null,
       name: segment.name,
       label: segment.label,
       description: segment.description || null,
@@ -45,7 +51,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   } catch (error: any) {
     if (error.code === 11000) {
       return NextResponse.json(
-        { error: 'A segment with this name already exists in this community' },
+        { error: 'A segment with this name already exists for this community and builder' },
         { status: 409 }
       );
     }
