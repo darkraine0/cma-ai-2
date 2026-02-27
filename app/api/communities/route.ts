@@ -34,11 +34,12 @@ export async function GET(request: NextRequest) {
     if (parentId && mongoose.Types.ObjectId.isValid(parentId)) {
       query.parentCommunityId = new mongoose.Types.ObjectId(parentId);
     } else if (linkableAsSubcommunity) {
-      // Communities that have no parent (missing or null) AND are not themselves a parent — can be linked as subcommunity
+      // Only competitor-type communities that have no parent (missing or null) AND are not themselves a parent — can be linked as subcommunity
       query.$or = [
         { parentCommunityId: { $exists: false } },
         { parentCommunityId: null },
       ];
+      query.communityType = 'competitor';
     } else if (parentsOnly) {
       // If parentsOnly is true, return communities that are parents: no parent (field missing or null)
       query.$or = [
@@ -358,6 +359,47 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * Permanently deletes a community and all related data (cascade).
+ * Also recursively deletes all subcommunities so nothing is left behind (avoids orphan/duplicate data on sync).
+ */
+async function deleteCommunityCascade(communityId: mongoose.Types.ObjectId): Promise<{ deleted: boolean; community?: any }> {
+  const community = await Community.findById(communityId);
+  if (!community) {
+    return { deleted: false };
+  }
+
+  // 1. Recursively delete all subcommunities first (so they are fully removed, not orphaned)
+  const childCommunities = await Community.find({ parentCommunityId: communityId }).select('_id').lean();
+  for (const child of childCommunities) {
+    await deleteCommunityCascade(child._id as mongoose.Types.ObjectId);
+  }
+
+  // 2. Delete plans for this community and their price history
+  const planIds = await Plan.distinct('_id', { 'community._id': communityId });
+  if (planIds.length > 0) {
+    await PriceHistory.deleteMany({ plan_id: { $in: planIds } });
+    await Plan.deleteMany({ 'community._id': communityId });
+  }
+
+  // 3. Delete product segments (product lines) and their segment-company links
+  const segmentIds = await ProductSegment.distinct('_id', { communityId });
+  if (segmentIds.length > 0) {
+    await SegmentCompany.deleteMany({ segmentId: { $in: segmentIds } });
+  }
+  await ProductSegment.deleteMany({ communityId });
+
+  // 4. Remove SegmentCompany links that reference this community as sourceCommunityId (cross-community comps)
+  await SegmentCompany.deleteMany({ sourceCommunityId: communityId });
+
+  // 5. Delete community-company links
+  await CommunityCompany.deleteMany({ communityId });
+
+  // 6. Delete the community
+  await Community.findByIdAndDelete(communityId);
+  return { deleted: true, community };
+}
+
 export async function DELETE(request: NextRequest) {
   try {
     // Check editor permission (async)
@@ -371,19 +413,28 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
     const deleteAll = searchParams.get('all') === 'true';
 
-    // Delete all communities
+    // Delete all communities (with full cascade: related data + subcommunities)
     if (deleteAll) {
-      const result = await Community.deleteMany({});
+      const allCommunities = await Community.find({}).select('_id parentCommunityId').lean();
+      const allIds = new Set(allCommunities.map((c: any) => c._id.toString()));
+      const roots = allCommunities.filter(
+        (c: any) => !c.parentCommunityId || !allIds.has(c.parentCommunityId.toString())
+      );
+      let deletedCount = 0;
+      for (const r of roots) {
+        const result = await deleteCommunityCascade(r._id as mongoose.Types.ObjectId);
+        if (result.deleted) deletedCount++;
+      }
       return NextResponse.json(
-        { 
-          message: `Successfully deleted ${result.deletedCount} communit${result.deletedCount === 1 ? 'y' : 'ies'}`,
-          deletedCount: result.deletedCount 
+        {
+          message: `Successfully deleted ${deletedCount} communit${deletedCount === 1 ? 'y' : 'ies'}`,
+          deletedCount,
         },
         { status: 200 }
       );
     }
 
-    // Delete single community by ID (with cascade)
+    // Delete single community by ID (with cascade, including all subcommunities)
     if (!id) {
       return NextResponse.json(
         { error: 'Community ID is required' },
@@ -392,42 +443,16 @@ export async function DELETE(request: NextRequest) {
     }
 
     const communityId = new mongoose.Types.ObjectId(id);
-    const community = await Community.findById(communityId);
-    if (!community) {
+    const result = await deleteCommunityCascade(communityId);
+    if (!result.deleted || !result.community) {
       return NextResponse.json(
         { error: 'Community not found' },
         { status: 404 }
       );
     }
 
-    // 1. Unset parent for any subcommunities that had this community as parent
-    await Community.updateMany(
-      { parentCommunityId: communityId },
-      { $set: { parentCommunityId: null } }
-    );
-
-    // 2. Delete plans for this community and their price history
-    const planIds = await Plan.distinct('_id', { 'community._id': communityId });
-    if (planIds.length > 0) {
-      await PriceHistory.deleteMany({ plan_id: { $in: planIds } });
-      await Plan.deleteMany({ 'community._id': communityId });
-    }
-
-    // 3. Delete product segments (product lines) and their segment-company links
-    const segmentIds = await ProductSegment.distinct('_id', { communityId });
-    if (segmentIds.length > 0) {
-      await SegmentCompany.deleteMany({ segmentId: { $in: segmentIds } });
-    }
-    await ProductSegment.deleteMany({ communityId });
-
-    // 4. Delete community-company links
-    await CommunityCompany.deleteMany({ communityId });
-
-    // 5. Delete the community
-    await Community.findByIdAndDelete(communityId);
-
     return NextResponse.json(
-      { message: 'Community deleted successfully', community },
+      { message: 'Community deleted successfully', community: result.community },
       { status: 200 }
     );
   } catch (error: any) {
