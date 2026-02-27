@@ -3,11 +3,16 @@ import mongoose, { Schema, Document, Types } from 'mongoose';
 /** 'standard' = UnionMain builds here; 'competitor' = competitor/sub-community */
 export type CommunityType = 'standard' | 'competitor';
 
+/** 'scraped' = homes/plans from scraper; 'manual' = homes added manually */
+export type HomesSource = 'scraped' | 'manual';
+
 export interface ICommunity extends Document {
   name: string;
   slug?: string;
   /** standard = UnionMain Homes builds here; competitor = competitor/sub-community */
   communityType?: CommunityType;
+  /** Whether homes/plans for this community are added by scraping or manually */
+  homesSource?: HomesSource;
   description?: string;
   location?: string;
   city?: string;
@@ -44,6 +49,12 @@ const CommunitySchema = new Schema<ICommunity>(
       type: String,
       enum: ['standard', 'competitor'],
       default: 'standard',
+      index: true,
+    },
+    homesSource: {
+      type: String,
+      enum: ['scraped', 'manual'],
+      default: 'scraped',
       index: true,
     },
     description: {

@@ -206,6 +206,7 @@ export async function GET(request: NextRequest) {
       _id: community._id.toString(),
       name: community.name,
       communityType: community.communityType || 'standard',
+      homesSource: community.homesSource || 'scraped',
       description: community.description || null,
       location: community.location || null,
       hasImage: !!(community.imagePath || community.imageData),
@@ -239,6 +240,7 @@ export async function GET(request: NextRequest) {
         _id: child._id.toString(),
         name: child.name,
         communityType: child.communityType || 'standard',
+        homesSource: child.homesSource || 'scraped',
         description: child.description || null,
         location: child.location || null,
         hasImage: !!(child.imagePath || child.imageData),
@@ -301,9 +303,10 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
     const body = await request.json();
-    const { name, description, location, parentCommunityId, imagePath, imageData, communityType } = body;
+    const { name, description, location, parentCommunityId, imagePath, imageData, communityType, homesSource } = body;
 
     const validCommunityType = communityType === 'competitor' ? 'competitor' : 'standard';
+    const validHomesSource = homesSource === 'manual' ? 'manual' : 'scraped';
 
     if (!name) {
       return NextResponse.json(
@@ -341,6 +344,7 @@ export async function POST(request: NextRequest) {
       companies: [],
       parentCommunityId: parentCommunityId || null,
       communityType: validCommunityType,
+      homesSource: validHomesSource,
     });
 
     await community.save();

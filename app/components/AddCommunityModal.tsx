@@ -47,6 +47,8 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   /** Does UnionMain Homes build in this community? Yes → standard, No → competitor */
   const [unionMainBuildsHere, setUnionMainBuildsHere] = useState<boolean | null>(null);
+  /** Whether homes/plans will be added by scraping or manually */
+  const [homesSource, setHomesSource] = useState<'scraped' | 'manual'>('scraped');
 
   const resetForm = () => {
     setCommunityName("");
@@ -62,6 +64,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
     if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
     setImagePreviewUrl(null);
     setUnionMainBuildsHere(null);
+    setHomesSource('scraped');
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -139,6 +142,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
           imagePath: imagePath || undefined,
           imageData: imageData || undefined,
           communityType: unionMainBuildsHere === true ? "standard" : unionMainBuildsHere === false ? "competitor" : "standard",
+          homesSource,
         }),
       });
 
@@ -395,7 +399,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
                     />
                   </div>
 
-                  <div>
+                  <div className="rounded-md border-2 border-border p-3">
                     <label className="block text-sm font-medium mb-2">
                       Does UnionMain Homes build in this community?
                     </label>
@@ -425,6 +429,35 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
                         <span>This community will be categorized as a <strong>competitor/sub-community</strong>.</span>
                       </div>
                     )}
+                  </div>
+
+                  <div className="rounded-md border-2 border-border p-3">
+                    <label className="block text-sm font-medium mb-2">
+                      Add homes by
+                    </label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={homesSource === 'scraped' ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setHomesSource('scraped')}
+                        disabled={loading || loadingAI}
+                      >
+                        Scraped
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={homesSource === 'manual' ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setHomesSource('manual')}
+                        disabled={loading || loadingAI}
+                      >
+                        Manual
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {homesSource === 'scraped' ? 'Homes/plans will come from the scraper.' : 'Homes/plans will be entered manually.'}
+                    </p>
                   </div>
                 </div>
               )}
@@ -567,7 +600,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
                 </div>
               </div>
 
-              <div>
+              <div className="rounded-md border-2 border-border p-3">
                 <label className="block text-sm font-medium mb-2">
                   Does UnionMain Homes build in this community?
                 </label>
@@ -597,6 +630,35 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
                     <span>This community will be categorized as a <strong>competitor/sub-community</strong>.</span>
                   </div>
                 )}
+              </div>
+
+              <div className="rounded-md border-2 border-border p-3">
+                <label className="block text-sm font-medium mb-2">
+                  Add homes by
+                </label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={homesSource === 'scraped' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setHomesSource('scraped')}
+                    disabled={loading || loadingAI}
+                  >
+                    Scraped
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={homesSource === 'manual' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setHomesSource('manual')}
+                    disabled={loading || loadingAI}
+                  >
+                    Manual
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {homesSource === 'scraped' ? 'Homes/plans will come from the scraper.' : 'Homes/plans will be entered manually.'}
+                </p>
               </div>
             </TabsContent>
           </Tabs>
