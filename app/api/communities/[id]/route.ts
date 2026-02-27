@@ -24,7 +24,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { name, parentCommunityId, description, location, imagePath } = body;
+    const { name, parentCommunityId, description, location, imagePath, communityType } = body;
 
     const community = await Community.findById(communityId);
     if (!community) {
@@ -85,6 +85,9 @@ export async function PATCH(
     if (description !== undefined) community.description = description ?? null;
     if (location !== undefined) community.location = location ?? null;
     if (imagePath !== undefined) community.imagePath = imagePath ?? null;
+    if (communityType !== undefined) {
+      community.communityType = communityType === 'competitor' ? 'competitor' : 'standard';
+    }
 
     await community.save();
 

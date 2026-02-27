@@ -14,7 +14,7 @@ import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
-import { Plus, Loader2, Sparkles, Search, ImagePlus, X } from "lucide-react";
+import { Plus, Loader2, Sparkles, Search, ImagePlus, X, AlertTriangle } from "lucide-react";
 import ErrorMessage from "./ErrorMessage";
 import API_URL from '../config';
 
@@ -45,6 +45,8 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
   const [activeTab, setActiveTab] = useState("ai");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  /** Does UnionMain Homes build in this community? Yes → standard, No → competitor */
+  const [unionMainBuildsHere, setUnionMainBuildsHere] = useState<boolean | null>(null);
 
   const resetForm = () => {
     setCommunityName("");
@@ -59,6 +61,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
     setImageFile(null);
     if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
     setImagePreviewUrl(null);
+    setUnionMainBuildsHere(null);
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -135,6 +138,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
           location: location.trim() || undefined,
           imagePath: imagePath || undefined,
           imageData: imageData || undefined,
+          communityType: unionMainBuildsHere === true ? "standard" : unionMainBuildsHere === false ? "competitor" : "standard",
         }),
       });
 
@@ -390,6 +394,38 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
                       disabled={loading || loadingAI}
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Does UnionMain Homes build in this community?
+                    </label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={unionMainBuildsHere === true ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setUnionMainBuildsHere(true)}
+                        disabled={loading || loadingAI}
+                      >
+                        Yes
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={unionMainBuildsHere === false ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setUnionMainBuildsHere(false)}
+                        disabled={loading || loadingAI}
+                      >
+                        No
+                      </Button>
+                    </div>
+                    {unionMainBuildsHere === false && (
+                      <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-2 text-sm text-amber-700 dark:text-amber-400">
+                        <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                        <span>This community will be categorized as a <strong>competitor/sub-community</strong>.</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -405,7 +441,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
                 <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t">
                   <Button
                     onClick={handleAddCommunity}
-                    disabled={loading || loadingAI || !communityName.trim()}
+                    disabled={loading || loadingAI || !communityName.trim() || unionMainBuildsHere === null}
                     className="flex-1 flex items-center justify-center gap-2"
                     variant="default"
                   >
@@ -530,6 +566,38 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
                   )}
                 </div>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Does UnionMain Homes build in this community?
+                </label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={unionMainBuildsHere === true ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setUnionMainBuildsHere(true)}
+                    disabled={loading || loadingAI}
+                  >
+                    Yes
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={unionMainBuildsHere === false ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setUnionMainBuildsHere(false)}
+                    disabled={loading || loadingAI}
+                  >
+                    No
+                  </Button>
+                </div>
+                {unionMainBuildsHere === false && (
+                  <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-2 text-sm text-amber-700 dark:text-amber-400">
+                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <span>This community will be categorized as a <strong>competitor/sub-community</strong>.</span>
+                  </div>
+                )}
+              </div>
             </TabsContent>
           </Tabs>
 
@@ -544,7 +612,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
             <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t">
               <Button
                 onClick={handleAddCommunity}
-                disabled={loading || loadingAI || !communityName.trim()}
+                disabled={loading || loadingAI || !communityName.trim() || unionMainBuildsHere === null}
                 className="flex-1 flex items-center justify-center gap-2"
                 variant="outline"
               >

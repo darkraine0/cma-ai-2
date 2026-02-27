@@ -202,6 +202,7 @@ export async function GET(request: NextRequest) {
       return {
       _id: community._id.toString(),
       name: community.name,
+      communityType: community.communityType || 'standard',
       description: community.description || null,
       location: community.location || null,
       hasImage: !!(community.imagePath || community.imageData),
@@ -234,6 +235,7 @@ export async function GET(request: NextRequest) {
         return {
         _id: child._id.toString(),
         name: child.name,
+        communityType: child.communityType || 'standard',
         description: child.description || null,
         location: child.location || null,
         hasImage: !!(child.imagePath || child.imageData),
@@ -296,7 +298,9 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
     const body = await request.json();
-    const { name, description, location, parentCommunityId, imagePath, imageData } = body;
+    const { name, description, location, parentCommunityId, imagePath, imageData, communityType } = body;
+
+    const validCommunityType = communityType === 'competitor' ? 'competitor' : 'standard';
 
     if (!name) {
       return NextResponse.json(
@@ -333,6 +337,7 @@ export async function POST(request: NextRequest) {
       imageData: imageData || undefined,
       companies: [],
       parentCommunityId: parentCommunityId || null,
+      communityType: validCommunityType,
     });
 
     await community.save();

@@ -1,8 +1,13 @@
 import mongoose, { Schema, Document, Types } from 'mongoose';
 
+/** 'standard' = UnionMain builds here; 'competitor' = competitor/sub-community */
+export type CommunityType = 'standard' | 'competitor';
+
 export interface ICommunity extends Document {
   name: string;
   slug?: string;
+  /** standard = UnionMain Homes builds here; competitor = competitor/sub-community */
+  communityType?: CommunityType;
   description?: string;
   location?: string;
   city?: string;
@@ -33,6 +38,12 @@ const CommunitySchema = new Schema<ICommunity>(
     slug: {
       type: String,
       trim: true,
+      index: true,
+    },
+    communityType: {
+      type: String,
+      enum: ['standard', 'competitor'],
+      default: 'standard',
       index: true,
     },
     description: {
