@@ -33,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import { Switch } from "../components/ui/switch";
 import API_URL from '../config';
 import { getCompanyColor } from '../utils/colors';
 
@@ -58,6 +59,8 @@ interface Plan {
   type: string;
 }
 
+type CommunityType = 'standard' | 'competitor';
+
 interface Community {
   name: string;
   companies: string[] | CommunityCompany[];
@@ -68,6 +71,8 @@ interface Community {
   totalPlans?: number;
   totalNow?: number;
   parentCommunityId?: string | { _id: string; name: string } | null;
+  /** standard = General Community (UnionMain builds here); competitor = Sub-community/Competitor */
+  communityType?: CommunityType;
 }
 
 interface ProductSegment {
@@ -98,6 +103,7 @@ export default function ManagePage() {
   const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null);
   
   const [deletingCommunityId, setDeletingCommunityId] = useState<string | null>(null);
+  const [updatingCommunityTypeId, setUpdatingCommunityTypeId] = useState<string | null>(null);
   const [deletingSubcommunityId, setDeletingSubcommunityId] = useState<string | null>(null);
   const [deletingAll, setDeletingAll] = useState(false);
   const [deleteSubcommunityConfirmOpen, setDeleteSubcommunityConfirmOpen] = useState(false);
@@ -547,6 +553,33 @@ export default function ManagePage() {
     }
   };
 
+  const handleToggleCommunityType = async (community: Community, newType: CommunityType) => {
+    if (!community._id || community.fromPlans) return;
+    const currentType = community.communityType ?? 'standard';
+    if (currentType === newType) return;
+
+    setUpdatingCommunityTypeId(community._id);
+    setError("");
+    try {
+      const res = await fetch(`${API_URL}/communities/${community._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ communityType: newType }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to update community type");
+      }
+
+      await fetchCommunities({ silent: true });
+    } catch (err: any) {
+      setError(err.message || "Failed to update community type");
+    } finally {
+      setUpdatingCommunityTypeId(null);
+    }
+  };
+
   const handleDeleteAllCommunities = async () => {
     const deletableCommunities = communities.filter(c => c._id && !c.fromPlans);
     
@@ -738,6 +771,34 @@ export default function ManagePage() {
                           )}
                           {selectedCommunity.location && (
                             <p className="text-sm text-muted-foreground">📍 {selectedCommunity.location}</p>
+                          )}
+                          {isEditor && !selectedCommunity.fromPlans && selectedCommunity._id && (
+                            <div className="flex items-center gap-3 mt-3">
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  id="community-type-toggle"
+                                  checked={selectedCommunity.communityType !== 'competitor'}
+                                  onCheckedChange={(checked) =>
+                                    handleToggleCommunityType(
+                                      selectedCommunity,
+                                      checked ? 'standard' : 'competitor'
+                                    )
+                                  }
+                                  disabled={updatingCommunityTypeId === selectedCommunity._id}
+                                />
+                                <label
+                                  htmlFor="community-type-toggle"
+                                  className="text-sm font-medium text-muted-foreground cursor-pointer select-none"
+                                >
+                                  {selectedCommunity.communityType !== 'competitor'
+                                    ? 'General Community'
+                                    : 'Sub-community/Competitor'}
+                                </label>
+                              </div>
+                              {updatingCommunityTypeId === selectedCommunity._id && (
+                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                              )}
+                            </div>
                           )}
                         </div>
                         {isEditor && !selectedCommunity.fromPlans && selectedCommunity._id && (

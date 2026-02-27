@@ -45,6 +45,8 @@ export async function GET(request: NextRequest) {
         { parentCommunityId: { $exists: false } },
         { parentCommunityId: null },
       ];
+      // List page shows only standard (UnionMain) communities, not competitor/sub-communities
+      query.communityType = 'standard';
     }
     
     let communities = await Community.find(query)
