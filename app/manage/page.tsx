@@ -71,7 +71,7 @@ interface Community {
   totalPlans?: number;
   totalNow?: number;
   parentCommunityId?: string | { _id: string; name: string } | null;
-  /** standard = General Community (UnionMain builds here); competitor = Sub-community/Competitor */
+  /** standard = General Community (UnionMain builds here); competitor = side community/Competitor */
   communityType?: CommunityType;
 }
 
@@ -792,7 +792,7 @@ export default function ManagePage() {
                                 >
                                   {selectedCommunity.communityType !== 'competitor'
                                     ? 'General Community'
-                                    : 'Sub-community/Competitor'}
+                                    : 'side community/Competitor'}
                                 </label>
                               </div>
                               {updatingCommunityTypeId === selectedCommunity._id && (

@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document, Types } from 'mongoose';
 
-/** 'standard' = UnionMain builds here; 'competitor' = competitor/sub-community */
+/** 'standard' = UnionMain builds here; 'competitor' = competitor/side community */
 export type CommunityType = 'standard' | 'competitor';
 
 /** 'scraped' = homes/plans from scraper; 'manual' = homes added manually */
@@ -9,7 +9,7 @@ export type HomesSource = 'scraped' | 'manual';
 export interface ICommunity extends Document {
   name: string;
   slug?: string;
-  /** standard = UnionMain Homes builds here; competitor = competitor/sub-community */
+  /** standard = UnionMain Homes builds here; competitor = competitor/side community */
   communityType?: CommunityType;
   /** Whether homes/plans for this community are added by scraping or manually */
   homesSource?: HomesSource;

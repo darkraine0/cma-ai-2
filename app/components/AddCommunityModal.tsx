@@ -426,7 +426,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
                     {unionMainBuildsHere === false && (
                       <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-2 text-sm text-amber-700 dark:text-amber-400">
                         <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                        <span>This community will be categorized as a <strong>competitor/sub-community</strong>.</span>
+                        <span>This community will be categorized as a <strong>competitor/side community</strong>.</span>
                       </div>
                     )}
                   </div>
@@ -627,7 +627,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
                 {unionMainBuildsHere === false && (
                   <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-2 text-sm text-amber-700 dark:text-amber-400">
                     <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                    <span>This community will be categorized as a <strong>competitor/sub-community</strong>.</span>
+                    <span>This community will be categorized as a <strong>competitor/side community</strong>.</span>
                   </div>
                 )}
               </div>
