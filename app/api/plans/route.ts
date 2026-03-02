@@ -4,6 +4,7 @@ import Plan from '@/app/models/Plan';
 import PriceHistory from '@/app/models/PriceHistory';
 import Company from '@/app/models/Company';
 import Community from '@/app/models/Community';
+import ProductSegment from '@/app/models/ProductSegment';
 import mongoose from 'mongoose';
 import { requirePermission } from '@/app/lib/admin';
 
@@ -109,6 +110,7 @@ export async function POST(request: NextRequest) {
         baths,
         address,
         design_number,
+        segmentId,
       } = data;
 
       // Support both string (legacy) and object format
@@ -187,7 +189,19 @@ export async function POST(request: NextRequest) {
         await existingPlan.save();
         results.push(existingPlan);
       } else {
-        // Create new plan with embedded structure
+        // Optional segment (product line) for new plan
+        let segmentRef: { _id: mongoose.Types.ObjectId; name: string; label: string } | undefined;
+        if (segmentId && mongoose.Types.ObjectId.isValid(segmentId)) {
+          const segmentDoc = await ProductSegment.findById(segmentId).lean();
+          if (segmentDoc) {
+            segmentRef = {
+              _id: segmentDoc._id as mongoose.Types.ObjectId,
+              name: segmentDoc.name,
+              label: segmentDoc.label,
+            };
+          }
+        }
+
         const newPlan = new Plan({
           plan_name,
           price,
@@ -196,6 +210,7 @@ export async function POST(request: NextRequest) {
           price_per_sqft,
           company: companyRef,
           community: communityRef,
+          segment: segmentRef,
           type,
           beds,
           baths,

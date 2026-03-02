@@ -7,7 +7,7 @@ import { cn } from "../../utils/utils";
 import { SortKey, SortOrder } from "../types";
 import { Community } from "../types";
 import { ProductLineOption } from "../hooks/usePlansFilter";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Plus } from "lucide-react";
 
 interface CommunityHeaderProps {
   communityName: string;
@@ -32,6 +32,7 @@ interface CommunityHeaderProps {
   onExportCSV: () => void;
   onSync?: () => void;
   isSyncing?: boolean;
+  onAddPlan?: () => void;
 }
 
 export default function CommunityHeader({
@@ -53,6 +54,7 @@ export default function CommunityHeader({
   onExportCSV,
   onSync,
   isSyncing = false,
+  onAddPlan,
 }: CommunityHeaderProps) {
   const router = useRouter();
   const hasSubcommunities = childCommunities.length > 0;
@@ -98,6 +100,15 @@ export default function CommunityHeader({
 
           {/* Action Buttons */}
           <div className="flex gap-1.5 sm:gap-2 flex-shrink-0">
+            {onAddPlan && (
+              <button
+                onClick={onAddPlan}
+                title="Add Plan/Home Manually"
+                className="p-1.5 sm:p-2 rounded-md bg-white/20 hover:bg-white/30 text-white border border-white/20 backdrop-blur-sm transition-all duration-200"
+              >
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+            )}
             {onSync && (
               <button
                 onClick={onSync}

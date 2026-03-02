@@ -20,6 +20,8 @@ import { Filter } from "lucide-react";
 import API_URL from "../../config";
 import { Community } from "../types";
 import { Plan } from "../types";
+import { useAuth } from "../../contexts/AuthContext";
+import AddPlanDialog from "../components/AddPlanDialog";
 
 export default function CommunityDetail() {
   const params = useParams();
@@ -35,6 +37,8 @@ export default function CommunityDetail() {
   const [subcommunityPlans, setSubcommunityPlans] = useState<Plan[]>([]);
   const [subcommunityPlansLoading, setSubcommunityPlansLoading] = useState(false);
   const [productLines, setProductLines] = useState<{ _id: string; name: string; label: string }[]>([]);
+  const [addPlanOpen, setAddPlanOpen] = useState(false);
+  const { user } = useAuth();
 
   // Fetch community, plans, and child communities
   const { community, plans, childCommunities, loading, error, refetch, updatePlan } = useCommunityData(communitySlug);
@@ -275,6 +279,7 @@ export default function CommunityDetail() {
               onExportCSV={handleExportCSV}
               onSync={handleSync}
               isSyncing={isSyncing}
+              onAddPlan={(user?.permission === "editor" || user?.role === "admin") ? () => setAddPlanOpen(true) : undefined}
             />
 
             {/* Main Content */}
@@ -354,6 +359,22 @@ export default function CommunityDetail() {
             </div>
           </CardContent>
         </Card>
+
+        <AddPlanDialog
+          open={addPlanOpen}
+          onOpenChange={setAddPlanOpen}
+          communityName={selectedSubcommunity?.name ?? community?.name ?? formattedSlug}
+          companies={companies}
+          productLines={productLines}
+          onSaved={async () => {
+            await refetch();
+            if (selectedSubcommunity?._id) {
+              const res = await fetch(`${API_URL}/communities/${selectedSubcommunity._id}/plans`);
+              if (res.ok) setSubcommunityPlans(await res.json());
+            }
+            toast({ title: "Plan added", description: "The plan was added successfully." });
+          }}
+        />
       </div>
     </div>
   );
