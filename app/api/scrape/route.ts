@@ -328,6 +328,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Remove all existing plans for this company+community (and segment if scoped) BEFORE syncing
+    const communityDoc = await Community.findOne({ name: communityForDb }).select('_id').lean();
+    const companyDoc = await Company.findOne({ name: companyForDb }).select('_id').lean();
+    const communityId = communityDoc && '_id' in communityDoc ? (communityDoc as { _id: mongoose.Types.ObjectId })._id : null;
+    const companyId = companyDoc && '_id' in companyDoc ? (companyDoc as { _id: mongoose.Types.ObjectId })._id : null;
+    if (communityId && companyId) {
+      const deleteFilter: Record<string, unknown> = {
+        'community._id': communityId,
+        'company._id': companyId,
+      };
+      // When syncing a specific segment, only remove plans in that segment; otherwise remove all plans for this company+community
+      if (segmentRef) {
+        deleteFilter['segment._id'] = segmentRef._id;
+      }
+      const existingPlanIds = await Plan.find(deleteFilter).distinct('_id');
+      if (existingPlanIds.length > 0) {
+        await PriceHistory.deleteMany({ plan_id: { $in: existingPlanIds } });
+        await Plan.deleteMany({ _id: { $in: existingPlanIds } });
+      }
+    }
+
     // Get data for both types in parallel (static or AI-powered)
     const [nowResults, planResults] = await Promise.allSettled([
       scrapePlansForType(companyForDb, communityForDb, 'now', openai, segmentRef, communityNameForPrompt),
