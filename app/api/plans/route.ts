@@ -192,10 +192,10 @@ export async function POST(request: NextRequest) {
         // Optional segment (product line) for new plan
         let segmentRef: { _id: mongoose.Types.ObjectId; name: string; label: string } | undefined;
         if (segmentId && mongoose.Types.ObjectId.isValid(segmentId)) {
-          const segmentDoc = await ProductSegment.findById(segmentId).lean();
+          const segmentDoc = await ProductSegment.findById(segmentId).lean() as { _id: mongoose.Types.ObjectId; name: string; label: string } | null;
           if (segmentDoc) {
             segmentRef = {
-              _id: segmentDoc._id as mongoose.Types.ObjectId,
+              _id: segmentDoc._id,
               name: segmentDoc.name,
               label: segmentDoc.label,
             };
