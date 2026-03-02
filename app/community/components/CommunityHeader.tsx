@@ -103,7 +103,7 @@ export default function CommunityHeader({
             {onAddPlan && (
               <button
                 onClick={onAddPlan}
-                title="Add Plan/Home Manually"
+                title="Add Plan/Home"
                 className="p-1.5 sm:p-2 rounded-md bg-white/20 hover:bg-white/30 text-white border border-white/20 backdrop-blur-sm transition-all duration-200"
               >
                 <Plus className="w-4 h-4 sm:w-5 sm:h-5" />

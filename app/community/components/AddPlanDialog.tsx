@@ -135,7 +135,7 @@ export default function AddPlanDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl w-full">
         <DialogHeader>
-          <DialogTitle>Add Plan/Home Manually</DialogTitle>
+          <DialogTitle>Add Plan/Home</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
