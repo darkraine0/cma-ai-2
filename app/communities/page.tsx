@@ -375,7 +375,7 @@ export default function CommunitiesPage() {
                             : "bg-transparent border border-input text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                         }`}
                       >
-                        Site Community
+                        Side Community
                       </button>
                     </div>
                     {/* Search Bar */}
