@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
     const parentsOnly = searchParams.get('parentsOnly') === 'true';
     const parentId = searchParams.get('parentId');
     const linkableAsSubcommunity = searchParams.get('linkableAsSubcommunity') === 'true';
+    const communityTypeParam = searchParams.get('communityType'); // 'all' | 'standard' | 'competitor'
     
     let query: any = {};
     
@@ -46,8 +47,13 @@ export async function GET(request: NextRequest) {
         { parentCommunityId: { $exists: false } },
         { parentCommunityId: null },
       ];
-      // List page shows only standard (UnionMain) communities, not competitor/sub-communities
-      query.communityType = 'standard';
+      // Filter by type when requested: standard only, competitor only, or both (all)
+      if (communityTypeParam === 'standard') {
+        query.communityType = 'standard';
+      } else if (communityTypeParam === 'competitor') {
+        query.communityType = 'competitor';
+      }
+      // when 'all' or missing: do not set communityType, so both standard and competitor are returned
     }
     
     let communities = await Community.find(query)

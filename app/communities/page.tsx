@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Loader from "../components/Loader";
 import ErrorMessage from "../components/ErrorMessage";
@@ -39,6 +39,7 @@ interface Community {
   fromPlans?: boolean;
   parentCommunityId?: string | null;
   children?: Community[];
+  communityType?: 'standard' | 'competitor';
 }
 
 export default function CommunitiesPage() {
@@ -62,6 +63,7 @@ export default function CommunitiesPage() {
   });
   const [filteredCommunities, setFilteredCommunities] = useState<Community[]>(communities);
   const [searchQuery, setSearchQuery] = useState("");
+  const [communityTypeFilter, setCommunityTypeFilter] = useState<"all" | "general" | "site">("all");
   const [sortBy, setSortBy] = useState<"name_asc" | "name_desc" | "builders_desc" | "plans_desc">("plans_desc");
   const [loading, setLoading] = useState(communities.length === 0);
   const [refreshing, setRefreshing] = useState(false);
@@ -99,7 +101,7 @@ export default function CommunitiesPage() {
     }
     setError("");
     try {
-      const communitiesRes = await fetch(API_URL + "/communities?parentsOnly=true");
+      const communitiesRes = await fetch(API_URL + "/communities?parentsOnly=true&communityType=all");
       if (!communitiesRes.ok) throw new Error("Failed to fetch communities");
       const communitiesData: any[] = await communitiesRes.json();
 
@@ -111,6 +113,7 @@ export default function CommunitiesPage() {
         }).filter((name: string) => name);
         const minP = comm.minPrice ?? 0;
         const maxP = comm.maxPrice ?? 0;
+        const type = comm.communityType === 'competitor' ? 'competitor' : 'standard';
         return {
           name: comm.name,
           companies: companyNames,
@@ -126,6 +129,7 @@ export default function CommunitiesPage() {
           imagePath: comm.imagePath || null,
           fromPlans: comm.fromPlans || false,
           parentCommunityId: comm.parentCommunityId || null,
+          communityType: type,
         };
       });
 
@@ -153,14 +157,25 @@ export default function CommunitiesPage() {
     fetchCommunities(true);
   }, []);
 
-  // Filter and sort communities based on search query and sort option
+  // Filter by community type: All = standard + competitor, General = standard only, Site = competitor only
+  const communitiesForFilter = useMemo(() => {
+    if (communityTypeFilter === "general") {
+      return communities.filter((c) => (c.communityType ?? 'standard') === 'standard');
+    }
+    if (communityTypeFilter === "site") {
+      return communities.filter((c) => c.communityType === 'competitor');
+    }
+    return [...communities];
+  }, [communities, communityTypeFilter]);
+
+  // Filter and sort communities based on type filter, search query, and sort option
   useEffect(() => {
     let filtered;
     if (searchQuery.trim() === "") {
-      filtered = [...communities];
+      filtered = [...communitiesForFilter];
     } else {
       const query = searchQuery.toLowerCase();
-      filtered = communities.filter((community: Community) =>
+      filtered = communitiesForFilter.filter((community: Community) =>
         community.name.toLowerCase().includes(query) ||
         community.location?.toLowerCase().includes(query) ||
         community.description?.toLowerCase().includes(query) ||
@@ -186,7 +201,7 @@ export default function CommunitiesPage() {
     });
 
     setFilteredCommunities(filtered);
-  }, [searchQuery, sortBy, communities]);
+  }, [searchQuery, sortBy, communitiesForFilter]);
 
   const handleCommunityClick = (community: Community) => {
     const slug = communityNameToSlug(community.name);
@@ -196,7 +211,7 @@ export default function CommunitiesPage() {
   const renderCommunityCard = (community: Community) => {
     return (
       <Card
-        key={community.name}
+        key={community._id ?? community.name}
         onClick={() => handleCommunityClick(community)}
         className="cursor-pointer overflow-auto"
       >
@@ -326,7 +341,43 @@ export default function CommunitiesPage() {
                     <h1 className="text-2xl font-semibold leading-none tracking-tight">Communities</h1>
                     <p className="text-sm text-muted-foreground">{isEditor ? 'Explore and manage' : 'Explore'} home plans by community</p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* Community type filter */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCommunityTypeFilter("all")}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                          communityTypeFilter === "all"
+                            ? "bg-muted text-muted-foreground shadow-sm"
+                            : "bg-transparent border border-input text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                        }`}
+                      >
+                        All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCommunityTypeFilter("general")}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                          communityTypeFilter === "general"
+                            ? "bg-muted text-muted-foreground shadow-sm"
+                            : "bg-transparent border border-input text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                        }`}
+                      >
+                        General Community
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCommunityTypeFilter("site")}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                          communityTypeFilter === "site"
+                            ? "bg-muted text-muted-foreground shadow-sm"
+                            : "bg-transparent border border-input text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                        }`}
+                      >
+                        Site Community
+                      </button>
+                    </div>
                     {/* Search Bar */}
                     <div className="relative w-full sm:w-auto sm:min-w-[300px]">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -377,9 +428,9 @@ export default function CommunitiesPage() {
                   </div>
                 </div>
                 {/* Results Counter */}
-                {searchQuery && (
+                {(searchQuery || communityTypeFilter !== "all") && (
                   <div className="text-sm text-muted-foreground">
-                    Showing {filteredCommunities.length} of {communities.length} communities
+                    Showing {filteredCommunities.length} of {communitiesForFilter.length} communities
                   </div>
                 )}
               </div>
