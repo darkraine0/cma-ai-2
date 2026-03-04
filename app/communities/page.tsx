@@ -342,42 +342,6 @@ export default function CommunitiesPage() {
                     <p className="text-sm text-muted-foreground">{isEditor ? 'Explore and manage' : 'Explore'} home plans by community</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
-                    {/* Community type filter */}
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setCommunityTypeFilter("all")}
-                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                          communityTypeFilter === "all"
-                            ? "bg-muted text-muted-foreground shadow-sm"
-                            : "bg-transparent border border-input text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                        }`}
-                      >
-                        All
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCommunityTypeFilter("general")}
-                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                          communityTypeFilter === "general"
-                            ? "bg-muted text-muted-foreground shadow-sm"
-                            : "bg-transparent border border-input text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                        }`}
-                      >
-                        General Community
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCommunityTypeFilter("site")}
-                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                          communityTypeFilter === "site"
-                            ? "bg-muted text-muted-foreground shadow-sm"
-                            : "bg-transparent border border-input text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                        }`}
-                      >
-                        Side Community
-                      </button>
-                    </div>
                     {/* Search Bar */}
                     <div className="relative w-full sm:w-auto sm:min-w-[300px]">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -388,6 +352,29 @@ export default function CommunitiesPage() {
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pl-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       />
+                    </div>
+                    {/* Community type dropdown */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Type:</span>
+                      <Select
+                        value={communityTypeFilter}
+                        onValueChange={(v) => setCommunityTypeFilter(v as typeof communityTypeFilter)}
+                      >
+                        <SelectTrigger className="w-[200px] h-10">
+                          <SelectValue placeholder="Community type">
+                            {communityTypeFilter === "general"
+                              ? "General Community"
+                              : communityTypeFilter === "site"
+                              ? "Side Community"
+                              : "All"}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="general">General Community</SelectItem>
+                          <SelectItem value="site">Side Community</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     {/* Sort dropdown */}
                     <div className="flex items-center gap-2 shrink-0">
