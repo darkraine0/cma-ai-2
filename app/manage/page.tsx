@@ -772,34 +772,6 @@ export default function ManagePage() {
                           {selectedCommunity.location && (
                             <p className="text-sm text-muted-foreground">📍 {selectedCommunity.location}</p>
                           )}
-                          {isEditor && !selectedCommunity.fromPlans && selectedCommunity._id && (
-                            <div className="flex items-center gap-3 mt-3">
-                              <div className="flex items-center gap-2">
-                                <Switch
-                                  id="community-type-toggle"
-                                  checked={selectedCommunity.communityType !== 'competitor'}
-                                  onCheckedChange={(checked) =>
-                                    handleToggleCommunityType(
-                                      selectedCommunity,
-                                      checked ? 'standard' : 'competitor'
-                                    )
-                                  }
-                                  disabled={updatingCommunityTypeId === selectedCommunity._id}
-                                />
-                                <label
-                                  htmlFor="community-type-toggle"
-                                  className="text-sm font-medium text-muted-foreground cursor-pointer select-none"
-                                >
-                                  {selectedCommunity.communityType !== 'competitor'
-                                    ? 'General Community'
-                                    : 'side community/Competitor'}
-                                </label>
-                              </div>
-                              {updatingCommunityTypeId === selectedCommunity._id && (
-                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                              )}
-                            </div>
-                          )}
                         </div>
                         {isEditor && !selectedCommunity.fromPlans && selectedCommunity._id && (
                           <Button
@@ -897,8 +869,49 @@ export default function ManagePage() {
                           </div>
                         )}
                       </div>
-                    </CardContent>
+                  </CardContent>
                   </Card>
+
+                  {/* Community type group card */}
+                  {isEditor && !selectedCommunity.fromPlans && selectedCommunity._id && (
+                    <Card className="mt-6">
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-lg">Community Type</CardTitle>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <Switch
+                              id="community-type-toggle"
+                              checked={selectedCommunity.communityType !== 'competitor'}
+                              onCheckedChange={(checked) =>
+                                handleToggleCommunityType(
+                                  selectedCommunity,
+                                  checked ? 'standard' : 'competitor'
+                                )
+                              }
+                              disabled={updatingCommunityTypeId === selectedCommunity._id}
+                            />
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium text-foreground">
+                                {selectedCommunity.communityType !== 'competitor'
+                                  ? 'General Community'
+                                  : 'Side Community / Competitor'}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                Choose whether this is a general community or a side/competitor community.
+                              </span>
+                            </div>
+                          </div>
+                          {updatingCommunityTypeId === selectedCommunity._id && (
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
 
                   <Card className="mt-6">
                     <CardHeader>
