@@ -1,13 +1,36 @@
 import { ChartOptions } from 'chart.js';
 
 /**
- * Chart configuration for price vs square footage chart
+ * Chart configuration for price vs square footage chart.
+ * Includes zoom (wheel, pinch, drag box), pan (e.g. Ctrl+drag), and limits.
  */
 export const createChartOptions = (isMobile: boolean = false): ChartOptions<'line'> => ({
   responsive: true,
   maintainAspectRatio: true,
   aspectRatio: isMobile ? 0.9 : 2, // Taller on mobile (0.9), wider on desktop (2)
   plugins: {
+    zoom: {
+      zoom: {
+        wheel: { enabled: true },
+        pinch: { enabled: true },
+        drag: {
+          enabled: true,
+          borderColor: 'rgba(37, 99, 235, 0.8)',
+          borderWidth: 1,
+          backgroundColor: 'rgba(37, 99, 235, 0.15)',
+        },
+        mode: 'xy',
+      },
+      pan: {
+        enabled: true,
+        mode: 'xy',
+        modifierKey: 'ctrl',
+      },
+      limits: {
+        x: { min: 'original', max: 'original' },
+        y: { min: 'original', max: 'original' },
+      },
+    },
     legend: {
       display: true,
       position: 'bottom',
