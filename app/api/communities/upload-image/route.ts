@@ -71,15 +71,25 @@ export async function POST(request: NextRequest) {
     const result = await cloudinary.uploader.upload(dataUri, {
       folder: 'communities',
       resource_type: 'image',
+      timeout: 120000, // 2 minutes for slow connections or larger images
     });
 
     const imageUrl = result.secure_url;
     return NextResponse.json({ path: imageUrl }, { status: 200 });
   } catch (error: any) {
     console.error('Community image upload error:', error);
+    const isTimeout =
+      error?.name === 'TimeoutError' ||
+      error?.message?.includes('Timeout') ||
+      error?.error?.name === 'TimeoutError' ||
+      error?.error?.http_code === 499;
+    const message = isTimeout
+      ? 'Upload timed out. Try a smaller image (under 2MB) or check your connection and try again.'
+      : error?.message || 'Failed to upload image';
+    const status = isTimeout ? 504 : 500;
     return NextResponse.json(
-      { error: 'Failed to upload image', message: error.message },
-      { status: 500 }
+      { error: isTimeout ? 'Upload timed out' : 'Failed to upload image', message },
+      { status }
     );
   }
 }

@@ -24,10 +24,11 @@ import CompanySubcommunityBadges from "../components/CompanySubcommunityBadges";
 import ManageSubcommunitiesModal from "../components/ManageSubcommunitiesModal";
 import ProductLinesCard from "../components/ProductLinesCard";
 import EditCommunityModal from "../components/EditCommunityModal";
+import ChangeBannerModal from "../components/ChangeBannerModal";
 import { useScrapingProgress } from "../contexts/ScrapingProgressContext";
 import { getCommunityImage } from "../utils/communityImages";
 import { useAuth } from "../contexts/AuthContext";
-import { Plus, X, Trash2, Loader2, Search, ImagePlus } from "lucide-react";
+import { Plus, X, Trash2, Loader2, Search, ImagePlus, Pencil } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -139,6 +140,7 @@ export default function ManagePage() {
     name: string;
   } | null>(null);
   const [editCommunityModalOpen, setEditCommunityModalOpen] = useState(false);
+  const [changeBannerModalOpen, setChangeBannerModalOpen] = useState(false);
   const { startBackgroundScraping } = useScrapingProgress();
   
   const hasFetched = useRef(false);
@@ -784,61 +786,37 @@ export default function ManagePage() {
                           )}
                         </div>
                         {isEditor && !selectedCommunity.fromPlans && selectedCommunity._id && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteCommunity(selectedCommunity)}
-                            disabled={deletingCommunityId === selectedCommunity._id}
-                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          >
-                            {deletingCommunityId === selectedCommunity._id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-4 w-4" />
-                            )}
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setEditCommunityModalOpen(true)}
+                              className="h-8 w-8"
+                              title="Edit community"
+                              aria-label="Edit community"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteCommunity(selectedCommunity)}
+                              disabled={deletingCommunityId === selectedCommunity._id}
+                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              title="Delete community"
+                              aria-label="Delete community"
+                            >
+                              {deletingCommunityId === selectedCommunity._id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </CardHeader>
                     <CardContent>
-                      {/* Banner image: preview + Change banner (visible in community details) */}
-                      {selectedCommunity._id && (
-                        <div className="mb-6 pb-4 border-b border-border">
-                          <div className="flex items-center justify-between gap-4 flex-wrap">
-                            <div className="flex items-center gap-3">
-                              <div className="rounded-lg border border-border overflow-hidden bg-muted/30 w-24 h-16 shrink-0">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  key={`banner-${selectedCommunity._id}-${selectedCommunity.bannerPath || "default"}`}
-                                  src={getCommunityImage(selectedCommunity)}
-                                  alt={`Banner for ${selectedCommunity.name}`}
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                              <div>
-                                <p className="text-sm font-medium">Banner image</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {selectedCommunity.bannerPath || selectedCommunity.hasBanner
-                                    ? "Custom banner set"
-                                    : "Using default. Change to set a custom banner."}
-                                </p>
-                              </div>
-                            </div>
-                            {isEditor && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex items-center gap-2 shrink-0"
-                                onClick={() => setEditCommunityModalOpen(true)}
-                              >
-                                <ImagePlus className="h-4 w-4" />
-                                Change banner
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
                       <div className="space-y-4">
                         <div>
                           <div className="flex items-center justify-between mb-3">
@@ -919,6 +897,53 @@ export default function ManagePage() {
                       </div>
                   </CardContent>
                   </Card>
+
+                  {/* Banner image card (same style as Community Type) */}
+                  {selectedCommunity._id && (
+                    <Card className="mt-6">
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-lg">Banner image</CardTitle>
+                          {isEditor && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex items-center gap-2"
+                              onClick={() => setChangeBannerModalOpen(true)}
+                            >
+                              <ImagePlus className="h-4 w-4" />
+                              Change banner
+                            </Button>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="rounded-md border border-border overflow-hidden bg-muted/30 w-24 h-16 shrink-0">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                key={`banner-${selectedCommunity._id}-${selectedCommunity.bannerPath || "default"}`}
+                                src={getCommunityImage(selectedCommunity)}
+                                alt={`Banner for ${selectedCommunity.name}`}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium text-foreground">
+                                {selectedCommunity.bannerPath || selectedCommunity.hasBanner
+                                  ? "Custom banner set"
+                                  : "Using default"}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                Banner shown in the header on the community page. Change to set a custom image.
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
 
                   {/* Community type group card */}
                   {isEditor && !selectedCommunity.fromPlans && selectedCommunity._id && (
@@ -1190,9 +1215,31 @@ export default function ManagePage() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Community modal: name, description, location, and banner image */}
+      {/* Edit Community: name, description, location */}
       {selectedCommunity?._id && (
         <EditCommunityModal
+          community={{
+            _id: selectedCommunity._id,
+            name: selectedCommunity.name,
+            description: selectedCommunity.description ?? null,
+            location: selectedCommunity.location ?? null,
+            bannerPath: selectedCommunity.bannerPath ?? null,
+            hasBanner: selectedCommunity.hasBanner,
+            imagePath: selectedCommunity.imagePath ?? null,
+            hasImage: selectedCommunity.hasImage,
+          }}
+          open={editCommunityModalOpen}
+          onOpenChange={setEditCommunityModalOpen}
+          onSuccess={() => {
+            fetchCommunities({ bustCache: true });
+            setError("");
+          }}
+        />
+      )}
+
+      {/* Change banner image only */}
+      {selectedCommunity?._id && (
+        <ChangeBannerModal
           community={{
             _id: selectedCommunity._id,
             name: selectedCommunity.name,
@@ -1201,8 +1248,8 @@ export default function ManagePage() {
             imagePath: selectedCommunity.imagePath ?? null,
             hasImage: selectedCommunity.hasImage,
           }}
-          open={editCommunityModalOpen}
-          onOpenChange={setEditCommunityModalOpen}
+          open={changeBannerModalOpen}
+          onOpenChange={setChangeBannerModalOpen}
           onSuccess={() => {
             fetchCommunities({ bustCache: true });
             setError("");

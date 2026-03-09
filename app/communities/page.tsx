@@ -244,6 +244,8 @@ export default function CommunitiesPage() {
                   setCommunityToEdit({
                     _id: community._id!,
                     name: community.name,
+                    description: community.description ?? null,
+                    location: community.location ?? null,
                     bannerPath: community.bannerPath ?? null,
                     hasBanner: community.hasBanner ?? false,
                     imagePath: community.imagePath ?? null,

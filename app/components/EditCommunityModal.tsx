@@ -9,18 +9,18 @@ import {
   DialogClose,
 } from "./ui/dialog";
 import { Button } from "./ui/button";
-import { Loader2, ImagePlus, X } from "lucide-react";
+import { Loader2, ImagePlus } from "lucide-react";
 import ErrorMessage from "./ErrorMessage";
 import API_URL from "../config";
-import { getCommunityImage } from "../utils/communityImages";
+import { getCommunityCardImage } from "../utils/communityImages";
 
 export interface EditCommunityModalCommunity {
   _id: string;
   name: string;
-  /** Dedicated banner image URL (used for community header). */
+  description?: string | null;
+  location?: string | null;
   bannerPath?: string | null;
   hasBanner?: boolean;
-  /** Legacy/generic image; not used for banner when bannerPath exists. */
   imagePath?: string | null;
   hasImage?: boolean;
 }
@@ -38,48 +38,63 @@ export default function EditCommunityModal({
   onOpenChange,
   onSuccess,
 }: EditCommunityModalProps) {
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [location, setLocation] = useState("");
+  const [communityImageFile, setCommunityImageFile] = useState<File | null>(null);
+  const [communityImagePreviewUrl, setCommunityImagePreviewUrl] = useState<string | null>(null);
+  const [removeCommunityImage, setRemoveCommunityImage] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (community && open) {
-      setImageFile(null);
-      if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
-      setImagePreviewUrl(null);
+      setName(community.name);
+      setDescription(community.description ?? "");
+      setLocation(community.location ?? "");
+      setCommunityImageFile(null);
+      setCommunityImagePreviewUrl(null);
+      setRemoveCommunityImage(false);
+      if (communityImagePreviewUrl) URL.revokeObjectURL(communityImagePreviewUrl);
       setError("");
     }
   }, [community, open]);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCommunityImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       setError("Please select an image file (e.g. JPG, PNG, WebP)");
       return;
     }
-    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
-    setImageFile(file);
-    setImagePreviewUrl(URL.createObjectURL(file));
+    if (communityImagePreviewUrl) URL.revokeObjectURL(communityImagePreviewUrl);
+    setCommunityImageFile(file);
+    setCommunityImagePreviewUrl(URL.createObjectURL(file));
+    setRemoveCommunityImage(false);
     setError("");
   };
 
-  const clearImage = () => {
-    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
-    setImageFile(null);
-    setImagePreviewUrl(null);
+  const clearCommunityImage = () => {
+    if (communityImagePreviewUrl) URL.revokeObjectURL(communityImagePreviewUrl);
+    setCommunityImageFile(null);
+    setCommunityImagePreviewUrl(null);
+    setRemoveCommunityImage(true);
   };
 
   const handleSave = async () => {
     if (!community?._id) return;
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError("Community name is required");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
-      let bannerPath: string | null | undefined;
-      if (imageFile) {
+      let imagePath: string | null | undefined;
+      if (communityImageFile) {
         const formData = new FormData();
-        formData.append("image", imageFile);
+        formData.append("image", communityImageFile);
         const uploadRes = await fetch(API_URL + "/communities/upload-image", {
           method: "POST",
           credentials: "include",
@@ -90,50 +105,30 @@ export default function EditCommunityModal({
           throw new Error(errData.error || "Failed to upload image");
         }
         const uploadJson = await uploadRes.json();
-        bannerPath = uploadJson.path ?? null;
-      } else {
-        // No new file selected — don't change banner
-        onOpenChange(false);
-        return;
+        imagePath = uploadJson.path ?? null;
+      } else if (removeCommunityImage) {
+        imagePath = null;
       }
+
+      const body: Record<string, unknown> = {
+        name: trimmedName,
+        description: description.trim() || null,
+        location: location.trim() || null,
+      };
+      if (imagePath !== undefined) body.imagePath = imagePath;
 
       const res = await fetch(API_URL + `/communities/${community._id}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bannerPath }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Failed to update banner");
+        throw new Error(data.error || "Failed to update community");
       }
 
-      onOpenChange(false);
-      onSuccess?.();
-    } catch (err: any) {
-      setError(err.message || "Unknown error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRemoveBanner = async () => {
-    if (!community?._id) return;
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch(API_URL + `/communities/${community._id}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bannerPath: null }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to remove banner");
-      }
-      clearImage();
       onOpenChange(false);
       onSuccess?.();
     } catch (err: any) {
@@ -145,90 +140,110 @@ export default function EditCommunityModal({
 
   if (!community) return null;
 
-  const currentBannerUrl =
-    imagePreviewUrl ??
-    (community.bannerPath ?? null) ??
-    getCommunityImage(community);
-  const hasCurrentBanner = !!(community.bannerPath || community.hasBanner);
+  const communityImgSrc =
+    communityImagePreviewUrl ??
+    (removeCommunityImage ? getCommunityCardImage({ name: community.name }) : null) ??
+    ((community.imagePath || (community.hasImage && community._id ? `/api/communities/${community._id}/image` : null)) ?? getCommunityCardImage(community));
+  const hasCurrentCommunityImage = !removeCommunityImage && (!!community.imagePath || !!community.hasImage);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[440px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Change banner image</DialogTitle>
+          <DialogTitle>Edit Community</DialogTitle>
         </DialogHeader>
         <DialogClose />
 
         <div className="space-y-4 mt-4">
           <div>
-            <label className="block text-sm font-medium mb-2">Banner image</label>
-            <p className="text-xs text-muted-foreground mb-2">
-              This image is shown in the header on the community page.
-            </p>
-            <div className="space-y-2">
-              {imagePreviewUrl ? (
-                <div className="relative inline-block">
-                  <img
-                    src={imagePreviewUrl}
-                    alt="New banner preview"
-                    className="h-32 w-auto rounded-md border border-border object-cover"
-                  />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="icon"
-                    className="absolute -top-2 -right-2 h-7 w-7 rounded-full"
-                    onClick={clearImage}
-                    disabled={loading}
-                    aria-label="Remove selected image"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-4">
-                  <img
-                    src={currentBannerUrl}
-                    alt={community.name}
-                    className="h-24 w-auto rounded-md border border-border object-cover"
-                  />
-                  <label className="flex flex-col items-center justify-center h-24 px-4 rounded-md border-2 border-dashed border-border bg-muted/50 hover:bg-muted transition-colors cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleImageChange}
-                      disabled={loading}
-                    />
-                    <ImagePlus className="h-6 w-6 text-muted-foreground mb-1" />
-                    <span className="text-xs text-muted-foreground text-center">
-                      Change image
-                    </span>
-                  </label>
-                </div>
-              )}
-            </div>
+            <label className="block text-sm font-medium mb-2">Community Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g., Elevon at Lavon"
+              className="w-full px-3 py-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              disabled={loading}
+            />
           </div>
 
-          {hasCurrentBanner && !imagePreviewUrl && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={handleRemoveBanner}
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Description (Optional)
+            </label>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Community description..."
+              className="w-full px-3 py-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
               disabled={loading}
-            >
-              Remove banner
-            </Button>
-          )}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Location (Optional)
+            </label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g., Dallas, TX"
+              className="w-full px-3 py-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              disabled={loading}
+            />
+          </div>
+
+          {/* Community image (card/listing) */}
+          <div>
+            <label className="block text-sm font-medium mb-2">Community image (card)</label>
+            <p className="text-xs text-muted-foreground mb-2">
+              Shown on the community card on the listing page.
+            </p>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="rounded-md border border-border overflow-hidden bg-muted/30 w-20 h-14 shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={communityImgSrc}
+                  alt="Community card"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-border bg-muted/50 hover:bg-muted text-sm cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleCommunityImageChange}
+                    disabled={loading}
+                  />
+                  <ImagePlus className="h-4 w-4" />
+                  Change image
+                </label>
+                {hasCurrentCommunityImage && !communityImagePreviewUrl && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={clearCommunityImage}
+                    disabled={loading}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
 
           {error && <ErrorMessage message={error} />}
 
           <div className="flex gap-2 pt-2">
             <Button
               onClick={handleSave}
-              disabled={loading || !imageFile}
+              disabled={loading || !name.trim()}
               className="flex-1 gap-2"
             >
               {loading ? (
@@ -237,7 +252,7 @@ export default function EditCommunityModal({
                   Saving...
                 </>
               ) : (
-                "Save"
+                "Save Changes"
               )}
             </Button>
             <Button
