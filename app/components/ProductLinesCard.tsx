@@ -75,16 +75,17 @@ export default function ProductLinesCard({
 
   // Segment form (only name; label is derived from name, description removed)
   const [segName, setSegName] = useState("");
-  /** Selected company in Add modal (unified mode). "" = Community-wide. */
+  /** Selected company in Add modal (unified mode). "" or "__community__" = Community-wide. */
   const [addModalCompanyId, setAddModalCompanyId] = useState<string>("");
   const [segSaving, setSegSaving] = useState(false);
   const [segDeletingId, setSegDeletingId] = useState<string | null>(null);
 
+  const COMMUNITY_WIDE_VALUE = "__community__";
   const isUnifiedMode = Boolean(companies !== undefined && !companyId);
 
   const handleOpenAddSegment = () => {
     setSegName("");
-    setAddModalCompanyId(companies?.length ? (companies[0]._id ?? "") : "");
+    setAddModalCompanyId(COMMUNITY_WIDE_VALUE);
     setAddSegmentOpen(true);
   };
 
@@ -114,7 +115,9 @@ export default function ProductLinesCard({
         }
         setEditSegment(null);
       } else {
-        const effectiveCompanyId = isUnifiedMode ? (addModalCompanyId || null) : companyId;
+        const effectiveCompanyId = isUnifiedMode
+          ? (addModalCompanyId === COMMUNITY_WIDE_VALUE || !addModalCompanyId ? null : addModalCompanyId)
+          : companyId;
         const res = await fetch(`${API_URL}/product-segments`, {
           method: "POST",
           credentials: "include",
@@ -279,19 +282,23 @@ export default function ProductLinesCard({
             <DialogTitle>Add Product Line</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            {isUnifiedMode && companies && companies.length > 0 && (
+            {isUnifiedMode && (
               <div>
                 <label className="block text-sm font-medium mb-1">Company (builder)</label>
-                <Select value={addModalCompanyId} onValueChange={setAddModalCompanyId}>
+                <Select
+                  value={addModalCompanyId || COMMUNITY_WIDE_VALUE}
+                  onValueChange={(v) => setAddModalCompanyId(v === COMMUNITY_WIDE_VALUE ? COMMUNITY_WIDE_VALUE : v)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select company">
-                      {addModalCompanyId
-                        ? (companies?.find((c) => c._id === addModalCompanyId)?.name ?? addModalCompanyId)
-                        : undefined}
+                      {addModalCompanyId === COMMUNITY_WIDE_VALUE || !addModalCompanyId
+                        ? "Community Wide"
+                        : companies?.find((c) => c._id === addModalCompanyId)?.name ?? addModalCompanyId}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {companies.map((c) => (
+                    <SelectItem value={COMMUNITY_WIDE_VALUE}>Community Wide</SelectItem>
+                    {(companies ?? []).map((c) => (
                       <SelectItem key={c._id} value={c._id}>
                         {c.name}
                       </SelectItem>
@@ -299,7 +306,7 @@ export default function ProductLinesCard({
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground mt-1">
-                  This product line will be assigned to the selected builder. Multiple builders can have the same line name (e.g. 40′ lots).
+                  Choose &quot;Community Wide&quot; for a line shared by the whole community, or select a builder to assign this line to.
                 </p>
               </div>
             )}
