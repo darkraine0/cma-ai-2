@@ -23,9 +23,11 @@ import PendingApprovalBanner from "../components/PendingApprovalBanner";
 import CompanySubcommunityBadges from "../components/CompanySubcommunityBadges";
 import ManageSubcommunitiesModal from "../components/ManageSubcommunitiesModal";
 import ProductLinesCard from "../components/ProductLinesCard";
+import EditCommunityModal from "../components/EditCommunityModal";
 import { useScrapingProgress } from "../contexts/ScrapingProgressContext";
+import { getCommunityImage } from "../utils/communityImages";
 import { useAuth } from "../contexts/AuthContext";
-import { Plus, X, Trash2, Loader2, Search } from "lucide-react";
+import { Plus, X, Trash2, Loader2, Search, ImagePlus } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -73,6 +75,12 @@ interface Community {
   parentCommunityId?: string | { _id: string; name: string } | null;
   /** standard = General Community (UnionMain builds here); competitor = side community/Competitor */
   communityType?: CommunityType;
+  /** Custom image URL (generic; not used for banner when bannerPath is set). */
+  imagePath?: string | null;
+  hasImage?: boolean;
+  /** Dedicated banner image URL for community page header. */
+  bannerPath?: string | null;
+  hasBanner?: boolean;
 }
 
 interface ProductSegment {
@@ -130,6 +138,7 @@ export default function ManagePage() {
     id: string;
     name: string;
   } | null>(null);
+  const [editCommunityModalOpen, setEditCommunityModalOpen] = useState(false);
   const { startBackgroundScraping } = useScrapingProgress();
   
   const hasFetched = useRef(false);
@@ -184,12 +193,13 @@ export default function ManagePage() {
     );
   };
 
-  const fetchCommunities = async (options?: { silent?: boolean }) => {
+  const fetchCommunities = async (options?: { silent?: boolean; bustCache?: boolean }) => {
     if (!options?.silent) setLoading(true);
     setError("");
     try {
+      const url = options?.bustCache ? `${API_URL}/communities?t=${Date.now()}` : API_URL + "/communities";
       const [communitiesRes, plansData] = await Promise.all([
-        fetch(API_URL + "/communities"),
+        fetch(url, { cache: "no-store" }),
         loadPlansData()
       ]);
       
@@ -791,6 +801,44 @@ export default function ManagePage() {
                       </div>
                     </CardHeader>
                     <CardContent>
+                      {/* Banner image: preview + Change banner (visible in community details) */}
+                      {selectedCommunity._id && (
+                        <div className="mb-6 pb-4 border-b border-border">
+                          <div className="flex items-center justify-between gap-4 flex-wrap">
+                            <div className="flex items-center gap-3">
+                              <div className="rounded-lg border border-border overflow-hidden bg-muted/30 w-24 h-16 shrink-0">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  key={`banner-${selectedCommunity._id}-${selectedCommunity.bannerPath || "default"}`}
+                                  src={getCommunityImage(selectedCommunity)}
+                                  alt={`Banner for ${selectedCommunity.name}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium">Banner image</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {selectedCommunity.bannerPath || selectedCommunity.hasBanner
+                                    ? "Custom banner set"
+                                    : "Using default. Change to set a custom banner."}
+                                </p>
+                              </div>
+                            </div>
+                            {isEditor && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex items-center gap-2 shrink-0"
+                                onClick={() => setEditCommunityModalOpen(true)}
+                              >
+                                <ImagePlus className="h-4 w-4" />
+                                Change banner
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="space-y-4">
                         <div>
                           <div className="flex items-center justify-between mb-3">
@@ -1141,6 +1189,26 @@ export default function ManagePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Community modal: name, description, location, and banner image */}
+      {selectedCommunity?._id && (
+        <EditCommunityModal
+          community={{
+            _id: selectedCommunity._id,
+            name: selectedCommunity.name,
+            bannerPath: selectedCommunity.bannerPath ?? null,
+            hasBanner: selectedCommunity.hasBanner,
+            imagePath: selectedCommunity.imagePath ?? null,
+            hasImage: selectedCommunity.hasImage,
+          }}
+          open={editCommunityModalOpen}
+          onOpenChange={setEditCommunityModalOpen}
+          onSuccess={() => {
+            fetchCommunities({ bustCache: true });
+            setError("");
+          }}
+        />
+      )}
     </div>
   );
 }

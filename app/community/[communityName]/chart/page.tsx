@@ -164,6 +164,7 @@ export default function ChartPage() {
             <ChartHeader
               communityName={community?.name || formattedSlug}
               communitySlug={communitySlug}
+              bannerImageSource={community ?? undefined}
               selectedType={selectedType}
               onTypeChange={setSelectedType}
               productLines={productLines}

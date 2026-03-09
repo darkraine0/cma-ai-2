@@ -217,6 +217,8 @@ export async function GET(request: NextRequest) {
       location: community.location || null,
       hasImage: !!(community.imagePath || community.imageData),
       imagePath: community.imagePath || null,
+      bannerPath: community.bannerPath || null,
+      hasBanner: !!community.bannerPath,
       totalPlans: merged.totalPlans,
       totalQuickMoveIns: merged.totalQuickMoveIns,
       avgPrice: merged.avgPrice,
@@ -251,6 +253,8 @@ export async function GET(request: NextRequest) {
         location: child.location || null,
         hasImage: !!(child.imagePath || child.imageData),
         imagePath: child.imagePath || null,
+        bannerPath: child.bannerPath || null,
+        hasBanner: !!child.bannerPath,
         totalPlans: childMerged.totalPlans,
         totalQuickMoveIns: childMerged.totalQuickMoveIns,
         companies: (child.companies || [])

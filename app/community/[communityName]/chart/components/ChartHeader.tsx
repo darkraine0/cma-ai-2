@@ -11,9 +11,13 @@ interface ProductLineOption {
   label: string;
 }
 
+type BannerImageSource = { name?: string; _id?: string; hasImage?: boolean; imagePath?: string | null; bannerPath?: string | null } | string;
+
 interface ChartHeaderProps {
   communityName: string;
   communitySlug: string;
+  /** When set, banner uses this (e.g. community with bannerPath) for the header image. */
+  bannerImageSource?: BannerImageSource | null;
   selectedType: string;
   onTypeChange: (type: string) => void;
   productLines?: ProductLineOption[];
@@ -26,6 +30,7 @@ interface ChartHeaderProps {
 export default function ChartHeader({
   communityName,
   communitySlug,
+  bannerImageSource,
   selectedType,
   onTypeChange,
   productLines = [],
@@ -35,13 +40,14 @@ export default function ChartHeader({
   isSyncing = false,
 }: ChartHeaderProps) {
   const router = useRouter();
+  const bannerSrc = getCommunityImage(bannerImageSource ?? communitySlug);
 
   return (
     <div className="relative overflow-hidden h-36 sm:h-40 rounded-t-lg">
-      {/* Background Image */}
+      {/* Background Image (banner: uses bannerPath when set) */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={getCommunityImage(communitySlug)}
+        src={bannerSrc}
         alt={communityName}
         className="w-full h-full object-cover"
       />

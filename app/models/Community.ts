@@ -21,6 +21,8 @@ export interface ICommunity extends Document {
   imageData?: string;
   /** Path to uploaded image file e.g. /communities/elevon-1234567890.jpg */
   imagePath?: string;
+  /** URL/path for community banner image (header). Used on community page; separate from imagePath. */
+  bannerPath?: string;
   companies: Types.ObjectId[]; // Array of company ObjectIds (references)
   parentCommunityId?: Types.ObjectId; // Reference to parent UnionMain community
   totalPlans?: number; // Aggregated stats (denormalized)
@@ -73,6 +75,9 @@ const CommunitySchema = new Schema<ICommunity>(
       type: String,
     },
     imagePath: {
+      type: String,
+    },
+    bannerPath: {
       type: String,
     },
     companies: [{

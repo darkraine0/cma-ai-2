@@ -263,6 +263,7 @@ export default function CommunityDetail() {
             <CommunityHeader
               communityName={community?.name || formattedSlug}
               communitySlug={communitySlug}
+              bannerImageSource={selectedSubcommunity ?? community ?? undefined}
               parentCommunityName={parentCommunityName}
               childCommunities={childCommunities}
               selectedSubcommunity={selectedSubcommunity}

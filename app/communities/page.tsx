@@ -19,7 +19,7 @@ import {
 } from "../components/ui/select";
 import API_URL from '../config';
 import { getCompanyColor } from '../utils/colors';
-import { getCommunityImage } from '../utils/communityImages';
+import { getCommunityCardImage } from '../utils/communityImages';
 import { communityNameToSlug } from '../community/utils/formatCommunityName';
 import { useAuth } from "../contexts/AuthContext";
 
@@ -36,6 +36,8 @@ interface Community {
   _id?: string | null;
   hasImage?: boolean;
   imagePath?: string | null;
+  bannerPath?: string | null;
+  hasBanner?: boolean;
   fromPlans?: boolean;
   parentCommunityId?: string | null;
   children?: Community[];
@@ -127,6 +129,8 @@ export default function CommunitiesPage() {
           _id: comm._id,
           hasImage: comm.hasImage || false,
           imagePath: comm.imagePath || null,
+          bannerPath: comm.bannerPath || null,
+          hasBanner: !!comm.bannerPath,
           fromPlans: comm.fromPlans || false,
           parentCommunityId: comm.parentCommunityId || null,
           communityType: type,
@@ -218,7 +222,7 @@ export default function CommunitiesPage() {
         <div className="relative overflow-hidden h-48">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={getCommunityImage(community)}
+            src={getCommunityCardImage(community)}
             alt={community.name}
             className="w-full h-full object-cover"
           />
@@ -240,8 +244,8 @@ export default function CommunitiesPage() {
                   setCommunityToEdit({
                     _id: community._id!,
                     name: community.name,
-                    description: community.description ?? null,
-                    location: community.location ?? null,
+                    bannerPath: community.bannerPath ?? null,
+                    hasBanner: community.hasBanner ?? false,
                     imagePath: community.imagePath ?? null,
                     hasImage: community.hasImage,
                   });

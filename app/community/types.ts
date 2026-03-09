@@ -32,6 +32,11 @@ export interface Community {
   description?: string | null;
   location?: string | null;
   parentCommunityId?: string | { _id: string; name: string } | null;
+  /** Dedicated banner image URL for community page header. */
+  bannerPath?: string | null;
+  hasBanner?: boolean;
+  imagePath?: string | null;
+  hasImage?: boolean;
 }
 
 export type SortKey = "plan_name" | "price" | "sqft" | "last_updated";

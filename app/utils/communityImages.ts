@@ -28,22 +28,9 @@ const communityImageMap: Record<string, string> = {
   'wildflower': 'wildflower.jpg',
 };
 
-/**
- * Get the image path for a community
- * @param communityName - The name of the community, or an object with name, _id, and optional hasImage
- * @returns The path to the community image, or a default placeholder if not found
- */
-export const getCommunityImage = (communityName: string | { name?: string; _id?: string; hasImage?: boolean; imagePath?: string | null } | any): string => {
-  // If community has an uploaded file path (new flow), use it
-  if (communityName && typeof communityName === 'object' && communityName.imagePath) {
-    return communityName.imagePath;
-  }
-  // Legacy: image stored as base64, serve via API
-  if (communityName && typeof communityName === 'object' && communityName._id && communityName.hasImage) {
-    return `/api/communities/${communityName._id}/image`;
-  }
+type CommunityImageInput = string | { name?: string; _id?: string; hasImage?: boolean; imagePath?: string | null; bannerPath?: string | null } | any;
 
-  // Handle different input types for name-based lookup
+function resolveNameBasedImage(communityName: CommunityImageInput): string {
   let name: string;
   if (typeof communityName === 'string') {
     name = communityName;
@@ -52,30 +39,41 @@ export const getCommunityImage = (communityName: string | { name?: string; _id?:
   } else {
     name = String(communityName || '');
   }
-
   const normalized = normalizeCommunityName(name);
-  
-  // First, try exact match
   let imageFile = communityImageMap[normalized];
-  
-  // If no exact match, try to find a community image that starts with the normalized name
-  // This handles cases where the slug (first word) is used instead of full name
-  // e.g., "cambridge" should match "cambridgecrossing"
   if (!imageFile) {
-    const matchingKey = Object.keys(communityImageMap).find(key => 
+    const matchingKey = Object.keys(communityImageMap).find(key =>
       key.startsWith(normalized) || normalized.startsWith(key)
     );
-    if (matchingKey) {
-      imageFile = communityImageMap[matchingKey];
-    }
+    if (matchingKey) imageFile = communityImageMap[matchingKey];
   }
+  if (imageFile) return `/communities/${imageFile}`;
+  return '/communities/elevon.webp';
+}
 
-  if (imageFile) {
-    return `/communities/${imageFile}`;
+/**
+ * Get the image path for the community card/thumbnail (listing page).
+ * Prefers imagePath (card image), then bannerPath, then legacy hasImage, then name-based default.
+ */
+export const getCommunityCardImage = (communityName: CommunityImageInput): string => {
+  if (communityName && typeof communityName === 'object') {
+    if (communityName.imagePath) return communityName.imagePath;
+    if (communityName.bannerPath) return communityName.bannerPath;
+    if (communityName._id && communityName.hasImage) return `/api/communities/${communityName._id}/image`;
   }
+  return resolveNameBasedImage(communityName);
+};
 
-  // Fallback to a default placeholder or the first available image
-  // You can customize this fallback behavior
-  return '/communities/elevon.webp'; // Default fallback image
+/**
+ * Get the image path for a community banner/header (detail & chart pages).
+ * Prefers bannerPath, then imagePath, then legacy hasImage, then name-based default.
+ */
+export const getCommunityImage = (communityName: CommunityImageInput): string => {
+  if (communityName && typeof communityName === 'object') {
+    if (communityName.bannerPath) return communityName.bannerPath;
+    if (communityName.imagePath) return communityName.imagePath;
+    if (communityName._id && communityName.hasImage) return `/api/communities/${communityName._id}/image`;
+  }
+  return resolveNameBasedImage(communityName);
 };
 

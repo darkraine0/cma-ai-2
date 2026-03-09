@@ -24,7 +24,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { name, parentCommunityId, description, location, imagePath, communityType, homesSource } = body;
+    const { name, parentCommunityId, description, location, imagePath, bannerPath, communityType, homesSource } = body;
 
     const community = await Community.findById(communityId);
     if (!community) {
@@ -90,6 +90,12 @@ export async function PATCH(
     }
     if (homesSource !== undefined) {
       community.homesSource = homesSource === 'manual' ? 'manual' : 'scraped';
+    }
+
+    // Persist bannerPath via direct update so it's always written to the DB (avoids schema cache issues)
+    if (bannerPath !== undefined) {
+      community.bannerPath = bannerPath ?? null;
+      await Community.findByIdAndUpdate(communityId, { $set: { bannerPath: community.bannerPath } });
     }
 
     await community.save();

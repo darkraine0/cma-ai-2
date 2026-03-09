@@ -9,9 +9,14 @@ import { Community } from "../types";
 import { ProductLineOption } from "../hooks/usePlansFilter";
 import { RefreshCw, Plus } from "lucide-react";
 
+/** Community or slug for banner image; when object has bannerPath, that is used for the header. */
+export type BannerImageSource = Community | { name?: string; _id?: string; hasImage?: boolean; imagePath?: string | null; bannerPath?: string | null } | string;
+
 interface CommunityHeaderProps {
   communityName: string;
   communitySlug: string;
+  /** When set, banner uses this (e.g. community with bannerPath) instead of slug-based default. */
+  bannerImageSource?: BannerImageSource | null;
   /** When set, title shows as "parentCommunityName [communityName]" (e.g. Cambridge Crossing [Cross Creek Meadows]) */
   parentCommunityName?: string | null;
   childCommunities?: Community[];
@@ -38,6 +43,7 @@ interface CommunityHeaderProps {
 export default function CommunityHeader({
   communityName,
   communitySlug,
+  bannerImageSource,
   parentCommunityName,
   childCommunities = [],
   selectedSubcommunity = null,
@@ -75,12 +81,14 @@ export default function CommunityHeader({
     if (child) onSubcommunityChange(child);
   };
 
+  const bannerSrc = getCommunityImage(bannerImageSource ?? communitySlug);
+
   return (
     <div className="relative overflow-hidden h-36 sm:h-40 rounded-t-lg">
-      {/* Background Image */}
+      {/* Background Image (banner: uses bannerPath when set) */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={getCommunityImage(communitySlug)}
+        src={bannerSrc}
         alt={communityName}
         className="w-full h-full object-cover"
       />
