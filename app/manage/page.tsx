@@ -24,11 +24,9 @@ import CompanySubcommunityBadges from "../components/CompanySubcommunityBadges";
 import ManageSubcommunitiesModal from "../components/ManageSubcommunitiesModal";
 import ProductLinesCard from "../components/ProductLinesCard";
 import EditCommunityModal from "../components/EditCommunityModal";
-import ChangeBannerModal from "../components/ChangeBannerModal";
 import { useScrapingProgress } from "../contexts/ScrapingProgressContext";
-import { getCommunityImage } from "../utils/communityImages";
 import { useAuth } from "../contexts/AuthContext";
-import { Plus, X, Trash2, Loader2, Search, ImagePlus, Pencil } from "lucide-react";
+import { Plus, X, Trash2, Loader2, Search, Pencil } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -76,12 +74,9 @@ interface Community {
   parentCommunityId?: string | { _id: string; name: string } | null;
   /** standard = General Community (UnionMain builds here); competitor = side community/Competitor */
   communityType?: CommunityType;
-  /** Custom image URL (generic; not used for banner when bannerPath is set). */
+  /** Community/card image; also used as banner in header on community page. */
   imagePath?: string | null;
   hasImage?: boolean;
-  /** Dedicated banner image URL for community page header. */
-  bannerPath?: string | null;
-  hasBanner?: boolean;
 }
 
 interface ProductSegment {
@@ -140,7 +135,6 @@ export default function ManagePage() {
     name: string;
   } | null>(null);
   const [editCommunityModalOpen, setEditCommunityModalOpen] = useState(false);
-  const [changeBannerModalOpen, setChangeBannerModalOpen] = useState(false);
   const { startBackgroundScraping } = useScrapingProgress();
   
   const hasFetched = useRef(false);
@@ -898,53 +892,6 @@ export default function ManagePage() {
                   </CardContent>
                   </Card>
 
-                  {/* Banner image card (same style as Community Type) */}
-                  {selectedCommunity._id && (
-                    <Card className="mt-6">
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-lg">Banner image</CardTitle>
-                          {isEditor && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex items-center gap-2"
-                              onClick={() => setChangeBannerModalOpen(true)}
-                            >
-                              <ImagePlus className="h-4 w-4" />
-                              Change banner
-                            </Button>
-                          )}
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="rounded-md border border-border overflow-hidden bg-muted/30 w-24 h-16 shrink-0">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                key={`banner-${selectedCommunity._id}-${selectedCommunity.bannerPath || "default"}`}
-                                src={getCommunityImage(selectedCommunity)}
-                                alt={`Banner for ${selectedCommunity.name}`}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-sm font-medium text-foreground">
-                                {selectedCommunity.bannerPath || selectedCommunity.hasBanner
-                                  ? "Custom banner set"
-                                  : "Using default"}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                Banner shown in the header on the community page. Change to set a custom image.
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-
                   {/* Community type group card */}
                   {isEditor && !selectedCommunity.fromPlans && selectedCommunity._id && (
                     <Card className="mt-6">
@@ -1223,33 +1170,11 @@ export default function ManagePage() {
             name: selectedCommunity.name,
             description: selectedCommunity.description ?? null,
             location: selectedCommunity.location ?? null,
-            bannerPath: selectedCommunity.bannerPath ?? null,
-            hasBanner: selectedCommunity.hasBanner,
             imagePath: selectedCommunity.imagePath ?? null,
             hasImage: selectedCommunity.hasImage,
           }}
           open={editCommunityModalOpen}
           onOpenChange={setEditCommunityModalOpen}
-          onSuccess={() => {
-            fetchCommunities({ bustCache: true });
-            setError("");
-          }}
-        />
-      )}
-
-      {/* Change banner image only */}
-      {selectedCommunity?._id && (
-        <ChangeBannerModal
-          community={{
-            _id: selectedCommunity._id,
-            name: selectedCommunity.name,
-            bannerPath: selectedCommunity.bannerPath ?? null,
-            hasBanner: selectedCommunity.hasBanner,
-            imagePath: selectedCommunity.imagePath ?? null,
-            hasImage: selectedCommunity.hasImage,
-          }}
-          open={changeBannerModalOpen}
-          onOpenChange={setChangeBannerModalOpen}
           onSuccess={() => {
             fetchCommunities({ bustCache: true });
             setError("");

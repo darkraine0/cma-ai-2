@@ -36,8 +36,6 @@ interface Community {
   _id?: string | null;
   hasImage?: boolean;
   imagePath?: string | null;
-  bannerPath?: string | null;
-  hasBanner?: boolean;
   fromPlans?: boolean;
   parentCommunityId?: string | null;
   children?: Community[];
@@ -129,8 +127,6 @@ export default function CommunitiesPage() {
           _id: comm._id,
           hasImage: comm.hasImage || false,
           imagePath: comm.imagePath || null,
-          bannerPath: comm.bannerPath || null,
-          hasBanner: !!comm.bannerPath,
           fromPlans: comm.fromPlans || false,
           parentCommunityId: comm.parentCommunityId || null,
           communityType: type,
@@ -246,8 +242,6 @@ export default function CommunitiesPage() {
                     name: community.name,
                     description: community.description ?? null,
                     location: community.location ?? null,
-                    bannerPath: community.bannerPath ?? null,
-                    hasBanner: community.hasBanner ?? false,
                     imagePath: community.imagePath ?? null,
                     hasImage: community.hasImage,
                   });

@@ -19,8 +19,6 @@ export interface EditCommunityModalCommunity {
   name: string;
   description?: string | null;
   location?: string | null;
-  bannerPath?: string | null;
-  hasBanner?: boolean;
   imagePath?: string | null;
   hasImage?: boolean;
 }

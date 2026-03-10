@@ -11,12 +11,12 @@ interface ProductLineOption {
   label: string;
 }
 
-type BannerImageSource = { name?: string; _id?: string; hasImage?: boolean; imagePath?: string | null; bannerPath?: string | null } | string;
+type BannerImageSource = { name?: string; _id?: string; hasImage?: boolean; imagePath?: string | null } | string;
 
 interface ChartHeaderProps {
   communityName: string;
   communitySlug: string;
-  /** When set, banner uses this (e.g. community with bannerPath) for the header image. */
+  /** When set, header image uses this (e.g. community with imagePath). */
   bannerImageSource?: BannerImageSource | null;
   selectedType: string;
   onTypeChange: (type: string) => void;
@@ -44,7 +44,7 @@ export default function ChartHeader({
 
   return (
     <div className="relative overflow-hidden h-36 sm:h-40 rounded-t-lg">
-      {/* Background Image (banner: uses bannerPath when set) */}
+      {/* Background Image (uses imagePath when set) */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={bannerSrc}

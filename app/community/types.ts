@@ -32,9 +32,7 @@ export interface Community {
   description?: string | null;
   location?: string | null;
   parentCommunityId?: string | { _id: string; name: string } | null;
-  /** Dedicated banner image URL for community page header. */
-  bannerPath?: string | null;
-  hasBanner?: boolean;
+  /** Community image; used for card and for banner/header on community page. */
   imagePath?: string | null;
   hasImage?: boolean;
 }

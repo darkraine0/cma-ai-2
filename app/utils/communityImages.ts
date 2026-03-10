@@ -28,7 +28,7 @@ const communityImageMap: Record<string, string> = {
   'wildflower': 'wildflower.jpg',
 };
 
-type CommunityImageInput = string | { name?: string; _id?: string; hasImage?: boolean; imagePath?: string | null; bannerPath?: string | null } | any;
+type CommunityImageInput = string | { name?: string; _id?: string; hasImage?: boolean; imagePath?: string | null } | any;
 
 function resolveNameBasedImage(communityName: CommunityImageInput): string {
   let name: string;
@@ -53,24 +53,22 @@ function resolveNameBasedImage(communityName: CommunityImageInput): string {
 
 /**
  * Get the image path for the community card/thumbnail (listing page).
- * Prefers imagePath (card image), then bannerPath, then legacy hasImage, then name-based default.
+ * Uses imagePath, then legacy hasImage, then name-based default.
  */
 export const getCommunityCardImage = (communityName: CommunityImageInput): string => {
   if (communityName && typeof communityName === 'object') {
     if (communityName.imagePath) return communityName.imagePath;
-    if (communityName.bannerPath) return communityName.bannerPath;
     if (communityName._id && communityName.hasImage) return `/api/communities/${communityName._id}/image`;
   }
   return resolveNameBasedImage(communityName);
 };
 
 /**
- * Get the image path for a community banner/header (detail & chart pages).
- * Prefers bannerPath, then imagePath, then legacy hasImage, then name-based default.
+ * Get the image path for the community banner/header (detail & chart pages).
+ * Uses imagePath for banner; same as card image.
  */
 export const getCommunityImage = (communityName: CommunityImageInput): string => {
   if (communityName && typeof communityName === 'object') {
-    if (communityName.bannerPath) return communityName.bannerPath;
     if (communityName.imagePath) return communityName.imagePath;
     if (communityName._id && communityName.hasImage) return `/api/communities/${communityName._id}/image`;
   }
