@@ -8,10 +8,12 @@ import { Badge } from "../components/ui/badge";
 import Loader from "../components/Loader";
 import ErrorMessage from "../components/ErrorMessage";
 import AddCompanyModal from "../components/AddCompanyModal";
+import EditCompanyModal from "../components/EditCompanyModal";
 import PendingApprovalBanner from "../components/PendingApprovalBanner";
-import { ExternalLink, Trash2, Search } from "lucide-react";
+import { ExternalLink, Trash2, Search, Pencil } from "lucide-react";
 import API_URL from '../config';
 import { useAuth } from "../contexts/AuthContext";
+import { getCompanyColor } from "../utils/colors";
 
 interface Company {
   _id: string;
@@ -20,6 +22,7 @@ interface Company {
   website?: string;
   headquarters?: string;
   founded?: string;
+  color?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -56,6 +59,8 @@ export default function CompaniesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [deletingCompanyId, setDeletingCompanyId] = useState<string | null>(null);
+  const [editCompanyOpen, setEditCompanyOpen] = useState(false);
+  const [editCompanyTarget, setEditCompanyTarget] = useState<Company | null>(null);
   const { user } = useAuth();
   const hasFetched = useRef(false);
 
@@ -256,29 +261,55 @@ export default function CompaniesPage() {
             return (
               <Card key={company._id}>
                 <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="text-lg">{company.name}</CardTitle>
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span
+                        className="shrink-0 w-4 h-4 rounded-full border-2 border-border"
+                        style={{
+                          backgroundColor: getCompanyColor(company),
+                          borderColor: getCompanyColor(company),
+                        }}
+                        title="Chart color"
+                      />
+                      <CardTitle className="text-lg truncate">{company.name}</CardTitle>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
                       {company.website && (
                         <a
                           href={company.website}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-primary hover:text-primary/80"
+                          title="Website"
                         >
                           <ExternalLink className="h-4 w-4" />
                         </a>
                       )}
                       {isEditor && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteCompany(company._id, company.name)}
-                          disabled={deletingCompanyId === company._id}
-                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setEditCompanyTarget(company);
+                              setEditCompanyOpen(true);
+                            }}
+                            className="h-8 w-8"
+                            title="Edit company"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteCompany(company._id, company.name)}
+                            disabled={deletingCompanyId === company._id}
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            title="Delete company"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -321,6 +352,26 @@ export default function CompaniesPage() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {editCompanyTarget && (
+          <EditCompanyModal
+            open={editCompanyOpen}
+            onOpenChange={(open) => {
+              setEditCompanyOpen(open);
+              if (!open) setEditCompanyTarget(null);
+            }}
+            companyId={editCompanyTarget._id}
+            initialCompany={{
+              name: editCompanyTarget.name,
+              description: editCompanyTarget.description ?? undefined,
+              website: editCompanyTarget.website ?? undefined,
+              headquarters: editCompanyTarget.headquarters ?? undefined,
+              founded: editCompanyTarget.founded ?? undefined,
+              color: editCompanyTarget.color ?? undefined,
+            }}
+            onSuccess={() => fetchCompanies()}
+          />
         )}
           </>
         )}

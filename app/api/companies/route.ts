@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
     const body = await request.json();
-    const { name, description, website, headquarters, founded } = body;
+    const { name, description, website, headquarters, founded, color } = body;
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -69,6 +69,13 @@ export async function POST(request: NextRequest) {
       const foundedStr = String(founded).trim();
       if (foundedStr) {
         companyData.founded = foundedStr;
+      }
+    }
+    if (color != null && typeof color === 'string') {
+      const raw = color.trim();
+      const hex = raw.startsWith('#') ? raw.slice(1) : raw;
+      if (/^[0-9A-Fa-f]{6}$/.test(hex)) {
+        companyData.color = '#' + hex.toLowerCase();
       }
     }
 

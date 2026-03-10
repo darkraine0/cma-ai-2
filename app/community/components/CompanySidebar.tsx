@@ -5,12 +5,15 @@ interface CompanySidebarProps {
   companies: string[];
   selectedCompany: string;
   onCompanySelect: (company: string) => void;
+  /** Optional map of company name -> hex color so builder list matches Companies page and charts */
+  companyColorMap?: Record<string, string> | null;
 }
 
 export default function CompanySidebar({
   companies,
   selectedCompany,
   onCompanySelect,
+  companyColorMap,
 }: CompanySidebarProps) {
   return (
     <div className="lg:col-span-1 space-y-3">
@@ -30,7 +33,7 @@ export default function CompanySidebar({
 
       {/* Individual Companies */}
       {companies.map((company) => {
-        const color = getCompanyColor(company);
+        const color = (companyColorMap && companyColorMap[company]) || getCompanyColor(company);
 
         return (
           <div

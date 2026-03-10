@@ -30,6 +30,8 @@ interface PlansTableProps {
   onProductLineUpdated?: (planId: string, segment: PlanSegment | null) => void;
   /** When set, shown instead of default message when there are no plans */
   emptyMessage?: string;
+  /** Optional map of company name -> hex so table matches sidebar and Companies page */
+  companyColorMap?: Record<string, string> | null;
 }
 
 export default function PlansTable({
@@ -42,6 +44,7 @@ export default function PlansTable({
   onPlanUpdated,
   onProductLineUpdated,
   emptyMessage,
+  companyColorMap,
 }: PlansTableProps) {
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -114,7 +117,7 @@ export default function PlansTable({
         <TableBody>
           {plans.map((plan) => {
             const planCompany = extractCompanyName(plan.company);
-            const color = getCompanyColor(planCompany);
+            const color = (companyColorMap && companyColorMap[planCompany]) || getCompanyColor(planCompany);
 
             return (
               <TableRow

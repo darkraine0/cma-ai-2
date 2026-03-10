@@ -25,14 +25,17 @@ interface PriceChartProps {
   plans: Plan[];
   companies: string[];
   selectedType: string;
+  /** Optional map of company name -> hex color for distinct graph lines (from Company.color). */
+  companyColorMap?: Record<string, string> | null;
 }
 
 export default function PriceChart({
   plans,
   companies,
   selectedType,
+  companyColorMap,
 }: PriceChartProps) {
-  const { chartData, isEmpty } = useChartData(plans, companies);
+  const { chartData, isEmpty } = useChartData(plans, companies, companyColorMap);
   const [isMobile, setIsMobile] = useState(false);
   const chartRef = useRef<Chart<"line"> | null>(null);
 

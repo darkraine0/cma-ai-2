@@ -128,7 +128,7 @@ export async function POST(
     const updatedCommunity = await Community.findById(community._id).populate({
       path: 'companies',
       model: mongoose.models.Company || 'Company',
-      select: 'name _id',
+      select: 'name _id color',
     });
 
     if (!updatedCommunity) {
@@ -283,7 +283,7 @@ export async function DELETE(
     const updatedCommunity = await Community.findById(community._id).populate({
       path: 'companies',
       model: mongoose.models.Company || 'Company',
-      select: 'name _id',
+      select: 'name _id color',
     });
 
     if (!updatedCommunity) {

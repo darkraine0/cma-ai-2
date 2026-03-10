@@ -17,6 +17,23 @@ import { Plus, Loader2, Sparkles, Search } from "lucide-react";
 import ErrorMessage from "./ErrorMessage";
 import { useScrapingProgress } from "../contexts/ScrapingProgressContext";
 import API_URL from '../config';
+import { getDistinctCompanyPalette } from "../utils/colors";
+
+/** Normalize to #rrggbb lowercase so the selected color is always saved correctly. */
+function normalizeHexColor(value: string | undefined | null): string | null {
+  if (value == null) return null;
+  const s = String(value).trim();
+  const hex = s.startsWith("#") ? s.slice(1) : s;
+  if (/^[0-9A-Fa-f]{6}$/.test(hex)) return "#" + hex.toLowerCase();
+  return null;
+}
+
+/** Deterministic default color from palette so the same name always gets the same suggestion. */
+function getDefaultColorForName(name: string, palette: string[]): string {
+  if (!name.trim() || palette.length === 0) return palette[0] ?? "#2563eb";
+  const hash = name.trim().split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return palette[Math.abs(hash) % palette.length];
+}
 
 interface AddCompanyModalProps {
   onSuccess?: (companyName?: string) => void;
@@ -60,7 +77,10 @@ export default function AddCompanyModal({ onSuccess, trigger, autoAddToCommunity
   const [selectedCompany, setSelectedCompany] = useState<CompanyRecommendation | null>(null);
   const [showRecommendations, setShowRecommendations] = useState(false);
   const [activeTab, setActiveTab] = useState("ai");
+  const [color, setColor] = useState<string>("");
   const { startBackgroundScraping } = useScrapingProgress();
+
+  const distinctPalette = getDistinctCompanyPalette();
 
   const resetForm = () => {
     setName("");
@@ -68,6 +88,7 @@ export default function AddCompanyModal({ onSuccess, trigger, autoAddToCommunity
     setWebsite("");
     setHeadquarters("");
     setFounded("");
+    setColor("");
     setError("");
     setSearchQuery("");
     setRecommendations([]);
@@ -99,6 +120,13 @@ export default function AddCompanyModal({ onSuccess, trigger, autoAddToCommunity
     }
   }, [externalOpen]);
 
+  // Manual tab: when user has entered a name and no color yet, set panel to auto color so it's visible and will be saved
+  useEffect(() => {
+    if (activeTab === "manual" && name.trim() && !color.trim()) {
+      setColor(getDefaultColorForName(name.trim(), getDistinctCompanyPalette()));
+    }
+  }, [activeTab, name]);
+
   const handleAddCompany = () => {
     if (!name.trim()) {
       setError("Please enter a company name");
@@ -117,6 +145,12 @@ export default function AddCompanyModal({ onSuccess, trigger, autoAddToCommunity
     if (founded) {
       const foundedStr = String(founded).trim();
       if (foundedStr) requestBody.founded = foundedStr;
+    }
+    // Use panel color if valid; otherwise use auto default so we always save a color when we have a name
+    const normalizedHex = normalizeHexColor(color);
+    const hexToSave = normalizedHex || (name.trim() ? getDefaultColorForName(name.trim(), distinctPalette) : null);
+    if (hexToSave) {
+      requestBody.color = hexToSave;
     }
 
     // If adding to a community, show "Scraping plans..." immediately then create + add + scrape
@@ -232,9 +266,10 @@ export default function AddCompanyModal({ onSuccess, trigger, autoAddToCommunity
     setName(company.name);
     setDescription(company.description || "");
     setWebsite(company.website || "");
-    setHeadquarters(company.headquarters || "");
     // Convert to string in case AI returns a number
     setFounded(company.founded ? String(company.founded) : "");
+    // Always set panel to auto-assigned color so user sees what will be saved; they can change it if they want
+    setColor(getDefaultColorForName(company.name, distinctPalette));
     setShowRecommendations(false);
     setSearchQuery("");
   };
@@ -442,6 +477,47 @@ export default function AddCompanyModal({ onSuccess, trigger, autoAddToCommunity
                       disabled={loading || loadingAI}
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Company Color
+                    </label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Pick a distinct color so this builder is easy to see on the price chart and does not overlap with others.
+                    </p>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {distinctPalette.map((hex) => (
+                        <button
+                          key={hex}
+                          type="button"
+                          onClick={() => setColor(hex)}
+                          className={`w-7 h-7 rounded-full border-2 transition-all shrink-0 ${
+                            color === hex ? "border-primary ring-2 ring-primary/30 scale-110" : "border-border hover:border-primary/50"
+                          }`}
+                          style={{ backgroundColor: hex }}
+                          title={hex}
+                          disabled={loading || loadingAI}
+                        />
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={color || "#2563eb"}
+                        onChange={(e) => setColor(e.target.value)}
+                        className="w-10 h-10 rounded border border-border cursor-pointer"
+                        disabled={loading || loadingAI}
+                      />
+                      <input
+                        type="text"
+                        value={color}
+                        onChange={(e) => setColor(e.target.value)}
+                        placeholder="#2563eb"
+                        className="flex-1 px-3 py-2 rounded-md border-2 border-border bg-card text-card-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm font-mono"
+                        disabled={loading || loadingAI}
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -569,6 +645,47 @@ export default function AddCompanyModal({ onSuccess, trigger, autoAddToCommunity
                   className="w-full px-3 py-2 rounded-md border-2 border-border bg-card text-card-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   disabled={loading || loadingAI}
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Company Color
+                </label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Pick a distinct color so this builder is easy to see on the price chart.
+                </p>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {distinctPalette.map((hex) => (
+                    <button
+                      key={hex}
+                      type="button"
+                      onClick={() => setColor(hex)}
+                      className={`w-7 h-7 rounded-full border-2 transition-all shrink-0 ${
+                        color === hex ? "border-primary ring-2 ring-primary/30 scale-110" : "border-border hover:border-primary/50"
+                      }`}
+                      style={{ backgroundColor: hex }}
+                      title={hex}
+                      disabled={loading || loadingAI}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={color || "#2563eb"}
+                    onChange={(e) => setColor(e.target.value)}
+                    className="w-10 h-10 rounded border border-border cursor-pointer"
+                    disabled={loading || loadingAI}
+                  />
+                  <input
+                    type="text"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                    placeholder="#2563eb"
+                    className="flex-1 px-3 py-2 rounded-md border-2 border-border bg-card text-card-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm font-mono"
+                    disabled={loading || loadingAI}
+                  />
+                </div>
               </div>
             </TabsContent>
           </Tabs>

@@ -96,7 +96,7 @@ export async function PATCH(
 
     const updated = await Community.findById(communityId)
       .populate({ path: 'parentCommunityId', select: 'name _id' })
-      .populate({ path: 'companies', select: 'name _id' });
+      .populate({ path: 'companies', select: 'name _id color' });
 
     return NextResponse.json(updated, { status: 200 });
   } catch (error: any) {

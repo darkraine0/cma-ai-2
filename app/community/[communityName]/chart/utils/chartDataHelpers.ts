@@ -19,11 +19,13 @@ export interface ChartDataset {
 }
 
 /**
- * Prepares chart datasets for each company
+ * Prepares chart datasets for each company.
+ * When companyColorMap is provided (e.g. from community's populated companies), stored colors are used for distinct graph lines.
  */
 export function prepareChartDatasets(
   plans: Plan[],
-  companies: string[]
+  companies: string[],
+  companyColorMap?: Record<string, string> | null
 ): ChartDataset[] {
   return companies.map((company) => {
     const companyPlans = plans.filter((plan) => {
@@ -34,7 +36,7 @@ export function prepareChartDatasets(
     // Sort by square footage for smooth line rendering
     const sortedPlans = companyPlans.sort((a, b) => a.sqft - b.sqft);
     
-    const color = getCompanyColor(company);
+    const color = (companyColorMap && companyColorMap[company]) || getCompanyColor(company);
     
     return {
       label: company,

@@ -56,6 +56,19 @@ export default function ChartPage() {
     [community]
   );
 
+  // Map company name -> stored color for distinct graph lines (avoids similar/black lines)
+  const companyColorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    const list = community?.companies;
+    if (!Array.isArray(list)) return map;
+    list.forEach((c: { name?: string; color?: string }) => {
+      if (c?.name && c?.color && /^#[0-9A-Fa-f]{6}$/.test(c.color.trim())) {
+        map[c.name] = c.color.trim();
+      }
+    });
+    return map;
+  }, [community?.companies]);
+
   const companyNamesSet = useMemo(
     () => new Set(companies),
     [companies]
@@ -184,6 +197,7 @@ export default function ChartPage() {
                   plans={filteredPlans}
                   companies={companies}
                   selectedType={selectedType}
+                  companyColorMap={companyColorMap}
                 />
               )}
             </div>

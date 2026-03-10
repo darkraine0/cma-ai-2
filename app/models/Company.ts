@@ -7,6 +7,8 @@ export interface ICompany extends Document {
   website?: string;
   headquarters?: string;
   founded?: string;
+  /** Hex color for charts/legends (e.g. #2563eb). Ensures distinct builder colors on graphs. */
+  color?: string;
   totalCommunities?: number; // Aggregated stats (denormalized)
   totalPlans?: number; // Aggregated stats (denormalized)
   createdBy?: Types.ObjectId;
@@ -40,6 +42,10 @@ const CompanySchema = new Schema<ICompany>(
     },
     founded: {
       type: String,
+    },
+    color: {
+      type: String,
+      trim: true,
     },
     totalCommunities: {
       type: Number,

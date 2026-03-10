@@ -23,6 +23,7 @@ export interface Plan {
 export interface CommunityCompany {
   _id: string;
   name: string;
+  color?: string | null;
 }
 
 export interface Community {

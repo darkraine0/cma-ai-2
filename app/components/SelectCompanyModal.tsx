@@ -26,6 +26,7 @@ interface Company {
   website?: string;
   headquarters?: string;
   founded?: string;
+  color?: string | null;
 }
 
 interface SelectCompanyModalProps {
@@ -257,8 +258,8 @@ export default function SelectCompanyModal({
                             <span
                               className="inline-block w-3 h-3 rounded-full border"
                               style={{
-                                backgroundColor: getCompanyColor(company.name),
-                                borderColor: getCompanyColor(company.name),
+                                backgroundColor: getCompanyColor(company),
+                                borderColor: getCompanyColor(company),
                               }}
                             />
                             <h3 className="font-semibold">{company.name}</h3>

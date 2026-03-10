@@ -24,6 +24,7 @@ import CompanySubcommunityBadges from "../components/CompanySubcommunityBadges";
 import ManageSubcommunitiesModal from "../components/ManageSubcommunitiesModal";
 import ProductLinesCard from "../components/ProductLinesCard";
 import EditCommunityModal from "../components/EditCommunityModal";
+import EditCompanyModal from "../components/EditCompanyModal";
 import { useScrapingProgress } from "../contexts/ScrapingProgressContext";
 import { useAuth } from "../contexts/AuthContext";
 import { Plus, X, Trash2, Loader2, Search, Pencil } from "lucide-react";
@@ -45,6 +46,7 @@ interface Company {
   website?: string;
   headquarters?: string;
   founded?: string;
+  color?: string | null;
 }
 
 interface CommunityCompany {
@@ -114,6 +116,8 @@ export default function ManagePage() {
   const [subcommunityToDelete, setSubcommunityToDelete] = useState<Community | null>(null);
   const [removeCompanyConfirmOpen, setRemoveCompanyConfirmOpen] = useState(false);
   const [companyToRemove, setCompanyToRemove] = useState<{ community: Community; companyName: string } | null>(null);
+  const [editCompanyOpen, setEditCompanyOpen] = useState(false);
+  const [editCompanyTarget, setEditCompanyTarget] = useState<{ id: string; name: string; color?: string | null } | null>(null);
   const [childCommunities, setChildCommunities] = useState<Community[]>([]);
   const [loadingSubcommunities, setLoadingSubcommunities] = useState(false);
   const [segments, setSegments] = useState<ProductSegment[]>([]);
@@ -827,7 +831,11 @@ export default function ManagePage() {
                               {selectedCommunity.companies.map((company) => {
                                 const companyName = typeof company === 'string' ? company : company.name;
                                 const companyKey = typeof company === 'string' ? company : company._id;
-                                const companyId = typeof company === 'string' ? undefined : company._id;
+                                const companyId = typeof company === 'string' ? companies.find(c => c.name === company)?._id : company._id;
+                                // Use full company from global list so color matches Companies page and charts
+                                const fullCompany = companies.find(c => c._id === companyId || c.name === companyName);
+                                const companyColorRaw = fullCompany?.color ?? (typeof company === 'object' ? (company as { color?: string }).color : undefined);
+                                const companyColor = (companyColorRaw && typeof companyColorRaw === 'string') ? companyColorRaw : null;
                                 const subcommunities = getCompanySubcommunities(companyId, companyName);
                                 
                                 return (
@@ -840,8 +848,8 @@ export default function ManagePage() {
                                         <span
                                           className="inline-block w-3 h-3 rounded-full border flex-shrink-0"
                                           style={{
-                                            backgroundColor: getCompanyColor(companyName),
-                                            borderColor: getCompanyColor(companyName),
+                                            backgroundColor: getCompanyColor(fullCompany ?? company),
+                                            borderColor: getCompanyColor(fullCompany ?? company),
                                           }}
                                         />
                                         <span className="text-sm font-medium truncate">{companyName}</span>
@@ -856,14 +864,30 @@ export default function ManagePage() {
                                       />
                                     </div>
                                     {isEditor && (
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => handleOpenRemoveCompanyConfirm(selectedCommunity, companyName)}
-                                        className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
-                                      >
-                                        <X className="h-3.5 w-3.5" />
-                                      </Button>
+                                      <div className="flex items-center gap-1 flex-shrink-0">
+                                        {companyId && (
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => {
+                                              setEditCompanyTarget({ id: companyId, name: companyName, color: companyColor ?? null });
+                                              setEditCompanyOpen(true);
+                                            }}
+                                            className="h-7 w-7"
+                                            title="Edit company (e.g. chart color)"
+                                          >
+                                            <Pencil className="h-3.5 w-3.5" />
+                                          </Button>
+                                        )}
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => handleOpenRemoveCompanyConfirm(selectedCommunity, companyName)}
+                                          className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        >
+                                          <X className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </div>
                                     )}
                                   </div>
                                 );
@@ -1130,6 +1154,25 @@ export default function ManagePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Company Modal (e.g. chart color) */}
+      {editCompanyTarget && (
+        <EditCompanyModal
+          open={editCompanyOpen}
+          onOpenChange={(open) => {
+            setEditCompanyOpen(open);
+            if (!open) setEditCompanyTarget(null);
+          }}
+          companyId={editCompanyTarget.id}
+          companyName={editCompanyTarget.name}
+          initialColor={editCompanyTarget.color}
+          onSuccess={() => {
+            fetchCompanies();
+            fetchCommunities({ silent: true });
+            setEditCompanyTarget(null);
+          }}
+        />
+      )}
 
       {/* Remove Company Confirmation Dialog */}
       <Dialog open={removeCompanyConfirmOpen} onOpenChange={setRemoveCompanyConfirmOpen}>

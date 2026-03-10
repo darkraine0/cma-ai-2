@@ -95,7 +95,12 @@ export const sortCompanies = (companies: string[]): string[] => {
   return hasUnionMain ? [unionMain, ...otherCompanies] : otherCompanies;
 };
 
-export const getCompanyColor = (company: string | { name?: string } | any) => {
+export const getCompanyColor = (company: string | { name?: string; color?: string } | any) => {
+  // Use stored color when available (e.g. from Company document)
+  if (company && typeof company === 'object' && company.color && typeof company.color === 'string') {
+    const hex = company.color.trim();
+    if (/^#[0-9A-Fa-f]{6}$/.test(hex)) return hex;
+  }
   const normalized = normalizeCompanyName(company);
   
   // Normalize and match company names (case-insensitive)
@@ -233,11 +238,16 @@ export const getCompanyColor = (company: string | { name?: string } | any) => {
   };
   
   // For companies not in the map, assign a distinct visible color (no black/gray on dark charts)
-  const fallbackPalette = [
+  const fallbackPalette = getDistinctCompanyPalette();
+  const hash = normalized.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return companyMap[normalized] || fallbackPalette[Math.abs(hash) % fallbackPalette.length];
+};
+
+/** Palette of distinct hex colors for builder/chart use. Use in color pickers to ensure graph lines stay distinguishable. */
+export function getDistinctCompanyPalette(): string[] {
+  return [
     '#e11d48', '#2563eb', '#16a34a', '#f97316', '#8b5cf6', '#06b6d4', '#eab308', '#ec4899',
     '#22c55e', '#3b82f6', '#f43f5e', '#a855f7', '#14b8a6', '#f59e0b', '#6366f1', '#d946ef',
     '#0ea5e9', '#84cc16', '#ef4444', '#2e7d32', '#7c3aed', '#0891b2', '#dc2626', '#4f46e5',
   ];
-  const hash = normalized.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  return companyMap[normalized] || fallbackPalette[Math.abs(hash) % fallbackPalette.length];
-};
+}

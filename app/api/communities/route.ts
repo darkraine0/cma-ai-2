@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
       .populate({
         path: 'companies',
         model: mongoose.models.Company,
-        select: 'name _id',
+        select: 'name _id color',
       })
       .populate({
         path: 'parentCommunityId',
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
         .populate({
           path: 'companies',
           model: mongoose.models.Company,
-          select: 'name _id',
+          select: 'name _id color',
         });
       
       // Group children by parent
@@ -229,11 +229,12 @@ export async function GET(request: NextRequest) {
         : null,
       companies: (community.companies || [])
         .map((c: any) => {
-          // Handle populated companies (objects with _id and name)
+          // Handle populated companies (objects with _id, name, and optional color)
           if (c && typeof c === 'object' && c._id && c.name) {
             return {
               _id: c._id.toString(),
               name: c.name,
+              ...(c.color && { color: c.color }),
             };
           }
           // If populate failed or is an ObjectId, skip it
@@ -259,6 +260,7 @@ export async function GET(request: NextRequest) {
               return {
                 _id: c._id.toString(),
                 name: c.name,
+                ...(c.color && { color: c.color }),
               };
             }
             return null;

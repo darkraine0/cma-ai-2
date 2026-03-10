@@ -113,6 +113,19 @@ export default function CommunityDetail() {
     [selectedSubcommunity, community]
   );
 
+  // Stored company colors so builder sidebar matches Companies page and charts
+  const companyColorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    const list = (selectedSubcommunity ?? community)?.companies;
+    if (!Array.isArray(list)) return map;
+    list.forEach((c: { name?: string; color?: string }) => {
+      if (c?.name && c?.color && /^#[0-9A-Fa-f]{6}$/.test(String(c.color).trim())) {
+        map[c.name] = String(c.color).trim();
+      }
+    });
+    return map;
+  }, [selectedSubcommunity, community]);
+
   // Parent community name when current community is a subcommunity (for header title)
   const parentCommunityName = useMemo(() => {
     const parent = community?.parentCommunityId;
@@ -308,6 +321,7 @@ export default function CommunityDetail() {
                         setSelectedCompany(company);
                         setFilterOpen(false);
                       }}
+                      companyColorMap={companyColorMap}
                     />
                   </SheetContent>
                 </Sheet>
@@ -320,6 +334,7 @@ export default function CommunityDetail() {
                     companies={companies}
                     selectedCompany={selectedCompany}
                     onCompanySelect={setSelectedCompany}
+                    companyColorMap={companyColorMap}
                   />
                 </div>
 
@@ -337,6 +352,7 @@ export default function CommunityDetail() {
                       onPageChange={setPage}
                       onSort={handleSort}
                       productLines={productLines}
+                      companyColorMap={companyColorMap}
                       emptyMessage={companies.length > 0 ? "No plans yet. Use the Sync button above to load plans from the builder sites." : undefined}
                       onPlanUpdated={async () => {
                         await refetch();
