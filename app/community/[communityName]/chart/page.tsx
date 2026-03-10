@@ -13,6 +13,7 @@ import { formatCommunitySlug } from "../../utils/formatCommunityName";
 import { getCompanyNames } from "../../utils/companyHelpers";
 import { useChartFilters } from "./hooks/useChartFilters";
 import API_URL from '../../../config';
+import type { CommunityCompany } from "../../types";
 
 export default function ChartPage() {
   const params = useParams();
@@ -61,8 +62,8 @@ export default function ChartPage() {
     const map: Record<string, string> = {};
     const list = community?.companies;
     if (!Array.isArray(list)) return map;
-    list.forEach((c: { name?: string; color?: string | null }) => {
-      if (c?.name && c?.color && /^#[0-9A-Fa-f]{6}$/.test(c.color.trim())) {
+    list.forEach((c: CommunityCompany) => {
+      if (c?.name && c?.color != null && c.color !== '' && /^#[0-9A-Fa-f]{6}$/.test(c.color.trim())) {
         map[c.name] = c.color.trim();
       }
     });
