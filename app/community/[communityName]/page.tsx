@@ -118,7 +118,7 @@ export default function CommunityDetail() {
     const map: Record<string, string> = {};
     const list = (selectedSubcommunity ?? community)?.companies;
     if (!Array.isArray(list)) return map;
-    list.forEach((c: { name?: string; color?: string }) => {
+    list.forEach((c: { name?: string; color?: string | null }) => {
       if (c?.name && c?.color && /^#[0-9A-Fa-f]{6}$/.test(String(c.color).trim())) {
         map[c.name] = String(c.color).trim();
       }
