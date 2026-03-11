@@ -24,7 +24,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { name, parentCommunityId, description, location, imagePath, communityType, homesSource } = body;
+    const { name, parentCommunityId, description, location, imagePath, communityType, homesSource, v1ExternalCommunityId, v1ExternalCommunityName } = body;
 
     const community = await Community.findById(communityId);
     if (!community) {
@@ -90,6 +90,12 @@ export async function PATCH(
     }
     if (homesSource !== undefined) {
       community.homesSource = homesSource === 'manual' ? 'manual' : 'scraped';
+    }
+    if (v1ExternalCommunityId !== undefined) {
+      community.v1ExternalCommunityId = typeof v1ExternalCommunityId === 'number' ? v1ExternalCommunityId : null;
+    }
+    if (v1ExternalCommunityName !== undefined) {
+      community.v1ExternalCommunityName = typeof v1ExternalCommunityName === 'string' ? v1ExternalCommunityName.trim() || null : null;
     }
 
     await community.save();

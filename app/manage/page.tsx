@@ -25,6 +25,7 @@ import ManageSubcommunitiesModal from "../components/ManageSubcommunitiesModal";
 import ProductLinesCard from "../components/ProductLinesCard";
 import EditCommunityModal from "../components/EditCommunityModal";
 import EditCompanyModal from "../components/EditCompanyModal";
+import MatchCommunityNameModal from "../components/MatchCommunityNameModal";
 import { useScrapingProgress } from "../contexts/ScrapingProgressContext";
 import { useAuth } from "../contexts/AuthContext";
 import { Plus, X, Trash2, Loader2, Search, Pencil } from "lucide-react";
@@ -35,7 +36,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-import { Switch } from "../components/ui/switch";
 import API_URL from '../config';
 import { getCompanyColor } from '../utils/colors';
 
@@ -79,6 +79,9 @@ interface Community {
   /** Community/card image; also used as banner in header on community page. */
   imagePath?: string | null;
   hasImage?: boolean;
+  /** V1 API integration: external community id/name from get_communities */
+  v1ExternalCommunityId?: number | null;
+  v1ExternalCommunityName?: string | null;
 }
 
 interface ProductSegment {
@@ -139,6 +142,7 @@ export default function ManagePage() {
     name: string;
   } | null>(null);
   const [editCommunityModalOpen, setEditCommunityModalOpen] = useState(false);
+  const [matchCommunityModalOpen, setMatchCommunityModalOpen] = useState(false);
   const { startBackgroundScraping } = useScrapingProgress();
   
   const hasFetched = useRef(false);
@@ -678,6 +682,16 @@ export default function ManagePage() {
                         </SelectContent>
                       </Select>
                     </div>
+                    {isEditor && communities.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setMatchCommunityModalOpen(true)}
+                        className="flex items-center gap-2"
+                      >
+                        Match Community Name
+                      </Button>
+                    )}
                     {isEditor && (
                       <AddCommunityModal 
                         onSuccess={() => {
@@ -925,33 +939,39 @@ export default function ManagePage() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <Switch
-                              id="community-type-toggle"
-                              checked={selectedCommunity.communityType !== 'competitor'}
-                              onCheckedChange={(checked) =>
-                                handleToggleCommunityType(
-                                  selectedCommunity,
-                                  checked ? 'standard' : 'competitor'
-                                )
+                        <div className="space-y-3">
+                          <p className="text-xs text-muted-foreground">
+                            Choose whether this is a general community or a side community.
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant={selectedCommunity.communityType !== 'competitor' ? 'default' : 'outline'}
+                              size="sm"
+                              className={selectedCommunity.communityType !== 'competitor' ? 'font-bold' : 'font-normal'}
+                              onClick={() =>
+                                handleToggleCommunityType(selectedCommunity, 'standard')
                               }
                               disabled={updatingCommunityTypeId === selectedCommunity._id}
-                            />
-                            <div className="flex flex-col">
-                              <span className="text-sm font-medium text-foreground">
-                                {selectedCommunity.communityType !== 'competitor'
-                                  ? 'General Community'
-                                  : 'Side Community / Competitor'}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                Choose whether this is a general community or a side/competitor community.
-                              </span>
-                            </div>
+                            >
+                              General Community
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={selectedCommunity.communityType === 'competitor' ? 'default' : 'outline'}
+                              size="sm"
+                              className={selectedCommunity.communityType === 'competitor' ? 'font-bold' : 'font-normal'}
+                              onClick={() =>
+                                handleToggleCommunityType(selectedCommunity, 'competitor')
+                              }
+                              disabled={updatingCommunityTypeId === selectedCommunity._id}
+                            >
+                              Side Community
+                            </Button>
+                            {updatingCommunityTypeId === selectedCommunity._id && (
+                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            )}
                           </div>
-                          {updatingCommunityTypeId === selectedCommunity._id && (
-                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                          )}
                         </div>
                       </CardContent>
                     </Card>
@@ -1224,6 +1244,21 @@ export default function ManagePage() {
           }}
         />
       )}
+
+      {/* Match Community Name: all MarketMap communities vs API communities */}
+      <MatchCommunityNameModal
+        open={matchCommunityModalOpen}
+        onOpenChange={setMatchCommunityModalOpen}
+        marketMapCommunities={communities.map((c) => ({
+          _id: c._id ?? null,
+          name: c.name,
+          totalPlans: c.totalPlans,
+          totalNow: c.totalNow,
+          v1ExternalCommunityId: c.v1ExternalCommunityId ?? null,
+          v1ExternalCommunityName: c.v1ExternalCommunityName ?? null,
+        }))}
+        onSuccess={() => fetchCommunities({ silent: true })}
+      />
     </div>
   );
 }

@@ -25,6 +25,10 @@ export interface ICommunity extends Document {
   parentCommunityId?: Types.ObjectId; // Reference to parent UnionMain community
   totalPlans?: number; // Aggregated stats (denormalized)
   totalQuickMoveIns?: number; // Aggregated stats (denormalized)
+  /** V1 API integration: external community id from get_communities */
+  v1ExternalCommunityId?: number;
+  /** V1 API integration: external community name (denormalized for display) */
+  v1ExternalCommunityName?: string;
   createdBy?: Types.ObjectId;
   updatedBy?: Types.ObjectId;
   createdAt: Date;
@@ -93,6 +97,14 @@ const CommunitySchema = new Schema<ICommunity>(
     totalQuickMoveIns: {
       type: Number,
       default: 0,
+    },
+    v1ExternalCommunityId: {
+      type: Number,
+      default: null,
+    },
+    v1ExternalCommunityName: {
+      type: String,
+      default: null,
     },
     createdBy: {
       type: Schema.Types.ObjectId,

@@ -137,7 +137,7 @@ export default function PlansTable({
                 </TableCell>
                 <TableCell>
                   <Badge variant={plan.type === 'plan' ? 'secondary' : 'success'}>
-                    {plan.type === 'plan' ? 'Plan' : 'Now'}
+                    {plan.type === 'plan' ? 'Plan' : 'Spec'}
                   </Badge>
                 </TableCell>
                 <TableCell className="flex items-center gap-2">

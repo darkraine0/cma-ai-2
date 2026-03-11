@@ -222,6 +222,8 @@ export async function GET(request: NextRequest) {
       avgPrice: merged.avgPrice,
       minPrice: merged.minPrice,
       maxPrice: merged.maxPrice,
+      v1ExternalCommunityId: community.v1ExternalCommunityId ?? null,
+      v1ExternalCommunityName: community.v1ExternalCommunityName ?? null,
       parentCommunityId: community.parentCommunityId 
         ? (typeof community.parentCommunityId === 'object' 
           ? { _id: community.parentCommunityId._id.toString(), name: community.parentCommunityId.name }
@@ -254,6 +256,8 @@ export async function GET(request: NextRequest) {
         imagePath: child.imagePath || null,
         totalPlans: childMerged.totalPlans,
         totalQuickMoveIns: childMerged.totalQuickMoveIns,
+        v1ExternalCommunityId: child.v1ExternalCommunityId ?? null,
+        v1ExternalCommunityName: child.v1ExternalCommunityName ?? null,
         companies: (child.companies || [])
           .map((c: any) => {
             if (c && typeof c === 'object' && c._id && c.name) {

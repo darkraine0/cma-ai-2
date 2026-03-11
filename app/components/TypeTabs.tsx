@@ -19,7 +19,7 @@ const TypeTabs: React.FC<TypeTabsProps> = ({ selected, onSelect }) => (
           }
         `}
       >
-        {type}
+        {type === "Now" ? "Spec" : "Plan"}
       </button>
     ))}
   </div>
