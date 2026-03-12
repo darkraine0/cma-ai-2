@@ -16,7 +16,7 @@ export default function CompanySidebar({
   companyColorMap,
 }: CompanySidebarProps) {
   return (
-    <div className="lg:col-span-1 space-y-3">
+    <div className="space-y-3 w-full">
       {/* All Builders Option */}
       <div
         className={`p-3 rounded-lg border-2 transition-all cursor-pointer ${
@@ -50,7 +50,7 @@ export default function CompanySidebar({
                 className="inline-block w-3 h-3 rounded-full border-2"
                 style={{ backgroundColor: color, borderColor: color }}
               />
-              <h4 className="font-semibold text-sm line-clamp-1">{company}</h4>
+              <h4 className="font-semibold text-sm break-words">{company}</h4>
             </div>
           </div>
         );

@@ -36,6 +36,8 @@ export interface Community {
   /** Community image; used for card and for banner/header on community page. */
   imagePath?: string | null;
   hasImage?: boolean;
+  /** V1 API: external community name used for get_plans (e.g. "Cambridge"). */
+  v1ExternalCommunityName?: string | null;
 }
 
 export type SortKey = "plan_name" | "price" | "sqft" | "last_updated";

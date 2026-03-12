@@ -30,6 +30,11 @@ interface CommunityHeaderProps {
   onProductLineChange?: (id: string) => void;
   selectedType: string;
   onTypeChange: (type: string) => void;
+  /** Version filter: All, V1 Version, V2 Version. Shown only when viewing main community. */
+  versionFilter?: "all" | "v1" | "v2";
+  onVersionFilterChange?: (version: "all" | "v1" | "v2") => void;
+  showVersionFilter?: boolean;
+  loadingV1?: boolean;
   sortKey: SortKey;
   onSortKeyChange: (key: SortKey) => void;
   sortOrder: SortOrder;
@@ -53,6 +58,10 @@ export default function CommunityHeader({
   onProductLineChange,
   selectedType,
   onTypeChange,
+  versionFilter = "v2",
+  onVersionFilterChange,
+  showVersionFilter = false,
+  loadingV1 = false,
   sortKey,
   onSortKeyChange,
   sortOrder,
@@ -186,6 +195,29 @@ export default function CommunityHeader({
                     {seg.label}
                   </button>
                 ))}
+              </div>
+            )}
+            {showVersionFilter && onVersionFilterChange && (
+              <div className="inline-flex items-center gap-1 bg-white/10 backdrop-blur-sm rounded-lg p-1">
+                <span className="text-xs sm:text-sm font-medium text-white/90 px-2 hidden sm:inline">Version:</span>
+                <Select
+                  value={versionFilter}
+                  onValueChange={(v) => onVersionFilterChange(v as "all" | "v1" | "v2")}
+                >
+                  <SelectTrigger className="w-full sm:w-[140px] h-8 sm:h-9 text-xs sm:text-sm bg-white/20 hover:bg-white/30 text-white border-white/20 backdrop-blur-sm">
+                    <SelectValue>
+                      {versionFilter === "all" ? "All" : versionFilter === "v1" ? "V1 Version" : "V2 Version"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="v1">V1 Version</SelectItem>
+                    <SelectItem value="v2">V2 Version</SelectItem>
+                  </SelectContent>
+                </Select>
+                {loadingV1 && versionFilter !== "v2" && (
+                  <span className="text-xs text-white/70">Loading…</span>
+                )}
               </div>
             )}
           </div>

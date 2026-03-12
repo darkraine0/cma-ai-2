@@ -38,6 +38,10 @@ export default function CommunityDetail() {
   const [subcommunityPlansLoading, setSubcommunityPlansLoading] = useState(false);
   const [productLines, setProductLines] = useState<{ _id: string; name: string; label: string }[]>([]);
   const [addPlanOpen, setAddPlanOpen] = useState(false);
+  /** Version filter: All (V1 + V2), V1 only, or V2 only. Only used when viewing main community (no subcommunity). */
+  const [versionFilter, setVersionFilter] = useState<"all" | "v1" | "v2">("all");
+  const [v1Plans, setV1Plans] = useState<Plan[]>([]);
+  const [loadingV1, setLoadingV1] = useState(false);
   const { user } = useAuth();
 
   // Fetch community, plans, and child communities
@@ -106,12 +110,82 @@ export default function CommunityDetail() {
     };
   }, [selectedSubcommunity?._id]);
 
-  // Display: selected subcommunity's data or main community's
-  const displayPlans = selectedSubcommunity ? subcommunityPlans : plans;
-  const companies = useMemo(
+  // Fetch V1 plans from external API when viewing main community (no subcommunity)
+  const v1CommunityName = community?.v1ExternalCommunityName ?? community?.name;
+  React.useEffect(() => {
+    if (selectedSubcommunity || !v1CommunityName) {
+      setV1Plans([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingV1(true);
+    fetch(`/api/external/get-plans?community=${encodeURIComponent(v1CommunityName)}`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: unknown[]) => {
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : [];
+        const normalized: Plan[] = list.map((item: Record<string, unknown>, i: number) => ({
+          _id: `v1-${i}`,
+          plan_name: String(item.plan_name ?? ""),
+          price: Number(item.price ?? 0),
+          sqft: Number(item.sqft ?? 0),
+          stories: String(item.stories ?? ""),
+          price_per_sqft: Number(item.price_per_sqft ?? 0),
+          last_updated: String(item.last_updated ?? ""),
+          price_changed_recently: Boolean(item.price_changed_recently),
+          company: String(item.company ?? ""),
+          community: String(item.community ?? community.name),
+          type: String(item.type ?? "now"),
+          address: item.address != null ? String(item.address) : undefined,
+        }));
+        setV1Plans(normalized);
+      })
+      .catch(() => {
+        if (!cancelled) setV1Plans([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingV1(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [v1CommunityName, selectedSubcommunity]);
+
+  // Display: subcommunity plans, or main community plans by version (V1, V2, or both)
+  const displayPlans = useMemo(() => {
+    if (selectedSubcommunity) return subcommunityPlans;
+    if (versionFilter === "v1") return v1Plans;
+    if (versionFilter === "v2") return plans;
+    return [...v1Plans, ...plans];
+  }, [selectedSubcommunity, subcommunityPlans, versionFilter, v1Plans, plans]);
+
+  // Community companies (from DB) — used for Sync and when showing V2 or subcommunity
+  const communityCompanies = useMemo(
     () => getCompanyNames((selectedSubcommunity ?? community)?.companies),
     [selectedSubcommunity, community]
   );
+
+  // Builder list for sidebar: when V1 selected show companies from V1 plans; when V2 show community companies; when All show union
+  const companies = useMemo(() => {
+    if (selectedSubcommunity) return communityCompanies;
+    if (versionFilter === "v1") {
+      const fromPlans = new Set<string>();
+      v1Plans.forEach((p) => {
+        const name = extractCompanyName(p.company);
+        if (name) fromPlans.add(name);
+      });
+      return Array.from(fromPlans).sort((a, b) => a.localeCompare(b));
+    }
+    if (versionFilter === "v2") return communityCompanies;
+    // "all": union of V1 plan companies and community companies
+    const fromV1 = new Set<string>();
+    v1Plans.forEach((p) => {
+      const name = extractCompanyName(p.company);
+      if (name) fromV1.add(name);
+    });
+    const union = new Set([...communityCompanies, ...fromV1]);
+    return Array.from(union).sort((a, b) => a.localeCompare(b));
+  }, [selectedSubcommunity, versionFilter, v1Plans, communityCompanies]);
 
   // Stored company colors so builder sidebar matches Companies page and charts
   const companyColorMap = useMemo(() => {
@@ -154,10 +228,10 @@ export default function CommunityDetail() {
     handleSort,
   } = usePlansFilter(displayPlans, companyNamesSet, productLines);
 
-  // Handle sync/re-scrape (use current display community)
+  // Handle sync/re-scrape (use community's registered companies, not version-filtered list)
   const handleSync = async () => {
     const communityToSync = selectedSubcommunity ?? community;
-    if (!communityToSync || companies.length === 0) {
+    if (!communityToSync || communityCompanies.length === 0) {
       toast({
         variant: "destructive",
         title: "Error",
@@ -170,7 +244,7 @@ export default function CommunityDetail() {
     
     try {
       // Scrape data for each company in the community
-      const scrapePromises = companies.map(async (company) => {
+      const scrapePromises = communityCompanies.map(async (company) => {
         try {
           const response = await fetch(API_URL + "/scrape", {
             method: "POST",
@@ -206,13 +280,13 @@ export default function CommunityDetail() {
         toast({
           variant: "success",
           title: "Sync Complete",
-          description: `Successfully updated data for all ${companies.length} companies`,
+          description: `Successfully updated data for all ${communityCompanies.length} companies`,
         });
-      } else if (failures.length < companies.length) {
+      } else if (failures.length < communityCompanies.length) {
         toast({
           variant: "default",
           title: "Partial Sync",
-          description: `Synced ${companies.length - failures.length}/${companies.length} companies. ${failures.length} failed.`,
+          description: `Synced ${communityCompanies.length - failures.length}/${communityCompanies.length} companies. ${failures.length} failed.`,
         });
       } else {
         toast({
@@ -286,6 +360,10 @@ export default function CommunityDetail() {
               onProductLineChange={setSelectedProductLineId}
               selectedType={selectedType}
               onTypeChange={setSelectedType}
+              versionFilter={versionFilter}
+              onVersionFilterChange={setVersionFilter}
+              showVersionFilter={!selectedSubcommunity}
+              loadingV1={loadingV1}
               sortKey={sortKey}
               onSortKeyChange={setSortKey}
               sortOrder={sortOrder}
@@ -327,9 +405,9 @@ export default function CommunityDetail() {
                 </Sheet>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                {/* Desktop Sidebar - Hidden on mobile */}
-                <div className="hidden lg:block">
+              <div className="flex flex-col lg:flex-row gap-4">
+                {/* Desktop Sidebar - Hidden on mobile, fixed narrow width */}
+                <div className="hidden lg:block lg:w-60 lg:min-w-[240px] lg:shrink-0">
                   <CompanySidebar
                     companies={companies}
                     selectedCompany={selectedCompany}
@@ -338,8 +416,8 @@ export default function CommunityDetail() {
                   />
                 </div>
 
-                {/* Table Section */}
-                <div className="lg:col-span-4">
+                {/* Table Section - takes remaining width */}
+                <div className="min-w-0 flex-1">
                   {loading || (selectedSubcommunity && subcommunityPlansLoading) ? (
                     <Loader />
                   ) : error ? (

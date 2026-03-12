@@ -95,6 +95,7 @@ export default function PlansTable({
             <TableHead className="cursor-pointer" onClick={() => onSort("plan_name")}>
               Plan Name
             </TableHead>
+            <TableHead className="whitespace-nowrap">Version</TableHead>
             <TableHead className="cursor-pointer" onClick={() => onSort("price")}>
               Price
             </TableHead>
@@ -126,6 +127,9 @@ export default function PlansTable({
               >
                 <TableCell className="font-medium whitespace-nowrap" title={plan.type === 'now' && plan.address ? plan.address : plan.plan_name}>
                   {plan.type === 'now' && plan.address ? plan.address : plan.plan_name}
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {plan._id?.startsWith("v1-") ? "V1" : "V2"}
                 </TableCell>
                 <TableCell className="font-semibold text-primary">
                   ${plan.price.toLocaleString()}
