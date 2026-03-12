@@ -3888,7 +3888,7 @@ Path: `scripts/run-migrations.ts`
 /**
  * Run pending migrations from scripts/migrations/.
  * Usage: npx tsx scripts/run-migrations.ts
- * Requires: MONGODB_URI in .env (or environment)
+ * Requires: MONGODB_URI in the environment
  */
 
 import { readdir, readFile } from 'fs/promises';
@@ -3909,8 +3909,8 @@ function parseEnvContent(env: string) {
 async function loadEnv() {
   const root = process.cwd();
   const rootAlt = join(__dirname, '..');
-  // Load all that exist; later files override (so .env.local wins)
-  const names = ['.env', '.env.local', '.env.development', '.env.development.local'];
+  // Load all local environment files that exist; later files override
+  const names = ['[environment file]', '[local environment file]', '[development environment file]', '[local development environment file]'];
   for (const name of names) {
     for (const base of [root, rootAlt]) {
       const envPath = join(base, name);
@@ -3928,11 +3928,11 @@ async function getDb() {
   const mongoose = await import('mongoose');
   const uri = process.env.MONGODB_URI;
   if (!uri) {
-    const tried = [join(process.cwd(), '.env'), join(__dirname, '..', '.env')];
+    const tried = [join(process.cwd(), '[environment file]'), join(__dirname, '..', '[environment file]')];
     throw new Error(
-      'MONGODB_URI is not set. Add MONGODB_URI=... to .env in the project root (e.g. ' +
+      'MONGODB_URI is not set. Add MONGODB_URI=... to your environment configuration in the project root (e.g. ' +
         process.cwd() +
-        ') or set the environment variable. Looked for .env at: ' +
+        ') or set the environment variable. Looked for environment configuration at: ' +
         tried.join(', ')
     );
   }
@@ -5477,7 +5477,7 @@ When clicking "Sign Up", the button changes to "Creating account..." but the pag
   - Download from: https://www.mongodb.com/try/download/community
   - Or use MongoDB Atlas (cloud): https://www.mongodb.com/cloud/atlas
 
-- **Update `.env.local`** with your MongoDB connection string:
+- Update your environment configuration with your MongoDB connection string:
   ```env
   MONGODB_URI=mongodb://localhost:27017/marketmap-homes
   # OR for MongoDB Atlas:
@@ -5488,7 +5488,7 @@ When clicking "Sign Up", the button changes to "Creating account..." but the pag
 **Symptom**: Request times out after 30 seconds
 
 **Solution**:
-- Check your MongoDB connection string in `.env.local`
+- Check your MongoDB connection string in your environment configuration
 - Verify MongoDB is accessible
 - For MongoDB Atlas, check network access settings
 
@@ -5496,8 +5496,8 @@ When clicking "Sign Up", the button changes to "Creating account..." but the pag
 **Symptom**: Error about MONGODB_URI not configured
 
 **Solution**:
-- Ensure `.env.local` exists in project root
-- Restart development server after creating/updating `.env.local`
+- Ensure your environment configuration is available to the app
+- Restart development server after updating environment variables
 - Check that `MONGODB_URI` is set correctly
 
 ### Quick Fix Steps
@@ -5514,8 +5514,7 @@ When clicking "Sign Up", the button changes to "Creating account..." but the pag
 
 3. **Verify Environment Variables**:
    ```bash
-   # Check .env.local exists and has MONGODB_URI
-   cat .env.local
+   # Check that MONGODB_URI is available in the environment used by the app
    ```
 
 4. **Test Database Connection**:
@@ -5526,7 +5525,7 @@ When clicking "Sign Up", the button changes to "Creating account..." but the pag
 
 - **"Database connection failed"**: MongoDB not running or wrong connection string
 - **"Request timed out"**: MongoDB connection timeout (check network/firewall)
-- **"MONGODB_URI is not configured"**: `.env.local` missing or incorrect
+- **"MONGODB_URI is not configured"**: environment configuration missing or incorrect
 
 ### Alternative: Use MongoDB Atlas (Cloud)
 
@@ -5535,7 +5534,7 @@ If local MongoDB is problematic, use MongoDB Atlas:
 1. Sign up at https://www.mongodb.com/cloud/atlas
 2. Create a free cluster
 3. Get connection string
-4. Update `.env.local`:
+4. Update your environment configuration:
    ```env
    MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/database
    ```
@@ -5545,6 +5544,6 @@ If local MongoDB is problematic, use MongoDB Atlas:
 1. Check browser console (F12) for client-side errors
 2. Check server terminal for backend errors
 3. Verify MongoDB is running and accessible
-4. Ensure `.env.local` is in the project root (same level as `package.json`)
+4. Ensure the app is loading the intended environment configuration
 ````
 
