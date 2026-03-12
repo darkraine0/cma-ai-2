@@ -682,16 +682,6 @@ export default function ManagePage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    {isEditor && communities.length > 0 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setMatchCommunityModalOpen(true)}
-                        className="flex items-center gap-2"
-                      >
-                        Match Community Name
-                      </Button>
-                    )}
                     {isEditor && (
                       <AddCommunityModal 
                         onSuccess={() => {
@@ -977,6 +967,42 @@ export default function ManagePage() {
                     </Card>
                   )}
 
+                  {/* Match Community Name: link this community to a V1 API community */}
+                  {isEditor && !selectedCommunity.fromPlans && selectedCommunity._id && (
+                    <Card className="mt-6">
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-lg">Match Community Name</CardTitle>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <p className="text-xs text-muted-foreground">
+                            Link this community to a community from the external system (V1 API). Use this to align names and data.
+                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {selectedCommunity.v1ExternalCommunityName ? (
+                              <span className="text-sm text-muted-foreground">
+                                Matched to: <span className="font-medium text-foreground">{selectedCommunity.v1ExternalCommunityName}</span>
+                              </span>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">Not matched</span>
+                            )}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="flex items-center gap-2"
+                              onClick={() => setMatchCommunityModalOpen(true)}
+                            >
+                              {selectedCommunity.v1ExternalCommunityName ? "Change match" : "Match Community Name"}
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
                   <Card className="mt-6">
                     <CardHeader>
                       <div className="flex items-center justify-between">
@@ -1245,20 +1271,20 @@ export default function ManagePage() {
         />
       )}
 
-      {/* Match Community Name: all MarketMap communities vs API communities */}
-      <MatchCommunityNameModal
-        open={matchCommunityModalOpen}
-        onOpenChange={setMatchCommunityModalOpen}
-        marketMapCommunities={communities.map((c) => ({
-          _id: c._id ?? null,
-          name: c.name,
-          totalPlans: c.totalPlans,
-          totalNow: c.totalNow,
-          v1ExternalCommunityId: c.v1ExternalCommunityId ?? null,
-          v1ExternalCommunityName: c.v1ExternalCommunityName ?? null,
-        }))}
-        onSuccess={() => fetchCommunities({ silent: true })}
-      />
+      {/* Match Community Name: set V1 match for the selected community */}
+      {selectedCommunity?._id && (
+        <MatchCommunityNameModal
+          open={matchCommunityModalOpen}
+          onOpenChange={setMatchCommunityModalOpen}
+          community={{
+            _id: selectedCommunity._id,
+            name: selectedCommunity.name,
+            v1ExternalCommunityId: selectedCommunity.v1ExternalCommunityId ?? null,
+            v1ExternalCommunityName: selectedCommunity.v1ExternalCommunityName ?? null,
+          }}
+          onSuccess={() => fetchCommunities({ silent: true })}
+        />
+      )}
     </div>
   );
 }

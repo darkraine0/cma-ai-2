@@ -21,7 +21,9 @@ export async function GET() {
     }
 
     const data = await res.json();
-    return NextResponse.json(Array.isArray(data) ? data : []);
+    const arr = Array.isArray(data) ? data : [];
+    arr.sort((a: { id?: number }, b: { id?: number }) => (a.id ?? 0) - (b.id ?? 0));
+    return NextResponse.json(arr);
   } catch (err) {
     console.error("External get_communities error:", err);
     return NextResponse.json(

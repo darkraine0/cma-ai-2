@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "./components/theme-provider";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ScrapingProgressProvider } from "./contexts/ScrapingProgressContext";
+import { V1CommunitiesProvider } from "./contexts/V1CommunitiesContext";
 import Navbar from "./components/Navbar";
 import AuthGuard from "./components/AuthGuard";
 import { Toaster } from "./components/ui/toaster";
@@ -42,8 +43,10 @@ export default function RootLayout({
           <AuthProvider>
             <AuthGuard>
               <ScrapingProgressProvider>
-                <Navbar />
-                {children}
+                <V1CommunitiesProvider>
+                  <Navbar />
+                  {children}
+                </V1CommunitiesProvider>
               </ScrapingProgressProvider>
             </AuthGuard>
           </AuthProvider>
