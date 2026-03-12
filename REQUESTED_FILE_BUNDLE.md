@@ -15,54 +15,31 @@ Source files were not modified when creating this bundle.
 
 | Requested item | Status | Path / note |
 |---|---|---|
-| middleware.ts | Missing | Not found in this workspace |
 | next.config.ts | Found | `next.config.ts` |
-| vercel.json | Missing | Not found in this workspace |
 | full package.json scripts section | Found | `package.json` |
 | app/layout.tsx | Found | `app/layout.tsx` |
 | app/profile/page.tsx | Found | `app/profile/page.tsx` |
 | app/manage/page.tsx | Found | `app/manage/page.tsx` |
 | app/communities/page.tsx | Found | `app/communities/page.tsx` |
-| app/community/[slug]/page.tsx | Closest match | Found as `app/community/[communityName]/page.tsx` |
+| app/community/[communityName]/page.tsx | Found | `app/community/[communityName]/page.tsx` |
 | app/companies/page.tsx | Found | `app/companies/page.tsx` |
 | app/admin/dashboard/page.tsx | Found | `app/admin/dashboard/page.tsx` |
 | app/api/scrape/route.ts | Found | `app/api/scrape/route.ts` |
-| any app/api/jobs/* | Missing | No `app/api/jobs/*` files found |
-| any status/progress routes | Partial | Found `app/api/user/permission-request-status/route.ts`; no `*progress*` route found |
+| app/api/user/permission-request-status/route.ts | Found | `app/api/user/permission-request-status/route.ts` |
 | app/lib/auth.ts | Found | `app/lib/auth.ts` |
-| app/lib/jwt.ts | Missing | Not found in this workspace |
-| app/lib/db.ts | Closest match | Found as `app/lib/mongodb.ts` |
+| app/lib/mongodb.ts | Found | `app/lib/mongodb.ts` |
 | all Mongoose models | Found | `app/models/*.ts` |
 | scripts/run-migrations.ts | Found | `scripts/run-migrations.ts` |
 | ScrapingProgressContext.tsx | Found | `app/contexts/ScrapingProgressContext.tsx` |
 | toaster.tsx | Found | `app/components/ui/toaster.tsx` |
 
-### V1 backend requested items
-
-| Requested item | Status | Path / note |
-|---|---|---|
-| app/main.py | Missing | Not found in this workspace |
-| app/core/scheduler.py | Missing | Not found in this workspace |
-| all files in app/scrapers/ | Missing | Not found in this workspace |
-| all files in app/api/ (Python backend) | Missing | Not found in this workspace |
-| any models/schemas (V1 backend) | Missing | Not found in this workspace |
-| any normalization/export service files | Missing | Not found in this workspace |
-| requirements.txt | Missing | Not found in this workspace |
-| any config/settings file | Missing | Not found in this workspace |
-
 ### Useful support files
 
 | Requested item | Status | Path / note |
 |---|---|---|
-| .env.example | Missing | Not found in this workspace |
 | README.md | Found | `README.md` |
 | ADMIN_SYSTEM_DOCUMENTATION.md | Found | `ADMIN_SYSTEM_DOCUMENTATION.md` |
 | TROUBLESHOOTING.md | Found | `TROUBLESHOOTING.md` |
-| alias mapping files | Missing | Not found in this workspace |
-| baseline/product-line mapping files | Missing | Not found in this workspace |
-| seed scripts | Missing | Not found in this workspace |
-| cron/scheduler docs | Missing | Not found in this workspace |
-| .cursor/, .cursorrules, AGENTS.md | Missing | Not found in this workspace |
 
 ## package.json scripts section
 
