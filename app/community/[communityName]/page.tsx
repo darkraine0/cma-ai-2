@@ -121,10 +121,10 @@ export default function CommunityDetail() {
     setLoadingV1(true);
     fetch(`/api/external/get-plans?community=${encodeURIComponent(v1CommunityName)}`)
       .then((res) => (res.ok ? res.json() : []))
-      .then((data: unknown[]) => {
+      .then((data: unknown) => {
         if (cancelled) return;
-        const list = Array.isArray(data) ? data : [];
-        const normalized: Plan[] = list.map((item: Record<string, unknown>, i: number) => ({
+        const list = Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
+        const normalized: Plan[] = list.map((item, i) => ({
           _id: `v1-${i}`,
           plan_name: String(item.plan_name ?? ""),
           price: Number(item.price ?? 0),
@@ -134,7 +134,7 @@ export default function CommunityDetail() {
           last_updated: String(item.last_updated ?? ""),
           price_changed_recently: Boolean(item.price_changed_recently),
           company: String(item.company ?? ""),
-          community: String(item.community ?? community.name),
+          community: String(item.community ?? community?.name ?? ""),
           type: String(item.type ?? "now"),
           address: item.address != null ? String(item.address) : undefined,
         }));
