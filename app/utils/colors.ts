@@ -243,11 +243,15 @@ export const getCompanyColor = (company: string | { name?: string; color?: strin
   return companyMap[normalized] || fallbackPalette[Math.abs(hash) % fallbackPalette.length];
 };
 
-/** Palette of distinct hex colors for builder/chart use. Use in color pickers to ensure graph lines stay distinguishable. */
+/** Palette of 50 distinct hex colors for builder/chart use. Use in color pickers to ensure graph lines stay distinguishable. */
 export function getDistinctCompanyPalette(): string[] {
   return [
     '#e11d48', '#2563eb', '#16a34a', '#f97316', '#8b5cf6', '#06b6d4', '#eab308', '#ec4899',
     '#22c55e', '#3b82f6', '#f43f5e', '#a855f7', '#14b8a6', '#f59e0b', '#6366f1', '#d946ef',
     '#0ea5e9', '#84cc16', '#ef4444', '#2e7d32', '#7c3aed', '#0891b2', '#dc2626', '#4f46e5',
+    '#c026d3', '#0d9488', '#ea580c', '#65a30d', '#ca8a04', '#db2777', '#9333ea', '#0369a1',
+    '#be185d', '#1d4ed8', '#15803d', '#c2410c', '#a21caf', '#1e40af', '#047857', '#b45309',
+    '#9d174d', '#7c2d12', '#4c1d95', '#0c4a6e', '#134e4a', '#713f12', '#581c87', '#1e3a8a',
+    '#155e75', '#164e63',
   ];
 }
