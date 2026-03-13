@@ -210,8 +210,8 @@ export const getCompanyColor = (company: string | { name?: string; color?: strin
     // Waterside Condos
     'waterside condos': '#0891b2',
     
-    // Waterside Townhomes
-    'waterside townhomes': '#16a34a',
+    // Waterside Townhomes (distinct from Kittle Homes green #10b981 and Condos cyan #0891b2)
+    'waterside townhomes': '#0d9488',
     
     // BlueHaven Homes variations
     'bluehaven homes': '#8b5a2b',

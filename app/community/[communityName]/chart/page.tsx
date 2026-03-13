@@ -10,10 +10,11 @@ import PriceChart from "./components/PriceChart";
 import ChartSkeleton from "./components/ChartSkeleton";
 import { useCommunityData } from "../../hooks/useCommunityData";
 import { formatCommunitySlug } from "../../utils/formatCommunityName";
-import { getCompanyNames } from "../../utils/companyHelpers";
+import { getCompanyNames, extractCompanyName } from "../../utils/companyHelpers";
 import { useChartFilters } from "./hooks/useChartFilters";
+import { getV1ProductLineLabel } from "../../utils/v1ProductLine";
 import API_URL from '../../../config';
-import type { CommunityCompany } from "../../types";
+import type { CommunityCompany, Plan } from "../../types";
 
 export default function ChartPage() {
   const params = useParams();
@@ -21,6 +22,8 @@ export default function ChartPage() {
   const { toast } = useToast();
   const [isSyncing, setIsSyncing] = useState(false);
   const [productLines, setProductLines] = useState<{ _id: string; name: string; label: string }[]>([]);
+  const [v1Plans, setV1Plans] = useState<Plan[]>([]);
+  const [loadingV1, setLoadingV1] = useState(false);
 
   const communitySlug = params?.communityName
     ? decodeURIComponent(params.communityName as string).toLowerCase()
@@ -28,10 +31,92 @@ export default function ChartPage() {
   const formattedSlug = formatCommunitySlug(communitySlug);
   const urlType = searchParams?.get('type');
 
-  // Fetch community and plans data
+  // Fetch community and plans data (V2)
   const { community, plans, loading, error, refetch } = useCommunityData(communitySlug);
 
-  // Fetch product lines (segments) for this community
+  // Fetch V1 plans from external API (same as community page)
+  const v1CommunityName = community?.v1ExternalCommunityName ?? community?.name;
+  useEffect(() => {
+    if (!v1CommunityName) {
+      setV1Plans([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingV1(true);
+    fetch(`/api/external/get-plans?community=${encodeURIComponent(v1CommunityName)}`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: unknown) => {
+        if (cancelled) return;
+        const list = Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
+        const normalized: Plan[] = list.map((item, i) => {
+          const price = Number(item.price ?? 0);
+          const label = getV1ProductLineLabel(price);
+          return {
+            _id: `v1-${i}`,
+            plan_name: String(item.plan_name ?? ""),
+            price,
+            sqft: Number(item.sqft ?? 0),
+            stories: String(item.stories ?? ""),
+            price_per_sqft: Number(item.price_per_sqft ?? 0),
+            last_updated: String(item.last_updated ?? ""),
+            price_changed_recently: Boolean(item.price_changed_recently),
+            company: String(item.company ?? ""),
+            community: String(item.community ?? community?.name ?? ""),
+            type: String(item.type ?? "now"),
+            address: item.address != null ? String(item.address) : undefined,
+            segment: label ? { _id: `v1-price-${label}`, name: label, label } : undefined,
+          };
+        });
+        setV1Plans(normalized);
+      })
+      .catch(() => {
+        if (!cancelled) setV1Plans([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingV1(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [v1CommunityName, community?.name]);
+
+  // Merge V1 + V2 plans: show all; for duplicates (same plan + company) prefer V1 and ignore V2
+  const getPlanDedupeKey = (plan: Plan) => {
+    const baseName = (plan.plan_name || "").split(",")[0].trim().toLowerCase();
+    const company = extractCompanyName(plan.company).trim().toLowerCase();
+    return `${baseName}|${company}`;
+  };
+  const displayPlans = useMemo(() => {
+    const combined: { plan: Plan; source: "v1" | "v2" }[] = [
+      ...v1Plans.map((p) => ({ plan: p, source: "v1" as const })),
+      ...plans.map((p) => ({ plan: p, source: "v2" as const })),
+    ];
+    const byKey = new Map<string, { plan: Plan; source: "v1" | "v2" }[]>();
+    for (const { plan, source } of combined) {
+      const key = getPlanDedupeKey(plan);
+      if (!byKey.has(key)) byKey.set(key, []);
+      byKey.get(key)!.push({ plan, source });
+    }
+    const result: Plan[] = [];
+    for (const group of byKey.values()) {
+      const hasV1 = group.some((g) => g.source === "v1");
+      const candidates = hasV1 ? group.filter((g) => g.source === "v1") : group;
+      const sorted = [...candidates].sort((a, b) => {
+        const tA = new Date(a.plan.last_updated || 0).getTime();
+        const tB = new Date(b.plan.last_updated || 0).getTime();
+        return tB - tA;
+      });
+      const chosen = sorted[0].plan;
+      const hasBoth = new Set(group.map((g) => g.source)).size > 1;
+      result.push({
+        ...chosen,
+        versionDisplay: hasBoth ? "V1" : undefined,
+      });
+    }
+    return result;
+  }, [v1Plans, plans]);
+
+  // Fetch product lines (segments) for this community (V2)
   useEffect(() => {
     if (!community?._id) {
       setProductLines([]);
@@ -51,11 +136,47 @@ export default function ChartPage() {
     };
   }, [community?._id]);
 
-  // Extract company names
-  const companies = useMemo(
-    () => getCompanyNames(community?.companies),
-    [community]
-  );
+  // V1 product line options from V1 plans (price tiers: 20s, 30s, etc.)
+  const v1ProductLineOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { _id: string; name: string; label: string }[] = [];
+    for (const p of v1Plans) {
+      const seg = p.segment;
+      if (seg?.label && seg.label !== "0s" && !seen.has(seg._id)) {
+        seen.add(seg._id);
+        out.push({ _id: seg._id, name: seg.name, label: seg.label });
+      }
+    }
+    return out.sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+  }, [v1Plans]);
+
+  // Merged product lines: V2 segments + V1 price tiers (by label); use merged-<label> so one filter matches both
+  const displayProductLines = useMemo(() => {
+    const byLabel = new Map<string, { _id: string; name: string; label: string }>();
+    for (const pl of productLines) {
+      if (pl.label && !byLabel.has(pl.label))
+        byLabel.set(pl.label, { _id: `merged-${pl.label}`, name: pl.name, label: pl.label });
+    }
+    for (const pl of v1ProductLineOptions) {
+      if (pl.label && !byLabel.has(pl.label))
+        byLabel.set(pl.label, { _id: `merged-${pl.label}`, name: pl.name, label: pl.label });
+    }
+    return Array.from(byLabel.values()).sort((a, b) =>
+      a.label.localeCompare(b.label, undefined, { numeric: true })
+    );
+  }, [productLines, v1ProductLineOptions]);
+
+  // Companies: union of V1 plan companies and V2 community companies (all builders shown)
+  const companies = useMemo(() => {
+    const fromV2 = getCompanyNames(community?.companies);
+    const fromV1 = new Set<string>();
+    v1Plans.forEach((p) => {
+      const name = extractCompanyName(p.company);
+      if (name) fromV1.add(name);
+    });
+    const union = new Set([...fromV2, ...fromV1]);
+    return Array.from(union).sort((a, b) => a.localeCompare(b));
+  }, [community, v1Plans]);
 
   // Map company name -> stored color for distinct graph lines (avoids similar/black lines)
   const companyColorMap = useMemo(() => {
@@ -75,18 +196,24 @@ export default function ChartPage() {
     [companies]
   );
 
-  // Filter plans by type and product line
+  // Filter plans by type and product line (use merged V1+V2 displayPlans and displayProductLines)
   const {
     selectedType,
     setSelectedType,
     selectedProductLineId,
     setSelectedProductLineId,
     filteredPlans,
-  } = useChartFilters(plans, companyNamesSet, urlType, productLines);
+  } = useChartFilters(displayPlans, companyNamesSet, urlType, displayProductLines);
 
-  // Handle sync/re-scrape
+  // Sync only V2 (registered) companies — V1 data comes from external API
+  const syncableCompanies = useMemo(
+    () => getCompanyNames(community?.companies),
+    [community?.companies]
+  );
+
+  // Handle sync/re-scrape (V2 companies only)
   const handleSync = async () => {
-    if (!community || companies.length === 0) {
+    if (!community || syncableCompanies.length === 0) {
       toast({
         variant: "destructive",
         title: "Error",
@@ -109,8 +236,8 @@ export default function ChartPage() {
         }
       }
 
-      // Scrape data for each company in the community
-      const scrapePromises = companies.map(async (company) => {
+      // Scrape data for each V2 company in the community
+      const scrapePromises = syncableCompanies.map(async (company) => {
         try {
           const response = await fetch(API_URL + "/scrape", {
             method: "POST",
@@ -146,13 +273,13 @@ export default function ChartPage() {
         toast({
           variant: "success",
           title: "Sync Complete",
-          description: `Successfully updated data for all ${companies.length} companies`,
+          description: `Successfully updated data for all ${syncableCompanies.length} companies`,
         });
-      } else if (failures.length < companies.length) {
+      } else if (failures.length < syncableCompanies.length) {
         toast({
           variant: "default",
           title: "Partial Sync",
-          description: `Synced ${companies.length - failures.length}/${companies.length} companies. ${failures.length} failed.`,
+          description: `Synced ${syncableCompanies.length - failures.length}/${syncableCompanies.length} companies. ${failures.length} failed.`,
         });
       } else {
         toast({
@@ -192,7 +319,7 @@ export default function ChartPage() {
               bannerImageSource={community ?? undefined}
               selectedType={selectedType}
               onTypeChange={setSelectedType}
-              productLines={productLines}
+              productLines={displayProductLines}
               selectedProductLineId={selectedProductLineId}
               onProductLineChange={setSelectedProductLineId}
               onSync={handleSync}

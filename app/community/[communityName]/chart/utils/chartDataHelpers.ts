@@ -19,7 +19,8 @@ export interface ChartDataset {
 }
 
 /**
- * Prepares chart datasets for each company.
+ * Prepares chart datasets for each company that has at least one data point.
+ * Companies with no plans (or no sqft/price) are omitted so the legend and graph only show companies with data.
  * When companyColorMap is provided (e.g. from community's populated companies), stored colors are used for distinct graph lines.
  */
 export function prepareChartDatasets(
@@ -27,31 +28,33 @@ export function prepareChartDatasets(
   companies: string[],
   companyColorMap?: Record<string, string> | null
 ): ChartDataset[] {
-  return companies.map((company) => {
-    const companyPlans = plans.filter((plan) => {
-      const planCompany = extractCompanyName(plan.company);
-      return planCompany === company && plan.sqft && plan.price;
-    });
-    
-    // Sort by square footage for smooth line rendering
-    const sortedPlans = companyPlans.sort((a, b) => a.sqft - b.sqft);
-    
-    const color = (companyColorMap && companyColorMap[company]) || getCompanyColor(company);
-    
-    return {
-      label: company,
-      data: sortedPlans.map((plan) => ({
-        x: plan.sqft,
-        y: plan.price,
-      })),
-      borderColor: color,
-      backgroundColor: `${color}40`,
-      tension: 0.2,
-      pointRadius: 4,
-      pointHoverRadius: 6,
-      fill: false,
-    };
-  });
+  return companies
+    .map((company) => {
+      const companyPlans = plans.filter((plan) => {
+        const planCompany = extractCompanyName(plan.company);
+        return planCompany === company && plan.sqft && plan.price;
+      });
+
+      // Sort by square footage for smooth line rendering
+      const sortedPlans = companyPlans.sort((a, b) => a.sqft - b.sqft);
+
+      const color = (companyColorMap && companyColorMap[company]) || getCompanyColor(company);
+
+      return {
+        label: company,
+        data: sortedPlans.map((plan) => ({
+          x: plan.sqft,
+          y: plan.price,
+        })),
+        borderColor: color,
+        backgroundColor: `${color}40`,
+        tension: 0.2,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        fill: false,
+      };
+    })
+    .filter((dataset) => dataset.data.length > 0);
 }
 
 /**

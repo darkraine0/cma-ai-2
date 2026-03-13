@@ -33,10 +33,13 @@ export function useChartFilters(
       const isCompanyInCommunity = isPlanCompanyInCommunity(planCompany, companyNamesSet);
       const matchType = plan.type === selectedType.toLowerCase();
       const planSegmentId = plan.segment?._id ?? null;
+      const planSegmentLabel = plan.segment?.label ?? null;
+      // Support merged-<label> so one filter option matches both V1 (v1-price-70s) and V2 segments with same label
       const matchProductLine =
         selectedProductLineId === '__all__' ||
         (selectedProductLineId === '__none__' && !planSegmentId) ||
-        planSegmentId === selectedProductLineId;
+        planSegmentId === selectedProductLineId ||
+        (selectedProductLineId.startsWith('merged-') && planSegmentLabel === selectedProductLineId.replace('merged-', ''));
 
       return isCompanyInCommunity && matchType && matchProductLine;
     });
