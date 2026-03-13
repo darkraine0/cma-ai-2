@@ -129,7 +129,7 @@ export default function PlansTable({
                   {plan.type === 'now' && plan.address ? plan.address : plan.plan_name}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
-                  {plan._id?.startsWith("v1-") ? "V1" : "V2"}
+                  {plan.versionDisplay ?? (plan._id?.startsWith("v1-") ? "V1" : "V2")}
                 </TableCell>
                 <TableCell className="font-semibold text-primary">
                   ${plan.price.toLocaleString()}
@@ -152,7 +152,7 @@ export default function PlansTable({
                   {planCompany}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground text-center">
-                  {(onPlanUpdated != null || onProductLineUpdated != null) && productLines.length > 0 && plan._id ? (
+                  {(onPlanUpdated != null || onProductLineUpdated != null) && productLines.length > 0 && plan._id && !plan._id.startsWith("v1-") ? (
                     <div className="flex justify-center">
                       <Select
                         value={plan.segment?._id ?? "__none__"}

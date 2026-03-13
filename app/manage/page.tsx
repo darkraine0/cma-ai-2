@@ -104,7 +104,7 @@ export default function ManagePage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<"name_asc" | "name_desc" | "builders_desc" | "plans_desc">("plans_desc");
+  const [sortBy, setSortBy] = useState<"name_asc" | "name_desc" | "builders_desc" | "plans_desc">("name_asc");
   const [loading, setLoading] = useState(true);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
   const [error, setError] = useState("");

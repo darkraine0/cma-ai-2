@@ -18,6 +18,8 @@ export interface Plan {
   segment?: PlanSegment | null;
   type: string;
   address?: string;
+  /** When set (e.g. "V1&V2"), shown in Version column instead of inferring from _id. Used when "All" shows deduplicated row. */
+  versionDisplay?: string;
 }
 
 export interface CommunityCompany {

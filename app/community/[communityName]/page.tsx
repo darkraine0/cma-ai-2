@@ -15,6 +15,7 @@ import { useCommunityData } from "../hooks/useCommunityData";
 import { usePlansFilter } from "../hooks/usePlansFilter";
 import { exportToCSV } from "../utils/exportCSV";
 import { formatCommunitySlug } from "../utils/formatCommunityName";
+import { getV1ProductLineLabel } from "../utils/v1ProductLine";
 import { getCompanyNames, extractCompanyName } from "../utils/companyHelpers";
 import { Filter } from "lucide-react";
 import API_URL from "../../config";
@@ -124,20 +125,25 @@ export default function CommunityDetail() {
       .then((data: unknown) => {
         if (cancelled) return;
         const list = Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
-        const normalized: Plan[] = list.map((item, i) => ({
-          _id: `v1-${i}`,
-          plan_name: String(item.plan_name ?? ""),
-          price: Number(item.price ?? 0),
-          sqft: Number(item.sqft ?? 0),
-          stories: String(item.stories ?? ""),
-          price_per_sqft: Number(item.price_per_sqft ?? 0),
-          last_updated: String(item.last_updated ?? ""),
-          price_changed_recently: Boolean(item.price_changed_recently),
-          company: String(item.company ?? ""),
-          community: String(item.community ?? community?.name ?? ""),
-          type: String(item.type ?? "now"),
-          address: item.address != null ? String(item.address) : undefined,
-        }));
+        const normalized: Plan[] = list.map((item, i) => {
+          const price = Number(item.price ?? 0);
+          const label = getV1ProductLineLabel(price);
+          return {
+            _id: `v1-${i}`,
+            plan_name: String(item.plan_name ?? ""),
+            price,
+            sqft: Number(item.sqft ?? 0),
+            stories: String(item.stories ?? ""),
+            price_per_sqft: Number(item.price_per_sqft ?? 0),
+            last_updated: String(item.last_updated ?? ""),
+            price_changed_recently: Boolean(item.price_changed_recently),
+            company: String(item.company ?? ""),
+            community: String(item.community ?? community?.name ?? ""),
+            type: String(item.type ?? "now"),
+            address: item.address != null ? String(item.address) : undefined,
+            segment: label ? { _id: `v1-price-${label}`, name: label, label } : undefined,
+          };
+        });
         setV1Plans(normalized);
       })
       .catch(() => {
@@ -151,12 +157,45 @@ export default function CommunityDetail() {
     };
   }, [v1CommunityName, selectedSubcommunity]);
 
-  // Display: subcommunity plans, or main community plans by version (V1, V2, or both)
+  // Normalize plan name for dedupe: "2701 Burnely Court, Celina, TX 75009" -> "2701 burnely court"
+  const getPlanDedupeKey = (plan: Plan) => {
+    const baseName = (plan.plan_name || "").split(",")[0].trim().toLowerCase();
+    const company = extractCompanyName(plan.company).trim().toLowerCase();
+    return `${baseName}|${company}`;
+  };
+
+  // Display: subcommunity plans, or main community plans by version (V1, V2, or both).
+  // When "All": deduplicate by plan name + company, keep only the most recently updated row, and mark as (V1&V2).
   const displayPlans = useMemo(() => {
     if (selectedSubcommunity) return subcommunityPlans;
     if (versionFilter === "v1") return v1Plans;
     if (versionFilter === "v2") return plans;
-    return [...v1Plans, ...plans];
+    // "All" — merge V1 and V2, dedupe by normalized plan name + company, keep most recent
+    const combined: { plan: Plan; source: "v1" | "v2" }[] = [
+      ...v1Plans.map((p) => ({ plan: p, source: "v1" as const })),
+      ...plans.map((p) => ({ plan: p, source: "v2" as const })),
+    ];
+    const byKey = new Map<string, { plan: Plan; source: "v1" | "v2" }[]>();
+    for (const { plan, source } of combined) {
+      const key = getPlanDedupeKey(plan);
+      if (!byKey.has(key)) byKey.set(key, []);
+      byKey.get(key)!.push({ plan, source });
+    }
+    const result: Plan[] = [];
+    for (const group of byKey.values()) {
+      const sorted = [...group].sort((a, b) => {
+        const tA = new Date(a.plan.last_updated || 0).getTime();
+        const tB = new Date(b.plan.last_updated || 0).getTime();
+        return tB - tA;
+      });
+      const chosen = sorted[0].plan;
+      const hasBoth = new Set(group.map((g) => g.source)).size > 1;
+      result.push({
+        ...chosen,
+        versionDisplay: hasBoth ? "(V1&V2)" : undefined,
+      });
+    }
+    return result;
   }, [selectedSubcommunity, subcommunityPlans, versionFilter, v1Plans, plans]);
 
   // Community companies (from DB) — used for Sync and when showing V2 or subcommunity
@@ -209,6 +248,39 @@ export default function CommunityDetail() {
 
   const companyNamesSet = useMemo(() => new Set(companies), [companies]);
 
+  // V1 product line options derived from price levels (20s, 30s, 70s, etc.) for the All|20s|30s filter when viewing V1. Exclude "0s".
+  const v1ProductLineOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { _id: string; name: string; label: string }[] = [];
+    for (const p of v1Plans) {
+      const seg = p.segment;
+      if (seg?.label && seg.label !== "0s" && !seen.has(seg._id)) {
+        seen.add(seg._id);
+        out.push({ _id: seg._id, name: seg.name, label: seg.label });
+      }
+    }
+    return out.sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+  }, [v1Plans]);
+
+  // When "All" (V1+V2): merge V2 and V1 product lines by label, no duplicates. Use merged-<label> id so filter matches both.
+  const displayProductLines = useMemo(() => {
+    if (selectedSubcommunity) return productLines;
+    if (versionFilter === "v1") return v1ProductLineOptions;
+    if (versionFilter !== "all") return productLines;
+    const byLabel = new Map<string, { _id: string; name: string; label: string }>();
+    for (const pl of productLines) {
+      if (pl.label && !byLabel.has(pl.label))
+        byLabel.set(pl.label, { _id: `merged-${pl.label}`, name: pl.name, label: pl.label });
+    }
+    for (const pl of v1ProductLineOptions) {
+      if (pl.label && !byLabel.has(pl.label))
+        byLabel.set(pl.label, { _id: `merged-${pl.label}`, name: pl.name, label: pl.label });
+    }
+    return Array.from(byLabel.values()).sort((a, b) =>
+      a.label.localeCompare(b.label, undefined, { numeric: true })
+    );
+  }, [selectedSubcommunity, versionFilter, productLines, v1ProductLineOptions]);
+
   // Filter, sort, and paginate plans (use display plans)
   const {
     sortKey,
@@ -226,7 +298,7 @@ export default function CommunityDetail() {
     paginatedPlans,
     totalPages,
     handleSort,
-  } = usePlansFilter(displayPlans, companyNamesSet, productLines);
+  } = usePlansFilter(displayPlans, companyNamesSet, displayProductLines);
 
   // Handle sync/re-scrape (use community's registered companies, not version-filtered list)
   const handleSync = async () => {
@@ -319,10 +391,14 @@ export default function CommunityDetail() {
     const filteredPlans = displayPlans.filter((plan) => {
       const planCompany = extractCompanyName(plan.company);
       const planSegmentId = plan.segment?._id ?? null;
+      const planSegmentLabel = plan.segment?.label ?? null;
+      const isMergedSelection = selectedProductLineId.startsWith('merged-');
+      const mergedLabel = isMergedSelection ? selectedProductLineId.slice(7) : null;
       const matchProductLine =
         selectedProductLineId === '__all__' ||
         (selectedProductLineId === '__none__' && !planSegmentId) ||
-        planSegmentId === selectedProductLineId;
+        (isMergedSelection && mergedLabel !== null && planSegmentLabel === mergedLabel) ||
+        (!isMergedSelection && planSegmentId === selectedProductLineId);
       return (
         companyNamesSet.has(planCompany) &&
         (selectedCompany === 'All' || planCompany === selectedCompany) &&
@@ -355,7 +431,7 @@ export default function CommunityDetail() {
               childCommunities={childCommunities}
               selectedSubcommunity={selectedSubcommunity}
               onSubcommunityChange={setSelectedSubcommunity}
-              productLines={productLines}
+              productLines={displayProductLines}
               selectedProductLineId={selectedProductLineId}
               onProductLineChange={setSelectedProductLineId}
               selectedType={selectedType}
@@ -429,7 +505,7 @@ export default function CommunityDetail() {
                       totalPages={totalPages}
                       onPageChange={setPage}
                       onSort={handleSort}
-                      productLines={productLines}
+                      productLines={displayProductLines}
                       companyColorMap={companyColorMap}
                       emptyMessage={companies.length > 0 ? "No plans yet. Use the Sync button above to load plans from the builder sites." : undefined}
                       onPlanUpdated={async () => {

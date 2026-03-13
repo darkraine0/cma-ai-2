@@ -64,7 +64,7 @@ export default function CommunitiesPage() {
   const [filteredCommunities, setFilteredCommunities] = useState<Community[]>(communities);
   const [searchQuery, setSearchQuery] = useState("");
   const [communityTypeFilter, setCommunityTypeFilter] = useState<"all" | "general" | "site">("all");
-  const [sortBy, setSortBy] = useState<"name_asc" | "name_desc" | "builders_desc" | "plans_desc">("plans_desc");
+  const [sortBy, setSortBy] = useState<"name_asc" | "name_desc" | "builders_desc" | "plans_desc">("name_asc");
   const [loading, setLoading] = useState(communities.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");

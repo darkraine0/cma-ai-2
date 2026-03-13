@@ -64,24 +64,14 @@ export default function CompaniesPage() {
   const { user } = useAuth();
   const hasFetched = useRef(false);
 
-  const sortCompanies = (companiesList: Company[], plansData: Plan[]) => {
-    const homeCountMap = plansData.reduce((map, plan) => {
-      const companyName = typeof plan.company === 'string' 
-        ? plan.company 
-        : plan.company?.name || '';
-      if (companyName) {
-        map.set(companyName, (map.get(companyName) || 0) + 1);
-      }
-      return map;
-    }, new Map<string, number>());
-    
+  const sortCompanies = (companiesList: Company[]) => {
     return [...companiesList].sort((a, b) => {
       const isUnionmainA = a.name.toLowerCase().includes('unionmain');
       const isUnionmainB = b.name.toLowerCase().includes('unionmain');
-      
+
       if (isUnionmainA !== isUnionmainB) return isUnionmainA ? -1 : 1;
-      
-      return (homeCountMap.get(b.name) || 0) - (homeCountMap.get(a.name) || 0);
+
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
     });
   };
 
@@ -123,7 +113,7 @@ export default function CompaniesPage() {
         }
       }
       
-      const sortedCompanies = sortCompanies(data, plansData);
+      const sortedCompanies = sortCompanies(data);
       setCompanies(sortedCompanies);
       setFilteredCompanies(sortedCompanies);
     } catch (err: any) {

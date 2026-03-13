@@ -31,12 +31,20 @@ export function usePlansFilter(
   companyNames: Set<string>,
   productLines: ProductLineOption[] = []
 ): UsePlansFilterReturn {
-  const [sortKey, setSortKey] = useState<SortKey>("price");
+  const [sortKey, setSortKey] = useState<SortKey>("plan_name");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [selectedCompany, setSelectedCompany] = useState<string>('All');
   const [selectedType, setSelectedType] = useState<string>('Now');
   const [selectedProductLineId, setSelectedProductLineId] = useState<string>('__all__');
   const [page, setPage] = useState(1);
+
+  // Reset product line to All when options change (e.g. switching V1↔V2) and current selection is no longer valid
+  useEffect(() => {
+    const ids = new Set(productLines.map((p) => p._id));
+    setSelectedProductLineId((prev) =>
+      prev === "__all__" || ids.has(prev) ? prev : "__all__"
+    );
+  }, [productLines]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -49,10 +57,14 @@ export function usePlansFilter(
       const planCompany = extractCompanyName(plan.company);
       const isCompanyInCommunity = companyNames.has(planCompany);
       const planSegmentId = plan.segment?._id ?? null;
+      const planSegmentLabel = plan.segment?.label ?? null;
+      const isMergedSelection = selectedProductLineId.startsWith('merged-');
+      const mergedLabel = isMergedSelection ? selectedProductLineId.slice(7) : null;
       const matchProductLine =
         selectedProductLineId === '__all__' ||
         (selectedProductLineId === '__none__' && !planSegmentId) ||
-        planSegmentId === selectedProductLineId;
+        (isMergedSelection && mergedLabel !== null && planSegmentLabel === mergedLabel) ||
+        (!isMergedSelection && planSegmentId === selectedProductLineId);
 
       return (
         isCompanyInCommunity &&

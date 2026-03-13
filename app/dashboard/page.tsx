@@ -35,7 +35,7 @@ export default function Dashboard() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("price");
+  const [sortKey, setSortKey] = useState<SortKey>("plan_name");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [page, setPage] = useState(1);
   const [selectedCompany, setSelectedCompany] = useState<string>('All');
