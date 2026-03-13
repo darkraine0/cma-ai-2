@@ -747,6 +747,11 @@ export default function ManagePage() {
                                     </>
                                   )}
                                 </div>
+                                {community.v1ExternalCommunityName && (
+                                  <p className="text-xs mt-1">
+                                    Matched <span className="font-semibold text-emerald-400">{community.v1ExternalCommunityName}</span>
+                                  </p>
+                                )}
                               </div>
                             </button>
                           );
@@ -982,8 +987,8 @@ export default function ManagePage() {
                           </p>
                           <div className="flex items-center gap-2 flex-wrap">
                             {selectedCommunity.v1ExternalCommunityName ? (
-                              <span className="text-sm text-muted-foreground">
-                                Matched to: <span className="font-medium text-foreground">{selectedCommunity.v1ExternalCommunityName}</span>
+                              <span className="text-sm">
+                                Matched <span className="font-semibold text-emerald-400">{selectedCommunity.v1ExternalCommunityName}</span>
                               </span>
                             ) : (
                               <span className="text-sm text-muted-foreground">Not matched</span>
@@ -1276,6 +1281,7 @@ export default function ManagePage() {
         <MatchCommunityNameModal
           open={matchCommunityModalOpen}
           onOpenChange={setMatchCommunityModalOpen}
+          allCommunities={communities}
           community={{
             _id: selectedCommunity._id,
             name: selectedCommunity.name,

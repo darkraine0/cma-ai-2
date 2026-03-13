@@ -36,6 +36,8 @@ interface MatchCommunityNameModalProps {
     v1ExternalCommunityId?: number | null;
     v1ExternalCommunityName?: string | null;
   } | null;
+  /** All MarketMap communities so we can show which V2 community is already matched to a given V1 community. */
+  allCommunities?: MarketMapCommunity[];
   onSuccess?: () => void;
 }
 
@@ -43,6 +45,7 @@ export default function MatchCommunityNameModal({
   open,
   onOpenChange,
   community,
+  allCommunities,
   onSuccess,
 }: MatchCommunityNameModalProps) {
   const { communities: externalCommunities, loading, error: fetchError, refetch } = useV1Communities();
@@ -127,8 +130,8 @@ export default function MatchCommunityNameModal({
           Set which external (V1) community matches <strong>{community.name}</strong>.
         </p>
         {community.v1ExternalCommunityName && (
-          <p className="text-sm text-muted-foreground mb-3">
-            Currently matched to: <span className="font-medium text-foreground">{community.v1ExternalCommunityName}</span>
+          <p className="text-sm mb-3">
+            Matched <span className="font-semibold text-emerald-500">{community.v1ExternalCommunityName}</span>
           </p>
         )}
         {(error || fetchError) && (
@@ -189,6 +192,8 @@ export default function MatchCommunityNameModal({
                   const isCurrentMatch =
                     community.v1ExternalCommunityId != null &&
                     ext.id === community.v1ExternalCommunityId;
+                  const matchedV2 =
+                    allCommunities?.find((c) => c.v1ExternalCommunityId === ext.id) || null;
                   return (
                     <li key={ext.id}>
                       <button
@@ -199,10 +204,19 @@ export default function MatchCommunityNameModal({
                           isCurrentMatch ? "bg-primary/15 border-l-4 border-primary" : ""
                         }`}
                       >
-                        <span className="font-medium truncate">{ext.name}</span>
-                        <span className="text-xs text-muted-foreground shrink-0">
-                          plan: {ext.plan} · now: {ext.now}
-                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium truncate">{ext.name}</span>
+                            <span className="text-xs text-muted-foreground shrink-0">
+                              plan: {ext.plan} · now: {ext.now}
+                            </span>
+                          </div>
+                          {matchedV2 && (
+                            <p className="text-xs mt-0.5">
+                              Matched <span className="font-semibold text-emerald-400">{matchedV2.name}</span>
+                            </p>
+                          )}
+                        </div>
                       </button>
                     </li>
                   );

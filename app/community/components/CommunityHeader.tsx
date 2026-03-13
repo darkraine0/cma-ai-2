@@ -35,6 +35,10 @@ interface CommunityHeaderProps {
   onVersionFilterChange?: (version: "all" | "v1" | "v2") => void;
   showVersionFilter?: boolean;
   loadingV1?: boolean;
+  /** Whether the community has any V1 plans (controls dropdown options). */
+  hasV1Plans?: boolean;
+  /** Whether the community has any V2 plans (controls dropdown options). */
+  hasV2Plans?: boolean;
   sortKey: SortKey;
   onSortKeyChange: (key: SortKey) => void;
   sortOrder: SortOrder;
@@ -62,6 +66,8 @@ export default function CommunityHeader({
   onVersionFilterChange,
   showVersionFilter = false,
   loadingV1 = false,
+  hasV1Plans = false,
+  hasV2Plans = false,
   sortKey,
   onSortKeyChange,
   sortOrder,
@@ -166,35 +172,27 @@ export default function CommunityHeader({
             <TypeTabs selected={selectedType} onSelect={onTypeChange} />
             {productLines.length > 0 && onProductLineChange && (
               <div className="inline-flex items-center gap-1 bg-white/10 backdrop-blur-sm rounded-lg p-1">
-                <button
-                  type="button"
-                  onClick={() => onProductLineChange("__all__")}
-                  className={cn(
-                    "px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md border transition-all duration-200",
-                    "border-white/20",
-                    selectedProductLineId === "__all__"
-                      ? "bg-white/20 text-white shadow-sm backdrop-blur-sm"
-                      : "text-white/70 hover:text-white hover:bg-white/5"
-                  )}
+                <span className="text-xs sm:text-sm font-medium text-white/90 px-2 hidden sm:inline">Price range:</span>
+                <Select
+                  value={selectedProductLineId}
+                  onValueChange={onProductLineChange}
                 >
-                  All
-                </button>
-                {productLines.map((seg) => (
-                  <button
-                    key={seg._id}
-                    type="button"
-                    onClick={() => onProductLineChange(seg._id)}
-                    className={cn(
-                      "px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md border transition-all duration-200",
-                      "border-white/20",
-                      selectedProductLineId === seg._id
-                        ? "bg-white/20 text-white shadow-sm backdrop-blur-sm"
-                        : "text-white/70 hover:text-white hover:bg-white/5"
-                    )}
-                  >
-                    {seg.label}
-                  </button>
-                ))}
+                  <SelectTrigger className="w-full sm:w-[120px] h-8 sm:h-9 text-xs sm:text-sm bg-white/20 hover:bg-white/30 text-white border-white/20 backdrop-blur-sm">
+                    <SelectValue>
+                      {selectedProductLineId === "__all__"
+                        ? "All"
+                        : productLines.find((pl) => pl._id === selectedProductLineId)?.label ?? "All"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">All</SelectItem>
+                    {productLines.map((seg) => (
+                      <SelectItem key={seg._id} value={seg._id}>
+                        {seg.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
             {showVersionFilter && onVersionFilterChange && (
@@ -211,8 +209,8 @@ export default function CommunityHeader({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="v1">V1 Version</SelectItem>
-                    <SelectItem value="v2">V2 Version</SelectItem>
+                    {hasV1Plans && <SelectItem value="v1">V1 Version</SelectItem>}
+                    {hasV2Plans && <SelectItem value="v2">V2 Version</SelectItem>}
                   </SelectContent>
                 </Select>
                 {loadingV1 && versionFilter !== "v2" && (

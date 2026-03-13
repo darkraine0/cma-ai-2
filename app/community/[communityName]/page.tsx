@@ -206,6 +206,18 @@ export default function CommunityDetail() {
     [selectedSubcommunity, community]
   );
 
+  // When viewing main community: only show V1/V2 in version dropdown if that version has data
+  // V1: at least one V1 plan. V2: at least one registered company for this community.
+  const hasV1Plans = !selectedSubcommunity && v1Plans.length > 0;
+  const hasV2Plans = !selectedSubcommunity && communityCompanies.length > 0;
+
+  // If selected version has no plans, reset to "all" so the user isn’t stuck on an empty view
+  React.useEffect(() => {
+    if (selectedSubcommunity) return;
+    if (versionFilter === "v2" && !hasV2Plans) setVersionFilter("all");
+    if (versionFilter === "v1" && !hasV1Plans) setVersionFilter("all");
+  }, [selectedSubcommunity, versionFilter, hasV1Plans, hasV2Plans]);
+
   // Builder list for sidebar: when V1 selected show companies from V1 plans; when V2 show community companies; when All show union
   const companies = useMemo(() => {
     if (selectedSubcommunity) return communityCompanies;
@@ -441,6 +453,8 @@ export default function CommunityDetail() {
               versionFilter={versionFilter}
               onVersionFilterChange={setVersionFilter}
               showVersionFilter={!selectedSubcommunity}
+              hasV1Plans={hasV1Plans}
+              hasV2Plans={hasV2Plans}
               loadingV1={loadingV1}
               sortKey={sortKey}
               onSortKeyChange={setSortKey}
