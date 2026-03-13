@@ -165,12 +165,12 @@ export default function CommunityDetail() {
   };
 
   // Display: subcommunity plans, or main community plans by version (V1, V2, or both).
-  // When "All": deduplicate by plan name + company, keep only the most recently updated row, and mark as (V1&V2).
+  // When "All": deduplicate by plan name + company. When both V1 and V2 exist for same plan, prefer V1; otherwise keep most recent.
   const displayPlans = useMemo(() => {
     if (selectedSubcommunity) return subcommunityPlans;
     if (versionFilter === "v1") return v1Plans;
     if (versionFilter === "v2") return plans;
-    // "All" — merge V1 and V2, dedupe by normalized plan name + company, keep most recent
+    // "All" — merge V1 and V2, dedupe by normalized plan name + company; prefer V1 when duplicates exist
     const combined: { plan: Plan; source: "v1" | "v2" }[] = [
       ...v1Plans.map((p) => ({ plan: p, source: "v1" as const })),
       ...plans.map((p) => ({ plan: p, source: "v2" as const })),
@@ -183,7 +183,9 @@ export default function CommunityDetail() {
     }
     const result: Plan[] = [];
     for (const group of byKey.values()) {
-      const sorted = [...group].sort((a, b) => {
+      const hasV1 = group.some((g) => g.source === "v1");
+      const candidates = hasV1 ? group.filter((g) => g.source === "v1") : group;
+      const sorted = [...candidates].sort((a, b) => {
         const tA = new Date(a.plan.last_updated || 0).getTime();
         const tB = new Date(b.plan.last_updated || 0).getTime();
         return tB - tA;
@@ -192,7 +194,7 @@ export default function CommunityDetail() {
       const hasBoth = new Set(group.map((g) => g.source)).size > 1;
       result.push({
         ...chosen,
-        versionDisplay: hasBoth ? "(V1&V2)" : undefined,
+        versionDisplay: hasBoth ? "V1" : undefined,
       });
     }
     return result;
