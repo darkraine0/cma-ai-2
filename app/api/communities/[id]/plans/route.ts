@@ -4,6 +4,7 @@ import Plan from '@/app/models/Plan';
 import PriceHistory from '@/app/models/PriceHistory';
 import Community from '@/app/models/Community';
 import mongoose from 'mongoose';
+import { requirePermission } from '@/app/lib/admin';
 
 export async function GET(
   request: NextRequest,
@@ -88,6 +89,45 @@ export async function GET(
   } catch (error: any) {
     return NextResponse.json(
       { error: 'Failed to fetch plans', message: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+/** DELETE: Remove all plans for this community (and their price history). Used before full sync. */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> | { id: string } }
+) {
+  try {
+    const permissionCheck = await requirePermission(request, 'editor');
+    if (permissionCheck instanceof NextResponse) return permissionCheck;
+
+    await connectDB();
+    const resolvedParams = params instanceof Promise ? await params : params;
+    const communityId = resolvedParams.id;
+
+    if (!communityId || !mongoose.Types.ObjectId.isValid(communityId)) {
+      return NextResponse.json(
+        { error: 'Valid community ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const communityObjectId = new mongoose.Types.ObjectId(communityId);
+    const planIds = await Plan.distinct('_id', { 'community._id': communityObjectId });
+    if (planIds.length > 0) {
+      await PriceHistory.deleteMany({ plan_id: { $in: planIds } });
+      await Plan.deleteMany({ 'community._id': communityObjectId });
+    }
+
+    return NextResponse.json(
+      { message: 'All plans for this community have been removed', deleted: planIds.length },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: 'Failed to delete community plans', message: error.message },
       { status: 500 }
     );
   }

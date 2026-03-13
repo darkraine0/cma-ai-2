@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/app/lib/mongodb';
 import Company from '@/app/models/Company';
+import Plan from '@/app/models/Plan';
+import PriceHistory from '@/app/models/PriceHistory';
+import Community from '@/app/models/Community';
+import CommunityCompany from '@/app/models/CommunityCompany';
+import mongoose from 'mongoose';
 import { requirePermission } from '@/app/lib/admin';
 
 export async function GET() {
@@ -121,14 +126,34 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const company = await Company.findByIdAndDelete(id);
-    
+    const company = await Company.findById(id);
     if (!company) {
       return NextResponse.json(
         { error: 'Company not found' },
         { status: 404 }
       );
     }
+
+    const companyObjectId = company._id instanceof mongoose.Types.ObjectId
+      ? company._id
+      : new mongoose.Types.ObjectId(company._id.toString());
+
+    // 1. Delete all plans for this company (and their price history)
+    const planIds = await Plan.distinct('_id', { 'company._id': companyObjectId });
+    if (planIds.length > 0) {
+      await PriceHistory.deleteMany({ plan_id: { $in: planIds } });
+      await Plan.deleteMany({ 'company._id': companyObjectId });
+    }
+
+    // 2. Remove company from all communities (CommunityCompany links and community.companies array)
+    await CommunityCompany.deleteMany({ companyId: companyObjectId });
+    await Community.updateMany(
+      { companies: companyObjectId },
+      { $pull: { companies: companyObjectId } }
+    );
+
+    // 3. Delete the company
+    await Company.deleteOne({ _id: companyObjectId });
 
     return NextResponse.json(
       { message: 'Company deleted successfully', company },

@@ -98,6 +98,17 @@ export default function ChartPage() {
     setIsSyncing(true);
     
     try {
+      // Remove all existing plans for this community before syncing, then save new plans per company
+      if (community._id) {
+        const deleteRes = await fetch(`${API_URL}/communities/${community._id}/plans`, {
+          method: "DELETE",
+        });
+        if (!deleteRes.ok) {
+          const err = await deleteRes.json().catch(() => ({}));
+          throw new Error(err.message || err.error || "Failed to clear old plans");
+        }
+      }
+
       // Scrape data for each company in the community
       const scrapePromises = companies.map(async (company) => {
         try {
