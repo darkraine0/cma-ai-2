@@ -8,11 +8,19 @@ export interface ProductLineOption {
   label: string;
 }
 
+export type VersionFilter = "all" | "v1" | "v2";
+
+function isV1Plan(plan: Plan): boolean {
+  return Boolean(plan._id?.toString().startsWith("v1-"));
+}
+
 interface UseChartFiltersReturn {
   selectedType: string;
   setSelectedType: (type: string) => void;
   selectedProductLineId: string;
   setSelectedProductLineId: (id: string) => void;
+  selectedVersion: VersionFilter;
+  setSelectedVersion: (version: VersionFilter) => void;
   filteredPlans: Plan[];
 }
 
@@ -26,6 +34,7 @@ export function useChartFilters(
     urlType === 'plan' ? 'Plan' : 'Now'
   );
   const [selectedProductLineId, setSelectedProductLineId] = useState<string>('__all__');
+  const [selectedVersion, setSelectedVersion] = useState<VersionFilter>('all');
 
   const filteredPlans = useMemo(() => {
     return plans.filter((plan) => {
@@ -41,15 +50,22 @@ export function useChartFilters(
         planSegmentId === selectedProductLineId ||
         (selectedProductLineId.startsWith('merged-') && planSegmentLabel === selectedProductLineId.replace('merged-', ''));
 
-      return isCompanyInCommunity && matchType && matchProductLine;
+      const matchVersion =
+        selectedVersion === 'all' ||
+        (selectedVersion === 'v1' && isV1Plan(plan)) ||
+        (selectedVersion === 'v2' && !isV1Plan(plan));
+
+      return isCompanyInCommunity && matchType && matchProductLine && matchVersion;
     });
-  }, [plans, companyNamesSet, selectedType, selectedProductLineId]);
+  }, [plans, companyNamesSet, selectedType, selectedProductLineId, selectedVersion]);
 
   return {
     selectedType,
     setSelectedType,
     selectedProductLineId,
     setSelectedProductLineId,
+    selectedVersion,
+    setSelectedVersion,
     filteredPlans,
   };
 }

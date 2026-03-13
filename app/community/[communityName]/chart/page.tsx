@@ -196,12 +196,14 @@ export default function ChartPage() {
     [companies]
   );
 
-  // Filter plans by type and product line (use merged V1+V2 displayPlans and displayProductLines)
+  // Filter plans by type, version (All/V1/V2), and product line (use merged V1+V2 displayPlans and displayProductLines)
   const {
     selectedType,
     setSelectedType,
     selectedProductLineId,
     setSelectedProductLineId,
+    selectedVersion,
+    setSelectedVersion,
     filteredPlans,
   } = useChartFilters(displayPlans, companyNamesSet, urlType, displayProductLines);
 
@@ -319,6 +321,8 @@ export default function ChartPage() {
               bannerImageSource={community ?? undefined}
               selectedType={selectedType}
               onTypeChange={setSelectedType}
+              selectedVersion={selectedVersion}
+              onVersionChange={setSelectedVersion}
               productLines={displayProductLines}
               selectedProductLineId={selectedProductLineId}
               onProductLineChange={setSelectedProductLineId}

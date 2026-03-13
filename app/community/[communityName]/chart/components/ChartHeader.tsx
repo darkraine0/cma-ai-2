@@ -4,6 +4,7 @@ import TypeTabs from "../../../../components/TypeTabs";
 import { getCommunityImage } from "../../../../utils/communityImages";
 import { RefreshCw } from "lucide-react";
 import { cn } from "../../../../utils/utils";
+import type { VersionFilter } from "../hooks/useChartFilters";
 
 interface ProductLineOption {
   _id: string;
@@ -20,6 +21,9 @@ interface ChartHeaderProps {
   bannerImageSource?: BannerImageSource | null;
   selectedType: string;
   onTypeChange: (type: string) => void;
+  /** Version filter: all, v1, or v2 */
+  selectedVersion?: VersionFilter;
+  onVersionChange?: (version: VersionFilter) => void;
   productLines?: ProductLineOption[];
   selectedProductLineId?: string;
   onProductLineChange?: (id: string) => void;
@@ -33,6 +37,8 @@ export default function ChartHeader({
   bannerImageSource,
   selectedType,
   onTypeChange,
+  selectedVersion = "all",
+  onVersionChange,
   productLines = [],
   selectedProductLineId = "__all__",
   onProductLineChange,
@@ -95,9 +101,29 @@ export default function ChartHeader({
           </div>
         </div>
 
-        {/* Bottom Row: Type Tabs + Product Line */}
+        {/* Bottom Row: Type Tabs + Version filter + Product Line */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <TypeTabs selected={selectedType} onSelect={onTypeChange} />
+          {onVersionChange && (
+            <div className="inline-flex items-center gap-1 bg-white/10 backdrop-blur-sm rounded-lg p-1">
+              {(["all", "v1", "v2"] as const).map((version) => (
+                <button
+                  key={version}
+                  type="button"
+                  onClick={() => onVersionChange(version)}
+                  className={cn(
+                    "px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md border transition-all duration-200",
+                    "border-white/20",
+                    selectedVersion === version
+                      ? "bg-white/20 text-white shadow-sm backdrop-blur-sm"
+                      : "text-white/70 hover:text-white hover:bg-white/5"
+                  )}
+                >
+                  {version === "all" ? "All" : version.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          )}
           {productLines.length > 0 && onProductLineChange && (
             <div className="inline-flex items-center gap-1 bg-white/10 backdrop-blur-sm rounded-lg p-1">
               <button
