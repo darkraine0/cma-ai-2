@@ -304,11 +304,17 @@ export default function CommunitiesPage() {
                 <div className="flex gap-1">
                   {community.companies.slice(0, 3).map((company) => {
                     const color = getCompanyColor(company);
-                    return (
+                    return color != null ? (
                       <span
                         key={company}
                         className="inline-block w-3 h-3 rounded-full border"
                         style={{ backgroundColor: color, borderColor: color }}
+                        title={company}
+                      />
+                    ) : (
+                      <span
+                        key={company}
+                        className="inline-block w-3 h-3 rounded-full border border-dashed border-muted-foreground/40 bg-muted/30"
                         title={company}
                       />
                     );
