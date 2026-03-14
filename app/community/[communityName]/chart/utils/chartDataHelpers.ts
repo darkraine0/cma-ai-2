@@ -38,7 +38,9 @@ export function prepareChartDatasets(
       // Sort by square footage for smooth line rendering
       const sortedPlans = companyPlans.sort((a, b) => a.sqft - b.sqft);
 
-      const color = (companyColorMap && companyColorMap[company]) || getCompanyColor(company);
+      const resolvedColor = (companyColorMap && companyColorMap[company]) || getCompanyColor(company);
+      // Chart requires a string color; use a neutral fallback when company has no color set
+      const color = resolvedColor ?? "#94a3b8";
 
       return {
         label: company,

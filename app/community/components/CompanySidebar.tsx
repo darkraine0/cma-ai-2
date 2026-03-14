@@ -46,10 +46,14 @@ export default function CompanySidebar({
             onClick={() => onCompanySelect(company)}
           >
             <div className="flex items-center gap-2">
-              <span
-                className="inline-block w-3 h-3 rounded-full border-2"
-                style={{ backgroundColor: color, borderColor: color }}
-              />
+              {color != null ? (
+                <span
+                  className="inline-block w-3 h-3 rounded-full border-2"
+                  style={{ backgroundColor: color, borderColor: color }}
+                />
+              ) : (
+                <span className="inline-block w-3 h-3 rounded-full border-2 border-dashed border-muted-foreground/40 bg-muted/30" />
+              )}
               <h4 className="font-semibold text-sm break-words">{company}</h4>
             </div>
           </div>

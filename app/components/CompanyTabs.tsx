@@ -14,6 +14,7 @@ const CompanyTabs: React.FC<CompanyTabsProps> = ({ companies, selected, onSelect
       {["All", ...companies].map((company) => {
         const active = selected === company;
         const color = getCompanyColor(company);
+        const resolvedColor = color ?? "#94a3b8";
         
         return (
           <Button
@@ -26,19 +27,19 @@ const CompanyTabs: React.FC<CompanyTabsProps> = ({ companies, selected, onSelect
                 : "hover:bg-muted"
             }`}
             style={active && company !== "All" ? {
-              backgroundColor: color,
-              borderColor: color,
+              backgroundColor: resolvedColor,
+              borderColor: resolvedColor,
               color: 'white'
             } : company !== "All" ? {
-              borderColor: color,
-              color: color
+              borderColor: resolvedColor,
+              color: resolvedColor
             } : {}}
             onClick={() => onSelect(company)}
           >
             {company !== "All" && (
               <span 
                 className="inline-block w-3 h-3 rounded-full mr-2 border-2 border-current" 
-                style={{ backgroundColor: active ? 'white' : color }}
+                style={{ backgroundColor: active ? 'white' : resolvedColor }}
               />
             )}
             {company}

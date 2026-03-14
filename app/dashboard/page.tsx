@@ -225,7 +225,11 @@ export default function Dashboard() {
                         {(() => {
                           const planCompany = typeof plan.company === 'string' ? plan.company : (plan.company as any)?.name || plan.company;
                           const color = getCompanyColor(planCompany);
-                          return <span className="inline-block w-3 h-3 rounded-full border" style={{ backgroundColor: color, borderColor: color }}></span>;
+                          return color != null ? (
+                            <span className="inline-block w-3 h-3 rounded-full border" style={{ backgroundColor: color, borderColor: color }}></span>
+                          ) : (
+                            <span className="inline-block w-3 h-3 rounded-full border border-dashed border-muted-foreground/40 bg-muted/30"></span>
+                          );
                         })()}
                         {typeof plan.company === 'string' ? plan.company : (plan.company as any)?.name || plan.company}
                       </TableCell>
