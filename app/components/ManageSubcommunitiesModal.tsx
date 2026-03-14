@@ -11,10 +11,12 @@ import {
 } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
+import { Checkbox } from "./ui/checkbox";
 import { Loader2 } from "lucide-react";
 import ErrorMessage from "./ErrorMessage";
 import { useScrapingProgress } from "../contexts/ScrapingProgressContext";
 import API_URL from '../config';
+import { cn } from "@/app/utils/utils";
 
 interface Subcommunity {
   _id: string;
@@ -44,11 +46,31 @@ export default function ManageSubcommunitiesModal({
   onSuccess,
 }: ManageSubcommunitiesModalProps) {
   const [subcommunities, setSubcommunities] = useState<Subcommunity[]>([]);
-  const [selectedCommunityId, setSelectedCommunityId] = useState<string | null>(null); // Single selection
+  const [selectedCommunityIds, setSelectedCommunityIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const { startBackgroundScraping } = useScrapingProgress();
+
+  // Map current subcommunity names to community IDs (parent + subs)
+  const getCurrentIds = (data: Subcommunity[]) => {
+    const ids = new Set<string>();
+    if (currentSubcommunities.length === 0) {
+      ids.add(parentCommunityId);
+      return ids;
+    }
+    for (const name of currentSubcommunities) {
+      if (name === parentCommunityName) {
+        ids.add(parentCommunityId);
+      } else {
+        const sub = data.find((s) => s.name === name);
+        if (sub) ids.add(sub._id);
+      }
+    }
+    // If no matches (e.g. names from another source), default to parent
+    if (ids.size === 0) ids.add(parentCommunityId);
+    return ids;
+  };
 
   // Fetch available subcommunities when modal opens
   useEffect(() => {
@@ -63,16 +85,7 @@ export default function ManageSubcommunitiesModal({
         
         const data: Subcommunity[] = await res.json();
         setSubcommunities(data);
-
-        // Pre-select the current assignment
-        // If company is in a subcommunity, select that subcommunity
-        // Otherwise, select the parent community
-        if (currentSubcommunities.length > 0) {
-          const matchingSub = data.find((sub) => currentSubcommunities.includes(sub.name));
-          setSelectedCommunityId(matchingSub ? matchingSub._id : parentCommunityId);
-        } else {
-          setSelectedCommunityId(parentCommunityId);
-        }
+        setSelectedCommunityIds(getCurrentIds(data));
       } catch (err: any) {
         setError(err.message || "Failed to load subcommunities");
       } finally {
@@ -81,80 +94,81 @@ export default function ManageSubcommunitiesModal({
     };
 
     fetchSubcommunities();
-  }, [open, parentCommunityId, currentSubcommunities]);
+  }, [open, parentCommunityId, currentSubcommunities, parentCommunityName]);
 
-  const handleSelectCommunity = (communityId: string) => {
-    setSelectedCommunityId(communityId);
+  const handleToggleCommunity = (communityId: string) => {
+    setSelectedCommunityIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(communityId)) next.delete(communityId);
+      else next.add(communityId);
+      return next;
+    });
   };
 
   const handleSave = async () => {
-    if (!companyId || !selectedCommunityId) {
-      setError("Company ID and selection are required");
+    if (!companyId) {
+      setError("Company ID is required");
+      return;
+    }
+    if (selectedCommunityIds.size === 0) {
+      setError("Select at least one community");
+      return;
+    }
+
+    const originalIds = getCurrentIds(subcommunities);
+    const sameSelection =
+      originalIds.size === selectedCommunityIds.size &&
+      [...originalIds].every((id) => selectedCommunityIds.has(id));
+    if (sameSelection) {
+      onOpenChange(false);
+      if (onSuccess) onSuccess();
       return;
     }
 
     setSaving(true);
     setError("");
-    
+
     try {
-      const originalSubcommunity = subcommunities.find((sub) => 
-        currentSubcommunities.includes(sub.name)
-      );
-      const originalCommunityId = originalSubcommunity?._id || parentCommunityId;
+      const toRemove = [...originalIds].filter((id) => !selectedCommunityIds.has(id));
+      const toAdd = [...selectedCommunityIds].filter((id) => !originalIds.has(id));
 
-      // If no change, just close
-      if (selectedCommunityId === originalCommunityId) {
-        onOpenChange(false);
-        if (onSuccess) onSuccess();
-        return;
-      }
-
-      let newCommunityName: string | null = null;
-
-      // Remove from original location (if it was in a subcommunity)
-      if (originalSubcommunity) {
+      for (const communityId of toRemove) {
         const res = await fetch(
-          `${API_URL}/communities/${originalSubcommunity._id}/companies?companyId=${companyId}`,
+          `${API_URL}/communities/${communityId}/companies?companyId=${companyId}`,
           { method: "DELETE" }
         );
         if (!res.ok) {
           const data = await res.json();
-          throw new Error(data.error || "Failed to remove company from original subcommunity");
+          throw new Error(data.error || "Failed to remove company from community");
         }
       }
 
-      // Add to new location (if it's a subcommunity, not parent)
-      if (selectedCommunityId !== parentCommunityId) {
-        const res = await fetch(`${API_URL}/communities/${selectedCommunityId}/companies`, {
+      for (const communityId of toAdd) {
+        const res = await fetch(`${API_URL}/communities/${communityId}/companies`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ companyId }),
         });
         if (!res.ok) {
           const data = await res.json();
-          throw new Error(data.error || "Failed to add company to subcommunity");
+          throw new Error(data.error || "Failed to add company to community");
         }
-        const selectedSub = subcommunities.find((sub) => sub._id === selectedCommunityId);
-        if (selectedSub) {
-          newCommunityName = selectedSub.name;
-        }
-      } else {
-        // If moving to parent, use parent name
-        newCommunityName = parentCommunityName;
       }
 
-      // Refresh parent once, then run scraping in background (no refresh when done)
-      if (newCommunityName) {
-        onOpenChange(false);
-        if (onSuccess) onSuccess();
+      const selectedNames: string[] = [];
+      if (selectedCommunityIds.has(parentCommunityId)) selectedNames.push(parentCommunityName);
+      for (const sub of subcommunities) {
+        if (selectedCommunityIds.has(sub._id)) selectedNames.push(sub.name);
+      }
+
+      onOpenChange(false);
+      if (onSuccess) onSuccess();
+      if (selectedNames.length > 0) {
         startBackgroundScraping({
           companyName,
           communityName: parentCommunityName,
-          subcommunities: [newCommunityName],
+          subcommunities: selectedNames,
         });
-      } else {
-        onOpenChange(false);
-        if (onSuccess) onSuccess();
       }
     } catch (err: any) {
       setError(err.message || "Failed to update subcommunity assignment");
@@ -164,12 +178,9 @@ export default function ManageSubcommunitiesModal({
   };
 
   const hasChanges = () => {
-    const originalSubcommunity = subcommunities.find((sub) => 
-      currentSubcommunities.includes(sub.name)
-    );
-    const originalCommunityId = originalSubcommunity?._id || parentCommunityId;
-    
-    return selectedCommunityId !== originalCommunityId;
+    const originalIds = getCurrentIds(subcommunities);
+    if (originalIds.size !== selectedCommunityIds.size) return true;
+    return [...originalIds].some((id) => !selectedCommunityIds.has(id));
   };
 
   return (
@@ -196,71 +207,65 @@ export default function ManageSubcommunitiesModal({
           ) : (
             <div className="space-y-2 max-h-[400px] overflow-y-auto py-2">
               {/* Parent Community Option */}
-              <div
-                className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
-                  selectedCommunityId === parentCommunityId
-                    ? 'border-primary bg-primary/10 shadow-sm'
-                    : 'border-border hover:border-primary/50 hover:bg-muted/30'
-                }`}
-                onClick={() => handleSelectCommunity(parentCommunityId)}
+              <label
+                className={cn(
+                  "flex items-start gap-3 p-4 rounded-lg border-2 transition-all cursor-pointer",
+                  selectedCommunityIds.has(parentCommunityId)
+                    ? "border-primary bg-primary/10 shadow-sm"
+                    : "border-border hover:border-primary/50 hover:bg-muted/30"
+                )}
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold">{parentCommunityName}</span>
-                      {currentSubcommunities.length === 0 && (
+                <Checkbox
+                  checked={selectedCommunityIds.has(parentCommunityId)}
+                  onCheckedChange={() => handleToggleCommunity(parentCommunityId)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="mt-0.5"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold">{parentCommunityName}</span>
+                    {(currentSubcommunities.length === 0 || currentSubcommunities.includes(parentCommunityName)) && (
+                      <Badge variant="secondary" className="text-xs">
+                        Current
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </label>
+
+              {/* Subcommunities */}
+              {subcommunities.map((sub) => (
+                <label
+                  key={sub._id}
+                  className={cn(
+                    "flex items-start gap-3 p-4 rounded-lg border-2 transition-all cursor-pointer",
+                    selectedCommunityIds.has(sub._id)
+                      ? "border-primary bg-primary/10 shadow-sm"
+                      : "border-border hover:border-primary/50 hover:bg-muted/30"
+                  )}
+                >
+                  <Checkbox
+                    checked={selectedCommunityIds.has(sub._id)}
+                    onCheckedChange={() => handleToggleCommunity(sub._id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="mt-0.5"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold">{sub.name}</span>
+                      {currentSubcommunities.includes(sub.name) && (
                         <Badge variant="secondary" className="text-xs">
                           Current
                         </Badge>
                       )}
                     </div>
-                  </div>
-                  {selectedCommunityId === parentCommunityId && (
-                    <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center">
-                      <svg className="h-3 w-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Subcommunities */}
-              {subcommunities.map((sub) => (
-                <div
-                  key={sub._id}
-                  className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
-                    selectedCommunityId === sub._id
-                      ? 'border-primary bg-primary/10 shadow-sm'
-                      : 'border-border hover:border-primary/50 hover:bg-muted/30'
-                  }`}
-                  onClick={() => handleSelectCommunity(sub._id)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold">{sub.name}</span>
-                        {currentSubcommunities.includes(sub.name) && (
-                          <Badge variant="secondary" className="text-xs">
-                            Current
-                          </Badge>
-                        )}
-                      </div>
-                      {sub.location && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          📍 {sub.location}
-                        </p>
-                      )}
-                    </div>
-                    {selectedCommunityId === sub._id && (
-                      <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                        <svg className="h-3 w-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
+                    {sub.location && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        📍 {sub.location}
+                      </p>
                     )}
                   </div>
-                </div>
+                </label>
               ))}
             </div>
           )}
@@ -273,7 +278,7 @@ export default function ManageSubcommunitiesModal({
             </DialogClose>
             <Button
               onClick={handleSave}
-              disabled={loading || saving || !hasChanges()}
+              disabled={loading || saving || selectedCommunityIds.size === 0 || !hasChanges()}
             >
               {saving ? (
                 <>
