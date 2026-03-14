@@ -157,9 +157,10 @@ export default function CommunityDetail() {
     };
   }, [v1CommunityName, selectedSubcommunity]);
 
-  // Normalize plan name for dedupe: "2701 Burnely Court, Celina, TX 75009" -> "2701 burnely court"
+  // Normalize plan/address for dedupe so V1 (often address) and V2 (often plan_name) match. When "All", only V1 is shown per duplicate.
   const getPlanDedupeKey = (plan: Plan) => {
-    const baseName = (plan.plan_name || "").split(",")[0].trim().toLowerCase();
+    const nameOrAddress = (plan.address || plan.plan_name || "").trim();
+    const baseName = nameOrAddress.split(",")[0].trim().toLowerCase();
     const company = extractCompanyName(plan.company).trim().toLowerCase();
     return `${baseName}|${company}`;
   };

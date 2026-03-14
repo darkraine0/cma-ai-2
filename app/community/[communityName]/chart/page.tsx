@@ -82,7 +82,8 @@ export default function ChartPage() {
 
   // Merge V1 + V2 plans: show all; for duplicates (same plan + company) prefer V1 and ignore V2
   const getPlanDedupeKey = (plan: Plan) => {
-    const baseName = (plan.plan_name || "").split(",")[0].trim().toLowerCase();
+    const nameOrAddress = (plan.address || plan.plan_name || "").trim();
+    const baseName = nameOrAddress.split(",")[0].trim().toLowerCase();
     const company = extractCompanyName(plan.company).trim().toLowerCase();
     return `${baseName}|${company}`;
   };
