@@ -255,13 +255,17 @@ export default function SelectCompanyModal({
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <span
-                              className="inline-block w-3 h-3 rounded-full border"
-                              style={{
-                                backgroundColor: getCompanyColor(company),
-                                borderColor: getCompanyColor(company),
-                              }}
-                            />
+                            {(() => {
+                              const color = getCompanyColor(company);
+                              return color != null ? (
+                                <span
+                                  className="inline-block w-3 h-3 rounded-full border"
+                                  style={{ backgroundColor: color, borderColor: color }}
+                                />
+                              ) : (
+                                <span className="inline-block w-3 h-3 rounded-full border border-dashed border-muted-foreground/40 bg-muted/30" />
+                              );
+                            })()}
                             <h3 className="font-semibold">{company.name}</h3>
                           </div>
                           {company.description && (

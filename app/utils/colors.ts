@@ -95,11 +95,17 @@ export const sortCompanies = (companies: string[]): string[] => {
   return hasUnionMain ? [unionMain, ...otherCompanies] : otherCompanies;
 };
 
-export const getCompanyColor = (company: string | { name?: string; color?: string } | any) => {
-  // Use stored color when available (e.g. from Company document)
-  if (company && typeof company === 'object' && company.color && typeof company.color === 'string') {
-    const hex = company.color.trim();
-    if (/^#[0-9A-Fa-f]{6}$/.test(hex)) return hex;
+export const getCompanyColor = (company: string | { name?: string; color?: string | null } | any): string | null => {
+  // For company objects from API: no color (null, empty, or omitted) means show no color
+  if (company && typeof company === 'object') {
+    const col = (company as { color?: string | null }).color;
+    if (col === null || col === '' || col === undefined) {
+      return null;
+    }
+    if (typeof col === 'string') {
+      const hex = col.trim();
+      if (/^#[0-9A-Fa-f]{6}$/.test(hex)) return hex;
+    }
   }
   const normalized = normalizeCompanyName(company);
   

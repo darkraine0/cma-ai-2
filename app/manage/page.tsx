@@ -854,13 +854,17 @@ export default function ManagePage() {
                                   >
                                     <div className="flex flex-col gap-2 flex-1 min-w-0">
                                       <div className="flex items-center gap-2">
-                                        <span
-                                          className="inline-block w-3 h-3 rounded-full border flex-shrink-0"
-                                          style={{
-                                            backgroundColor: getCompanyColor(fullCompany ?? company),
-                                            borderColor: getCompanyColor(fullCompany ?? company),
-                                          }}
-                                        />
+                                        {(() => {
+                                          const color = getCompanyColor(fullCompany ?? company);
+                                          return color != null ? (
+                                            <span
+                                              className="inline-block w-3 h-3 rounded-full border flex-shrink-0"
+                                              style={{ backgroundColor: color, borderColor: color }}
+                                            />
+                                          ) : (
+                                            <span className="inline-block w-3 h-3 rounded-full border border-dashed border-muted-foreground/40 bg-muted/30 flex-shrink-0 w-3 h-3" />
+                                          );
+                                        })()}
                                         <span className="text-sm font-medium truncate">{companyName}</span>
                                       </div>
                                       <CompanySubcommunityBadges

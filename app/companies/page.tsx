@@ -253,14 +253,21 @@ export default function CompaniesPage() {
                 <CardHeader>
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <span
-                        className="shrink-0 w-4 h-4 rounded-full border-2 border-border"
-                        style={{
-                          backgroundColor: getCompanyColor(company),
-                          borderColor: getCompanyColor(company),
-                        }}
-                        title="Chart color"
-                      />
+                      {(() => {
+                        const color = getCompanyColor(company);
+                        return color != null ? (
+                          <span
+                            className="shrink-0 w-4 h-4 rounded-full border-2 border-border"
+                            style={{ backgroundColor: color, borderColor: color }}
+                            title="Chart color"
+                          />
+                        ) : (
+                          <span
+                            className="shrink-0 w-4 h-4 rounded-full border-2 border-dashed border-muted-foreground/40 bg-muted/30"
+                            title="No color set"
+                          />
+                        );
+                      })()}
                       <CardTitle className="text-lg truncate">{company.name}</CardTitle>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">

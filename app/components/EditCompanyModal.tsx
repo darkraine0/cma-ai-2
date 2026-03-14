@@ -190,20 +190,49 @@ export default function EditCompanyModal({
               ))}
             </div>
             <div className="flex items-center gap-2">
-              <input
-                type="color"
-                value={color || "#2563eb"}
-                onChange={(e) => setColor(e.target.value)}
-                className="w-10 h-10 rounded border border-border cursor-pointer"
-                disabled={loading}
-              />
-              <Input
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
-                placeholder="#2563eb"
-                className="flex-1 font-mono text-sm"
-                disabled={loading}
-              />
+              {color ? (
+                <>
+                  <input
+                    type="color"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                    className="w-10 h-10 rounded border border-border cursor-pointer"
+                    disabled={loading}
+                  />
+                  <Input
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                    placeholder="No color"
+                    className="flex-1 font-mono text-sm"
+                    disabled={loading}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setColor("")}
+                    disabled={loading}
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    title="Remove color"
+                  >
+                    Clear
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div
+                    className="w-10 h-10 rounded border border-dashed border-muted-foreground/40 bg-muted/30 shrink-0"
+                    title="No color selected"
+                  />
+                  <Input
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                    placeholder="No color — pick above or enter hex"
+                    className="flex-1 font-mono text-sm"
+                    disabled={loading}
+                  />
+                </>
+              )}
             </div>
           </div>
         </div>
