@@ -50,14 +50,14 @@ const CompanySubcommunityBadges: React.FC<CompanySubcommunityBadgesProps> = ({
         </Badge>
       )}
       
-      {isEditor && hasSubcommunities && (
+      {isEditor && (
         <Button
           variant="ghost"
           size="icon"
           onClick={handleManageClick}
           className="h-5 w-5 p-0"
-          title="Manage subcommunities"
-          aria-label={`Manage subcommunities for ${companyName}`}
+          title={hasSubcommunities ? "Manage subcommunities" : "Assign subcommunity"}
+          aria-label={hasSubcommunities ? `Manage subcommunities for ${companyName}` : `Assign subcommunity for ${companyName}`}
         >
           <Settings2 className="h-3.5 w-3.5" />
         </Button>
