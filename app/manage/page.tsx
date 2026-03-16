@@ -1221,6 +1221,11 @@ export default function ManagePage() {
           companyId={editCompanyTarget.id}
           companyName={editCompanyTarget.name}
           initialColor={editCompanyTarget.color}
+          colorsUsedByOtherCompanies={companies
+            .filter((c) => c._id !== editCompanyTarget.id)
+            .map((c) => c.color)
+            .filter((c): c is string => typeof c === "string" && /^#[0-9A-Fa-f]{6}$/.test(c))
+            .map((c) => c.toLowerCase())}
           onSuccess={() => {
             fetchCompanies();
             fetchCommunities({ silent: true });

@@ -33,7 +33,14 @@ interface EditCompanyModalProps {
   companyName?: string;
   /** @deprecated Use initialCompany.color instead */
   initialColor?: string | null;
+  /** Hex colors already assigned to other companies; these are hidden in the picker so only free colors show. */
+  colorsUsedByOtherCompanies?: string[];
   onSuccess?: () => void;
+}
+
+function normalizeHex(hex: string): string {
+  const h = (hex || "").trim();
+  return /^#[0-9A-Fa-f]{6}$/.test(h) ? h.toLowerCase() : "";
 }
 
 export default function EditCompanyModal({
@@ -43,6 +50,7 @@ export default function EditCompanyModal({
   initialCompany,
   companyName: companyNameProp,
   initialColor: initialColorProp,
+  colorsUsedByOtherCompanies = [],
   onSuccess,
 }: EditCompanyModalProps) {
   const companyName = initialCompany?.name ?? companyNameProp ?? "";
@@ -57,7 +65,12 @@ export default function EditCompanyModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const distinctPalette = getDistinctCompanyPalette();
+  const fullPalette = getDistinctCompanyPalette();
+  const usedSet = new Set(colorsUsedByOtherCompanies.map(normalizeHex).filter(Boolean));
+  const currentColorHex = normalizeHex(color || initialColor || "");
+  const distinctPalette = fullPalette.filter(
+    (hex) => normalizeHex(hex) === currentColorHex || !usedSet.has(normalizeHex(hex))
+  );
 
   useEffect(() => {
     if (open) {
