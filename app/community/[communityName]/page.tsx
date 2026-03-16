@@ -16,7 +16,7 @@ import { usePlansFilter } from "../hooks/usePlansFilter";
 import { exportToCSV } from "../utils/exportCSV";
 import { formatCommunitySlug } from "../utils/formatCommunityName";
 import { getV1ProductLineLabel } from "../utils/v1ProductLine";
-import { getCompanyNames, extractCompanyName } from "../utils/companyHelpers";
+import { getCompanyNames, extractCompanyName, normalizeCompanyNameForMatch } from "../utils/companyHelpers";
 import { Filter } from "lucide-react";
 import API_URL from "../../config";
 import { Community } from "../types";
@@ -157,11 +157,12 @@ export default function CommunityDetail() {
     };
   }, [v1CommunityName, selectedSubcommunity]);
 
-  // Normalize plan/address for dedupe so V1 (often address) and V2 (often plan_name) match. When "All", only V1 is shown per duplicate.
+  // Normalize plan/address for dedupe so V1 (often address) and V2 (often plan_name) match.
   const getPlanDedupeKey = (plan: Plan) => {
     const nameOrAddress = (plan.address || plan.plan_name || "").trim();
-    const baseName = nameOrAddress.split(",")[0].trim().toLowerCase();
-    const company = extractCompanyName(plan.company).trim().toLowerCase();
+    const firstPart = nameOrAddress.split(",")[0].trim().toLowerCase();
+    const baseName = firstPart.replace(/\s+/g, " ").replace(/\.+$/, "");
+    const company = normalizeCompanyNameForMatch(extractCompanyName(plan.company));
     return `${baseName}|${company}`;
   };
 
@@ -169,7 +170,13 @@ export default function CommunityDetail() {
   // When "All": deduplicate by plan name + company. When both V1 and V2 exist for same plan, prefer V1; otherwise keep most recent.
   const displayPlans = useMemo(() => {
     if (selectedSubcommunity) return subcommunityPlans;
-    if (versionFilter === "v1") return v1Plans;
+    if (versionFilter === "v1") {
+      const v2Keys = new Set(plans.map((p) => getPlanDedupeKey(p)));
+      return v1Plans.map((p) => ({
+        ...p,
+        versionDisplay: v2Keys.has(getPlanDedupeKey(p)) ? "V1&V2" : "V1",
+      }));
+    }
     if (versionFilter === "v2") return plans;
     // "All" — merge V1 and V2, dedupe by normalized plan name + company; prefer V1 when duplicates exist
     const combined: { plan: Plan; source: "v1" | "v2" }[] = [
@@ -195,7 +202,7 @@ export default function CommunityDetail() {
       const hasBoth = new Set(group.map((g) => g.source)).size > 1;
       result.push({
         ...chosen,
-        versionDisplay: hasBoth ? "V1" : undefined,
+        versionDisplay: hasBoth ? "V1&V2" : undefined,
       });
     }
     return result;

@@ -10,7 +10,7 @@ import PriceChart from "./components/PriceChart";
 import ChartSkeleton from "./components/ChartSkeleton";
 import { useCommunityData } from "../../hooks/useCommunityData";
 import { formatCommunitySlug } from "../../utils/formatCommunityName";
-import { getCompanyNames, extractCompanyName } from "../../utils/companyHelpers";
+import { getCompanyNames, extractCompanyName, normalizeCompanyNameForMatch } from "../../utils/companyHelpers";
 import { useChartFilters } from "./hooks/useChartFilters";
 import { getV1ProductLineLabel } from "../../utils/v1ProductLine";
 import API_URL from '../../../config';
@@ -80,11 +80,12 @@ export default function ChartPage() {
     };
   }, [v1CommunityName, community?.name]);
 
-  // Merge V1 + V2 plans: show all; for duplicates (same plan + company) prefer V1 and ignore V2
+  // Merge V1 + V2 plans: show all; for duplicates (same plan + company) prefer V1 and set versionDisplay to V1&V2
   const getPlanDedupeKey = (plan: Plan) => {
     const nameOrAddress = (plan.address || plan.plan_name || "").trim();
-    const baseName = nameOrAddress.split(",")[0].trim().toLowerCase();
-    const company = extractCompanyName(plan.company).trim().toLowerCase();
+    const firstPart = nameOrAddress.split(",")[0].trim().toLowerCase();
+    const baseName = firstPart.replace(/\s+/g, " ").replace(/\.+$/, "");
+    const company = normalizeCompanyNameForMatch(extractCompanyName(plan.company));
     return `${baseName}|${company}`;
   };
   const displayPlans = useMemo(() => {
@@ -111,7 +112,7 @@ export default function ChartPage() {
       const hasBoth = new Set(group.map((g) => g.source)).size > 1;
       result.push({
         ...chosen,
-        versionDisplay: hasBoth ? "V1" : undefined,
+        versionDisplay: hasBoth ? "V1&V2" : undefined,
       });
     }
     return result;
