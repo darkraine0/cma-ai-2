@@ -89,6 +89,9 @@ export default function ChartPage() {
   const normalizeAddressLike = (value: string) => {
     const raw = String(value ?? "")
       .trim()
+      // Split missing delimiter between house number and street name
+      // (e.g. "332Sugarview" -> "332 Sugarview").
+      .replace(/(\d)([a-zA-Z])/g, "$1 $2")
       // Split accidental camel-case joins (e.g. "RoadSugar" -> "Road Sugar")
       .replace(/([a-z])([A-Z])/g, "$1 $2")
       .toLowerCase()
