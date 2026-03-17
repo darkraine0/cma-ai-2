@@ -87,7 +87,17 @@ export default function ChartPage() {
   }, [v1CommunityName, community?.name]);
 
   const normalizeAddressLike = (value: string) => {
-    const raw = String(value ?? "").trim().toLowerCase();
+    const raw = String(value ?? "")
+      .trim()
+      // Split accidental camel-case joins (e.g. "RoadSugar" -> "Road Sugar")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .toLowerCase()
+      // Split merged street suffix + city token (e.g. "roadsugar" -> "road sugar")
+      .replace(
+        /\b(st|street|ave|avenue|blvd|boulevard|dr|drive|rd|road|ct|court|ln|lane|trl|trail|way|pkwy|parkway|cir|circle|pl|place|ter|terrace|hwy|highway)(?=[a-z])/g,
+        "$1 "
+      )
+      .replace(/\s+/g, " ");
     if (!raw) return "";
     // Keep street-level identity so these match:
     // "2228 Aspen Chase Dr." and "2228 Aspen Chase Dr. Royse City, Texas 75189"
