@@ -4,6 +4,7 @@ import TypeTabs from "../../../../components/TypeTabs";
 import { getCommunityImage } from "../../../../utils/communityImages";
 import { RefreshCw } from "lucide-react";
 import { cn } from "../../../../utils/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../../components/ui/select";
 import type { VersionFilter } from "../hooks/useChartFilters";
 
 interface ProductLineOption {
@@ -47,6 +48,12 @@ export default function ChartHeader({
 }: ChartHeaderProps) {
   const router = useRouter();
   const bannerSrc = getCommunityImage(bannerImageSource ?? communitySlug);
+  const selectedProductLineLabel =
+    selectedProductLineId === "__all__"
+      ? "All"
+      : selectedProductLineId === "__none__"
+        ? "None"
+        : productLines.find((seg) => seg._id === selectedProductLineId)?.label ?? "Product Line";
 
   return (
     <div className="relative overflow-hidden h-36 sm:h-40 rounded-t-lg">
@@ -125,50 +132,20 @@ export default function ChartHeader({
             </div>
           )}
           {productLines.length > 0 && onProductLineChange && (
-            <div className="inline-flex items-center gap-1 bg-white/10 backdrop-blur-sm rounded-lg p-1">
-              <button
-                type="button"
-                onClick={() => onProductLineChange("__all__")}
-                className={cn(
-                  "px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md border transition-all duration-200",
-                  "border-white/20",
-                  selectedProductLineId === "__all__"
-                    ? "bg-white/20 text-white shadow-sm backdrop-blur-sm"
-                    : "text-white/70 hover:text-white hover:bg-white/5"
-                )}
-              >
-                All
-              </button>
-              <button
-                type="button"
-                onClick={() => onProductLineChange("__none__")}
-                className={cn(
-                  "px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md border transition-all duration-200",
-                  "border-white/20",
-                  selectedProductLineId === "__none__"
-                    ? "bg-white/20 text-white shadow-sm backdrop-blur-sm"
-                    : "text-white/70 hover:text-white hover:bg-white/5"
-                )}
-              >
-                None
-              </button>
-              {productLines.map((seg) => (
-                <button
-                  key={seg._id}
-                  type="button"
-                  onClick={() => onProductLineChange(seg._id)}
-                  className={cn(
-                    "px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md border transition-all duration-200",
-                    "border-white/20",
-                    selectedProductLineId === seg._id
-                      ? "bg-white/20 text-white shadow-sm backdrop-blur-sm"
-                      : "text-white/70 hover:text-white hover:bg-white/5"
-                  )}
-                >
-                  {seg.label}
-                </button>
-              ))}
-            </div>
+            <Select value={selectedProductLineId} onValueChange={onProductLineChange}>
+              <SelectTrigger className="w-[120px] sm:w-[140px] h-8 sm:h-9 text-xs sm:text-sm bg-white/20 hover:bg-white/30 text-white border-white/20 backdrop-blur-sm">
+                <SelectValue>{selectedProductLineLabel}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">All</SelectItem>
+                <SelectItem value="__none__">None</SelectItem>
+                {productLines.map((seg) => (
+                  <SelectItem key={seg._id} value={seg._id}>
+                    {seg.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
         </div>
       </div>
