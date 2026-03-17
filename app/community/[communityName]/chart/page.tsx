@@ -24,6 +24,7 @@ export default function ChartPage() {
   const [productLines, setProductLines] = useState<{ _id: string; name: string; label: string }[]>([]);
   const [v1Plans, setV1Plans] = useState<Plan[]>([]);
   const [loadingV1, setLoadingV1] = useState(false);
+  const [isV1FetchCompleted, setIsV1FetchCompleted] = useState(false);
 
   const communitySlug = params?.communityName
     ? decodeURIComponent(params.communityName as string).toLowerCase()
@@ -39,9 +40,11 @@ export default function ChartPage() {
   useEffect(() => {
     if (!v1CommunityName) {
       setV1Plans([]);
+      setIsV1FetchCompleted(true);
       return;
     }
     let cancelled = false;
+    setIsV1FetchCompleted(false);
     setLoadingV1(true);
     fetch(`/api/external/get-plans?community=${encodeURIComponent(v1CommunityName)}`)
       .then((res) => (res.ok ? res.json() : []))
@@ -73,7 +76,10 @@ export default function ChartPage() {
         if (!cancelled) setV1Plans([]);
       })
       .finally(() => {
-        if (!cancelled) setLoadingV1(false);
+        if (!cancelled) {
+          setLoadingV1(false);
+          setIsV1FetchCompleted(true);
+        }
       });
     return () => {
       cancelled = true;
@@ -83,49 +89,88 @@ export default function ChartPage() {
   const normalizeAddressLike = (value: string) => {
     const raw = String(value ?? "").trim().toLowerCase();
     if (!raw) return "";
-    const throughZipMatch = raw.match(/^(.*?[a-z]{2}\s*\d{5})/);
-    const core = throughZipMatch?.[1] ?? raw;
+    // For dedupe, keep street-level identity so
+    // "2701 Burnely Court" and "2701 Burnely Court, Celina, TX 75009" match.
+    const core = raw.split(",")[0]?.trim() ?? raw;
     return core.replace(/[^a-z0-9]/g, "");
   };
 
-  // Merge V1 + V2 plans: show all; for duplicates (same plan + company) prefer V1 and set versionDisplay to V1&V2
+  // Merge V1 + V2 plans: show all; for duplicates prefer V1 and set versionDisplay to V1&V2
   const getPlanDedupeKey = (plan: Plan) => {
     const nameOrAddress = (plan.address || plan.plan_name || "").trim();
     const normalizedAddress = normalizeAddressLike(nameOrAddress);
     const firstPart = nameOrAddress.split(",")[0].trim().toLowerCase();
     const baseName = normalizedAddress || firstPart.replace(/\s+/g, " ").replace(/\.+$/, "");
     const company = normalizeCompanyNameForMatch(extractCompanyName(plan.company));
-    return `${baseName}|${company}`;
+    // Address-like rows are unique enough by street; avoids V1/V2 misses when company naming differs.
+    const isAddressLike = /^\d/.test(firstPart);
+    return isAddressLike ? baseName : `${baseName}|${company}`;
   };
   const displayPlans = useMemo(() => {
-    const combined: { plan: Plan; source: "v1" | "v2" }[] = [
-      ...v1Plans.map((p) => ({ plan: p, source: "v1" as const })),
-      ...plans.map((p) => ({ plan: p, source: "v2" as const })),
-    ];
-    const byKey = new Map<string, { plan: Plan; source: "v1" | "v2" }[]>();
-    for (const { plan, source } of combined) {
-      const key = getPlanDedupeKey(plan);
-      if (!byKey.has(key)) byKey.set(key, []);
-      byKey.get(key)!.push({ plan, source });
+    // Only run V1/V2 string-match dedupe after V1 API completes.
+    if (!isV1FetchCompleted) {
+      return plans;
     }
+
+    type AggregatedGroup = {
+      hasV1: boolean;
+      hasV2: boolean;
+      bestV1?: Plan;
+      bestV1Ts: number;
+      bestAny?: Plan;
+      bestAnyTs: number;
+    };
+
+    const byKey = new Map<string, AggregatedGroup>();
+    const toTs = (value: string | undefined) => new Date(value || 0).getTime();
+
+    const addToGroup = (plan: Plan, source: "v1" | "v2") => {
+      const key = getPlanDedupeKey(plan);
+      let group = byKey.get(key);
+      if (!group) {
+        group = {
+          hasV1: false,
+          hasV2: false,
+          bestV1: undefined,
+          bestV1Ts: Number.NEGATIVE_INFINITY,
+          bestAny: undefined,
+          bestAnyTs: Number.NEGATIVE_INFINITY,
+        };
+        byKey.set(key, group);
+      }
+
+      const ts = toTs(plan.last_updated);
+      if (source === "v1") {
+        group.hasV1 = true;
+        if (ts >= group.bestV1Ts) {
+          group.bestV1 = plan;
+          group.bestV1Ts = ts;
+        }
+      } else {
+        group.hasV2 = true;
+      }
+
+      if (ts >= group.bestAnyTs) {
+        group.bestAny = plan;
+        group.bestAnyTs = ts;
+      }
+    };
+
+    for (const p of v1Plans) addToGroup(p, "v1");
+    for (const p of plans) addToGroup(p, "v2");
+
     const result: Plan[] = [];
     for (const group of byKey.values()) {
-      const hasV1 = group.some((g) => g.source === "v1");
-      const candidates = hasV1 ? group.filter((g) => g.source === "v1") : group;
-      const sorted = [...candidates].sort((a, b) => {
-        const tA = new Date(a.plan.last_updated || 0).getTime();
-        const tB = new Date(b.plan.last_updated || 0).getTime();
-        return tB - tA;
-      });
-      const chosen = sorted[0].plan;
-      const hasBoth = new Set(group.map((g) => g.source)).size > 1;
+      const chosen = group.bestV1 ?? group.bestAny;
+      if (!chosen) continue;
       result.push({
         ...chosen,
-        versionDisplay: hasBoth ? "V1&V2" : undefined,
+        versionDisplay: group.hasV1 && group.hasV2 ? "V1&V2" : undefined,
       });
     }
+
     return result;
-  }, [v1Plans, plans]);
+  }, [isV1FetchCompleted, v1Plans, plans]);
 
   // Fetch product lines (segments) for this community (V2)
   useEffect(() => {
