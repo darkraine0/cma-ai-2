@@ -80,11 +80,20 @@ export default function ChartPage() {
     };
   }, [v1CommunityName, community?.name]);
 
+  const normalizeAddressLike = (value: string) => {
+    const raw = String(value ?? "").trim().toLowerCase();
+    if (!raw) return "";
+    const throughZipMatch = raw.match(/^(.*?[a-z]{2}\s*\d{5})/);
+    const core = throughZipMatch?.[1] ?? raw;
+    return core.replace(/[^a-z0-9]/g, "");
+  };
+
   // Merge V1 + V2 plans: show all; for duplicates (same plan + company) prefer V1 and set versionDisplay to V1&V2
   const getPlanDedupeKey = (plan: Plan) => {
     const nameOrAddress = (plan.address || plan.plan_name || "").trim();
+    const normalizedAddress = normalizeAddressLike(nameOrAddress);
     const firstPart = nameOrAddress.split(",")[0].trim().toLowerCase();
-    const baseName = firstPart.replace(/\s+/g, " ").replace(/\.+$/, "");
+    const baseName = normalizedAddress || firstPart.replace(/\s+/g, " ").replace(/\.+$/, "");
     const company = normalizeCompanyNameForMatch(extractCompanyName(plan.company));
     return `${baseName}|${company}`;
   };

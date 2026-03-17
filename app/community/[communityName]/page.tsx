@@ -157,6 +157,18 @@ export default function CommunityDetail() {
     };
   }, [v1CommunityName, selectedSubcommunity]);
 
+  const normalizeAddressLike = (value: string) => {
+    const raw = String(value ?? "").trim().toLowerCase();
+    if (!raw) return "";
+
+    // V1 can append subdivision text after zip (e.g. "...ga30518skyview...").
+    // Keep only through state + zip when present so V1/V2 address variants match.
+    const throughZipMatch = raw.match(/^(.*?[a-z]{2}\s*\d{5})/);
+    const core = throughZipMatch?.[1] ?? raw;
+
+    return core.replace(/[^a-z0-9]/g, "");
+  };
+
   const getFirstThreeWords = (value: string) => {
     return value
       .toLowerCase()
@@ -172,8 +184,8 @@ export default function CommunityDetail() {
   // Dedupe V1/V2 by first three words of plan/address + company.
   const getPlanDedupeKey = (plan: Plan) => {
     const nameOrAddress = (plan.address || plan.plan_name || "").trim();
-    const firstPart = nameOrAddress.split(",")[0].trim();
-    const baseName = getFirstThreeWords(firstPart);
+    const normalizedAddress = normalizeAddressLike(nameOrAddress);
+    const baseName = normalizedAddress || getFirstThreeWords(nameOrAddress.split(",")[0].trim());
     const company = normalizeCompanyNameForMatch(extractCompanyName(plan.company));
     return `${baseName}|${company}`;
   };
