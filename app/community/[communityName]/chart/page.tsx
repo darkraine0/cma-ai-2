@@ -118,9 +118,56 @@ export default function ChartPage() {
     return core.replace(/[^a-z0-9]/g, "");
   };
 
+  const getAddressRootSignature = (value: string) => {
+    const cleaned = String(value ?? "")
+      .trim()
+      .replace(/(\d)([a-zA-Z])/g, "$1 $2")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .toLowerCase()
+      .replace(
+        /\b(st|street|ave|avenue|blvd|boulevard|dr|drive|rd|road|ct|court|ln|lane|trl|trail|way|pkwy|parkway|cir|circle|pl|place|ter|terrace|hwy|highway)(?=[a-z])/g,
+        "$1 "
+      )
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!cleaned) return "";
+
+    const tokens = cleaned.split(" ").filter(Boolean);
+    const suffixes = new Set([
+      "st", "street", "ave", "avenue", "blvd", "boulevard", "dr", "drive",
+      "rd", "road", "ct", "court", "ln", "lane", "trl", "trail", "way",
+      "pkwy", "parkway", "cir", "circle", "pl", "place", "ter", "terrace",
+      "hwy", "highway",
+    ]);
+
+    const houseIdx = tokens.findIndex((t) => /\d/.test(t));
+    if (houseIdx === -1) return "";
+
+    const house = (tokens[houseIdx].match(/\d+/)?.[0] || "").trim();
+    if (!house) return "";
+
+    const parts: string[] = [];
+    for (let i = houseIdx + 1; i < tokens.length; i++) {
+      const token = tokens[i];
+      if (!/^[a-z0-9]+$/.test(token)) continue;
+      // Stop once city/state/zip tail starts after we already captured street.
+      if (parts.length >= 2 && /^[a-z]{2}\d*$/.test(token)) break;
+      parts.push(token);
+      if (suffixes.has(token) || parts.length >= 3) break;
+    }
+
+    if (parts.length === 0) return "";
+    return `${house}${parts.join("")}`;
+  };
+
   // Merge V1 + V2 plans: show all; for duplicates prefer V1 and set versionDisplay to V1&V2
   const getPlanDedupeKey = (plan: Plan) => {
     const nameOrAddress = (plan.address || plan.plan_name || "").trim();
+    const addressRoot = getAddressRootSignature(nameOrAddress);
+    if (addressRoot) return addressRoot;
+
     const normalizedAddress = normalizeAddressLike(nameOrAddress);
     const firstPart = nameOrAddress.split(",")[0].trim().toLowerCase();
     const baseName = normalizedAddress || firstPart.replace(/\s+/g, " ").replace(/\.+$/, "");
