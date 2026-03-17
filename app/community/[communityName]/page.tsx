@@ -157,11 +157,23 @@ export default function CommunityDetail() {
     };
   }, [v1CommunityName, selectedSubcommunity]);
 
-  // Normalize plan/address for dedupe so V1 (often address) and V2 (often plan_name) match.
+  const getFirstThreeWords = (value: string) => {
+    return value
+      .toLowerCase()
+      .replace(/[.,]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 3)
+      .join(" ");
+  };
+
+  // Dedupe V1/V2 by first three words of plan/address + company.
   const getPlanDedupeKey = (plan: Plan) => {
     const nameOrAddress = (plan.address || plan.plan_name || "").trim();
-    const firstPart = nameOrAddress.split(",")[0].trim().toLowerCase();
-    const baseName = firstPart.replace(/\s+/g, " ").replace(/\.+$/, "");
+    const firstPart = nameOrAddress.split(",")[0].trim();
+    const baseName = getFirstThreeWords(firstPart);
     const company = normalizeCompanyNameForMatch(extractCompanyName(plan.company));
     return `${baseName}|${company}`;
   };
