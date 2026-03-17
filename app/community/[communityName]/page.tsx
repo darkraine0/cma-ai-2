@@ -164,21 +164,38 @@ export default function CommunityDetail() {
   }, [v1CommunityName, selectedSubcommunity]);
 
   const normalizeAddressLike = (value: string) => {
-    const raw = String(value ?? "").trim().toLowerCase();
+    const raw = String(value ?? "")
+      .trim()
+      // "332Sugarview" -> "332 Sugarview"
+      .replace(/(\d)([a-zA-Z])/g, "$1 $2")
+      // "RoadSugar" -> "Road Sugar"
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .toLowerCase()
+      // "roadsugar" -> "road sugar" (for malformed concatenated V1 text)
+      .replace(
+        /\b(st|street|ave|avenue|blvd|boulevard|dr|drive|rd|road|ct|court|ln|lane|trl|trail|way|pkwy|parkway|cir|circle|pl|place|ter|terrace|hwy|highway)(?=[a-z])/g,
+        "$1 "
+      )
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
     if (!raw) return "";
 
-    // Keep street-level identity so these match:
-    // "2228 Aspen Chase Dr." and "2228 Aspen Chase Dr. Royse City, Texas 75189"
-    const streetWithSuffix = raw.match(
-      /^(\d+\s+[a-z0-9\s'-]+?\b(?:st|street|ave|avenue|blvd|boulevard|dr|drive|rd|road|ct|court|ln|lane|trl|trail|way|pkwy|parkway|cir|circle|pl|place|ter|terrace|hwy|highway)\.?)\b/i
-    )?.[1];
-    const core = streetWithSuffix || raw.split(",")[0]?.trim() || raw;
+    const tokens = raw.split(" ").filter(Boolean);
+    // User rule: same number + next 2 words means same plan.
+    if (/^\d+$/.test(tokens[0] || "") && tokens.length >= 3) {
+      return `${tokens[0]}${tokens[1]}${tokens[2]}`;
+    }
 
-    return core.replace(/[^a-z0-9]/g, "");
+    return raw.replace(/\s+/g, "");
   };
 
   const getFirstThreeWords = (value: string) => {
-    return value
+    return String(value ?? "")
+      .trim()
+      .replace(/(\d)([a-zA-Z])/g, "$1 $2")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
       .toLowerCase()
       .replace(/[.,]/g, " ")
       .replace(/\s+/g, " ")
@@ -186,7 +203,7 @@ export default function CommunityDetail() {
       .split(" ")
       .filter(Boolean)
       .slice(0, 3)
-      .join(" ");
+      .join("");
   };
 
   // Dedupe V1/V2 by normalized street/name. For address rows, ignore company mismatches.
