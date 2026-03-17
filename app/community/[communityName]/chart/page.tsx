@@ -89,9 +89,12 @@ export default function ChartPage() {
   const normalizeAddressLike = (value: string) => {
     const raw = String(value ?? "").trim().toLowerCase();
     if (!raw) return "";
-    // For dedupe, keep street-level identity so
-    // "2701 Burnely Court" and "2701 Burnely Court, Celina, TX 75009" match.
-    const core = raw.split(",")[0]?.trim() ?? raw;
+    // Keep street-level identity so these match:
+    // "2228 Aspen Chase Dr." and "2228 Aspen Chase Dr. Royse City, Texas 75189"
+    const streetWithSuffix = raw.match(
+      /^(\d+\s+[a-z0-9\s'-]+?\b(?:st|street|ave|avenue|blvd|boulevard|dr|drive|rd|road|ct|court|ln|lane|trl|trail|way|pkwy|parkway|cir|circle|pl|place|ter|terrace|hwy|highway)\.?)\b/i
+    )?.[1];
+    const core = streetWithSuffix || raw.split(",")[0]?.trim() || raw;
     return core.replace(/[^a-z0-9]/g, "");
   };
 
@@ -165,6 +168,7 @@ export default function ChartPage() {
       if (!chosen) continue;
       result.push({
         ...chosen,
+        // For duplicate V1/V2 matches, keep one row and mark it as V1&V2.
         versionDisplay: group.hasV1 && group.hasV2 ? "V1&V2" : undefined,
       });
     }

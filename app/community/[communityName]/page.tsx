@@ -43,6 +43,7 @@ export default function CommunityDetail() {
   const [versionFilter, setVersionFilter] = useState<"all" | "v1" | "v2">("all");
   const [v1Plans, setV1Plans] = useState<Plan[]>([]);
   const [loadingV1, setLoadingV1] = useState(false);
+  const [isV1FetchCompleted, setIsV1FetchCompleted] = useState(false);
   const { user } = useAuth();
 
   // Fetch community, plans, and child communities
@@ -116,9 +117,11 @@ export default function CommunityDetail() {
   React.useEffect(() => {
     if (selectedSubcommunity || !v1CommunityName) {
       setV1Plans([]);
+      setIsV1FetchCompleted(true);
       return;
     }
     let cancelled = false;
+    setIsV1FetchCompleted(false);
     setLoadingV1(true);
     fetch(`/api/external/get-plans?community=${encodeURIComponent(v1CommunityName)}`)
       .then((res) => (res.ok ? res.json() : []))
@@ -150,7 +153,10 @@ export default function CommunityDetail() {
         if (!cancelled) setV1Plans([]);
       })
       .finally(() => {
-        if (!cancelled) setLoadingV1(false);
+        if (!cancelled) {
+          setLoadingV1(false);
+          setIsV1FetchCompleted(true);
+        }
       });
     return () => {
       cancelled = true;
@@ -161,10 +167,12 @@ export default function CommunityDetail() {
     const raw = String(value ?? "").trim().toLowerCase();
     if (!raw) return "";
 
-    // V1 can append subdivision text after zip (e.g. "...ga30518skyview...").
-    // Keep only through state + zip when present so V1/V2 address variants match.
-    const throughZipMatch = raw.match(/^(.*?[a-z]{2}\s*\d{5})/);
-    const core = throughZipMatch?.[1] ?? raw;
+    // Keep street-level identity so these match:
+    // "2228 Aspen Chase Dr." and "2228 Aspen Chase Dr. Royse City, Texas 75189"
+    const streetWithSuffix = raw.match(
+      /^(\d+\s+[a-z0-9\s'-]+?\b(?:st|street|ave|avenue|blvd|boulevard|dr|drive|rd|road|ct|court|ln|lane|trl|trail|way|pkwy|parkway|cir|circle|pl|place|ter|terrace|hwy|highway)\.?)\b/i
+    )?.[1];
+    const core = streetWithSuffix || raw.split(",")[0]?.trim() || raw;
 
     return core.replace(/[^a-z0-9]/g, "");
   };
@@ -181,19 +189,22 @@ export default function CommunityDetail() {
       .join(" ");
   };
 
-  // Dedupe V1/V2 by first three words of plan/address + company.
+  // Dedupe V1/V2 by normalized street/name. For address rows, ignore company mismatches.
   const getPlanDedupeKey = (plan: Plan) => {
     const nameOrAddress = (plan.address || plan.plan_name || "").trim();
     const normalizedAddress = normalizeAddressLike(nameOrAddress);
-    const baseName = normalizedAddress || getFirstThreeWords(nameOrAddress.split(",")[0].trim());
+    const firstPart = nameOrAddress.split(",")[0].trim().toLowerCase();
+    const baseName = normalizedAddress || getFirstThreeWords(firstPart);
     const company = normalizeCompanyNameForMatch(extractCompanyName(plan.company));
-    return `${baseName}|${company}`;
+    const isAddressLike = /^\d/.test(firstPart);
+    return isAddressLike ? baseName : `${baseName}|${company}`;
   };
 
   // Display: subcommunity plans, or main community plans by version (V1, V2, or both).
   // When "All": deduplicate by plan name + company. When both V1 and V2 exist for same plan, prefer V1; otherwise keep most recent.
   const displayPlans = useMemo(() => {
     if (selectedSubcommunity) return subcommunityPlans;
+    if (!isV1FetchCompleted) return plans;
     if (versionFilter === "v1") {
       const v2Keys = new Set(plans.map((p) => getPlanDedupeKey(p)));
       return v1Plans.map((p) => ({
@@ -230,7 +241,7 @@ export default function CommunityDetail() {
       });
     }
     return result;
-  }, [selectedSubcommunity, subcommunityPlans, versionFilter, v1Plans, plans]);
+  }, [selectedSubcommunity, subcommunityPlans, versionFilter, isV1FetchCompleted, v1Plans, plans]);
 
   // Community companies (from DB) — used for Sync and when showing V2 or subcommunity
   const communityCompanies = useMemo(
