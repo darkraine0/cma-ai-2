@@ -40,8 +40,20 @@ export function normalizeCompanyNameForMatch(name: string): string {
     }
   }
 
-  n = n.replace(/\s+/g, "");
-  return n;
+  // Also handle merged names like "HighlandHomes" (no space before suffix).
+  let compact = n.replace(/\s+/g, "");
+  const compactSuffixes = ["incorporated", "inc", "llc", "ltd", "lp", "homes", "home"];
+  let compactChanged = true;
+  while (compactChanged) {
+    compactChanged = false;
+    for (const suf of compactSuffixes) {
+      if (compact.length > suf.length && compact.endsWith(suf)) {
+        compact = compact.slice(0, -suf.length).trim();
+        compactChanged = true;
+      }
+    }
+  }
+  return compact;
 }
 
 /**
