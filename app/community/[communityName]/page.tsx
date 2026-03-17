@@ -16,7 +16,7 @@ import { usePlansFilter } from "../hooks/usePlansFilter";
 import { exportToCSV } from "../utils/exportCSV";
 import { formatCommunitySlug } from "../utils/formatCommunityName";
 import { getV1ProductLineLabel } from "../utils/v1ProductLine";
-import { getCompanyNames, extractCompanyName, normalizeCompanyNameForMatch } from "../utils/companyHelpers";
+import { getCompanyNames, extractCompanyName, normalizeCompanyNameForMatch, companyNamesMatch, isPlanCompanyInCommunity } from "../utils/companyHelpers";
 import { Filter } from "lucide-react";
 import API_URL from "../../config";
 import { Community } from "../types";
@@ -266,6 +266,15 @@ export default function CommunityDetail() {
     [selectedSubcommunity, community]
   );
 
+  const canonicalCommunityCompanyByKey = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const name of communityCompanies) {
+      const key = normalizeCompanyNameForMatch(name);
+      if (key && !map.has(key)) map.set(key, name);
+    }
+    return map;
+  }, [communityCompanies]);
+
   // When viewing main community: only show V1/V2 in version dropdown if that version has data
   // V1: at least one V1 plan. V2: at least one registered company for this community.
   const hasV1Plans = !selectedSubcommunity && v1Plans.length > 0;
@@ -284,21 +293,30 @@ export default function CommunityDetail() {
     if (versionFilter === "v1") {
       const fromPlans = new Set<string>();
       v1Plans.forEach((p) => {
-        const name = extractCompanyName(p.company);
-        if (name) fromPlans.add(name);
+        const rawName = extractCompanyName(p.company);
+        if (!rawName) return;
+        const key = normalizeCompanyNameForMatch(rawName);
+        fromPlans.add((key && canonicalCommunityCompanyByKey.get(key)) || rawName);
       });
       return Array.from(fromPlans).sort((a, b) => a.localeCompare(b));
     }
     if (versionFilter === "v2") return communityCompanies;
-    // "all": union of V1 plan companies and community companies
-    const fromV1 = new Set<string>();
+    // "all": union of V2 companies + V1 companies, canonicalized to V2 names when matched.
+    const byKey = new Map<string, string>();
+    for (const name of communityCompanies) {
+      const key = normalizeCompanyNameForMatch(name);
+      if (key && !byKey.has(key)) byKey.set(key, name);
+    }
     v1Plans.forEach((p) => {
-      const name = extractCompanyName(p.company);
-      if (name) fromV1.add(name);
+      const rawName = extractCompanyName(p.company);
+      if (!rawName) return;
+      const key = normalizeCompanyNameForMatch(rawName);
+      if (key && !byKey.has(key)) {
+        byKey.set(key, rawName);
+      }
     });
-    const union = new Set([...communityCompanies, ...fromV1]);
-    return Array.from(union).sort((a, b) => a.localeCompare(b));
-  }, [selectedSubcommunity, versionFilter, v1Plans, communityCompanies]);
+    return Array.from(byKey.values()).sort((a, b) => a.localeCompare(b));
+  }, [selectedSubcommunity, versionFilter, v1Plans, communityCompanies, canonicalCommunityCompanyByKey]);
 
   // Stored company colors so builder sidebar matches Companies page and charts
   const companyColorMap = useMemo(() => {
@@ -485,8 +503,8 @@ export default function CommunityDetail() {
         (isMergedSelection && mergedLabel !== null && planSegmentLabel === mergedLabel) ||
         (!isMergedSelection && planSegmentId === selectedProductLineId);
       return (
-        companyNamesSet.has(planCompany) &&
-        (selectedCompany === 'All' || planCompany === selectedCompany) &&
+        isPlanCompanyInCommunity(planCompany, companyNamesSet) &&
+        (selectedCompany === 'All' || companyNamesMatch(planCompany, selectedCompany)) &&
         (selectedType === 'Plan' || selectedType === 'Now'
           ? plan.type === selectedType.toLowerCase()
           : true) &&

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Plan, SortKey, SortOrder, PAGE_SIZE } from "../types";
-import { extractCompanyName } from "../utils/companyHelpers";
+import { extractCompanyName, companyNamesMatch, isPlanCompanyInCommunity } from "../utils/companyHelpers";
 
 export interface ProductLineOption {
   _id: string;
@@ -55,7 +55,7 @@ export function usePlansFilter(
   const filteredPlans = useMemo(() => {
     return plans.filter((plan) => {
       const planCompany = extractCompanyName(plan.company);
-      const isCompanyInCommunity = companyNames.has(planCompany);
+      const isCompanyInCommunity = isPlanCompanyInCommunity(planCompany, companyNames);
       const planSegmentId = plan.segment?._id ?? null;
       const planSegmentLabel = plan.segment?.label ?? null;
       const isMergedSelection = selectedProductLineId.startsWith('merged-');
@@ -68,7 +68,7 @@ export function usePlansFilter(
 
       return (
         isCompanyInCommunity &&
-        (selectedCompany === 'All' || planCompany === selectedCompany) &&
+        (selectedCompany === 'All' || companyNamesMatch(planCompany, selectedCompany)) &&
         (selectedType === 'Plan' || selectedType === 'Now'
           ? plan.type === selectedType.toLowerCase()
           : true) &&

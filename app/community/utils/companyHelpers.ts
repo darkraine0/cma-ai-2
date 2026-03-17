@@ -18,14 +18,29 @@ export function extractCompanyName(company: string | CommunityCompany | any): st
  */
 export function normalizeCompanyNameForMatch(name: string): string {
   if (!name || typeof name !== 'string') return '';
-  let n = name.trim().toLowerCase();
-  const suffixes = [', inc.', ' inc.', ' inc', ', inc', ' homes', ' home', ' llc', ', llc.'];
-  for (const suf of suffixes) {
-    if (n.endsWith(suf)) {
-      n = n.slice(0, -suf.length).trim();
-      break;
+  let n = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const suffixes = ["incorporated", "inc", "llc", "ltd", "lp", "homes", "home"];
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const suf of suffixes) {
+      if (n.endsWith(` ${suf}`)) {
+        n = n.slice(0, -(suf.length + 1)).trim();
+        changed = true;
+      } else if (n === suf) {
+        n = "";
+        changed = true;
+      }
     }
   }
+
+  n = n.replace(/\s+/g, "");
   return n;
 }
 
