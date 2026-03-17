@@ -99,6 +99,13 @@ export default function ChartPage() {
       )
       .replace(/\s+/g, " ");
     if (!raw) return "";
+    const tokens = raw.replace(/,/g, " ").split(" ").filter(Boolean);
+    // Primary signature for address-like plan names:
+    // use "house number + first 2 street words" so malformed tails
+    // (city/zip/subdivision concatenation) do not break V1/V2 matching.
+    if (/^\d+$/.test(tokens[0] || "") && tokens.length >= 3) {
+      return tokens.slice(0, 3).join("");
+    }
     // Keep street-level identity so these match:
     // "2228 Aspen Chase Dr." and "2228 Aspen Chase Dr. Royse City, Texas 75189"
     const streetWithSuffix = raw.match(
