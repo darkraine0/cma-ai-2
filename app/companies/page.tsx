@@ -65,14 +65,9 @@ export default function CompaniesPage() {
   const hasFetched = useRef(false);
 
   const sortCompanies = (companiesList: Company[]) => {
-    return [...companiesList].sort((a, b) => {
-      const isUnionmainA = a.name.toLowerCase().includes('unionmain');
-      const isUnionmainB = b.name.toLowerCase().includes('unionmain');
-
-      if (isUnionmainA !== isUnionmainB) return isUnionmainA ? -1 : 1;
-
-      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
-    });
+    return [...companiesList].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+    );
   };
 
   const fetchCompanies = async () => {
