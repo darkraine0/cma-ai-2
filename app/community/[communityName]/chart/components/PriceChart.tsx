@@ -60,7 +60,7 @@ export default function PriceChart({
   }
 
   return (
-    <div className="w-full min-h-[500px] md:min-h-[400px] flex flex-col">
+    <div className="w-full h-[460px] md:h-[560px] flex flex-col">
       <div className="flex items-center justify-end gap-2 mb-2 text-sm text-muted-foreground">
         <span className="hidden sm:inline">Scroll to zoom · Drag rectangle to zoom in · Ctrl+drag to pan</span>
         <Button
@@ -75,7 +75,7 @@ export default function PriceChart({
           Reset Zoom
         </Button>
       </div>
-      <div className="w-full flex-1 min-h-[400px] flex items-center justify-center">
+      <div className="w-full flex-1 min-h-0">
         <div className="w-full h-full">
           <Line ref={chartRef} data={chartData} options={options} />
         </div>

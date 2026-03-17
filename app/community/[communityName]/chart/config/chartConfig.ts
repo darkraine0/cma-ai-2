@@ -6,8 +6,8 @@ import { ChartOptions } from 'chart.js';
  */
 export const createChartOptions = (isMobile: boolean = false): ChartOptions<'line'> => ({
   responsive: true,
-  maintainAspectRatio: true,
-  aspectRatio: isMobile ? 0.9 : 2, // Taller on mobile (0.9), wider on desktop (2)
+  // Let the chart fill the parent container height instead of shrinking to a fixed aspect ratio.
+  maintainAspectRatio: false,
   plugins: {
     zoom: {
       zoom: {
