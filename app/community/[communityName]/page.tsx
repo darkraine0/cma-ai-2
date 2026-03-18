@@ -206,6 +206,21 @@ export default function CommunityDetail() {
       .join("");
   };
 
+  const hiddenPlanNameSignatures = new Set([
+    "exterioroptionavailable",
+    "exterioroptionsavailable",
+  ]);
+
+  const normalizePlanSignature = (value: string) =>
+    String(value ?? "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+
+  const shouldShowPlan = (plan: Plan) => {
+    const displayName = (plan.type === "now" && plan.address ? plan.address : plan.plan_name) || "";
+    return !hiddenPlanNameSignatures.has(normalizePlanSignature(displayName));
+  };
+
   // Dedupe V1/V2 by normalized street/name. For address rows, ignore company mismatches.
   const getPlanDedupeKey = (plan: Plan) => {
     const nameOrAddress = (plan.address || plan.plan_name || "").trim();
@@ -220,16 +235,16 @@ export default function CommunityDetail() {
   // Display: subcommunity plans, or main community plans by version (V1, V2, or both).
   // When "All": deduplicate by plan name + company. When both V1 and V2 exist for same plan, prefer V1; otherwise keep most recent.
   const displayPlans = useMemo(() => {
-    if (selectedSubcommunity) return subcommunityPlans;
-    if (!isV1FetchCompleted) return plans;
+    if (selectedSubcommunity) return subcommunityPlans.filter(shouldShowPlan);
+    if (!isV1FetchCompleted) return plans.filter(shouldShowPlan);
     if (versionFilter === "v1") {
       const v2Keys = new Set(plans.map((p) => getPlanDedupeKey(p)));
       return v1Plans.map((p) => ({
         ...p,
         versionDisplay: v2Keys.has(getPlanDedupeKey(p)) ? "V1&V2" : "V1",
-      }));
+      })).filter(shouldShowPlan);
     }
-    if (versionFilter === "v2") return plans;
+    if (versionFilter === "v2") return plans.filter(shouldShowPlan);
     // "All" — merge V1 and V2, dedupe by normalized plan name + company; prefer V1 when duplicates exist
     const combined: { plan: Plan; source: "v1" | "v2" }[] = [
       ...v1Plans.map((p) => ({ plan: p, source: "v1" as const })),
@@ -257,7 +272,7 @@ export default function CommunityDetail() {
         versionDisplay: hasBoth ? "V1&V2" : undefined,
       });
     }
-    return result;
+    return result.filter(shouldShowPlan);
   }, [selectedSubcommunity, subcommunityPlans, versionFilter, isV1FetchCompleted, v1Plans, plans]);
 
   // Community companies (from DB) — used for Sync and when showing V2 or subcommunity
