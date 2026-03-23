@@ -16,6 +16,7 @@ import { Badge } from "./ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import { Plus, Loader2, Sparkles, Search, ImagePlus, X, AlertTriangle } from "lucide-react";
 import ErrorMessage from "./ErrorMessage";
+import { useScrapingProgress } from "../contexts/ScrapingProgressContext";
 import API_URL from '../config';
 
 interface AddCommunityModalProps {
@@ -27,6 +28,14 @@ interface CommunityRecommendation {
   name: string;
   description: string | null;
   location: string | null;
+  companies?: string[];
+  companyDetails?: Array<{
+    name: string;
+    description?: string | null;
+    website?: string | null;
+    headquarters?: string | null;
+    founded?: string | null;
+  }>;
   alreadyExists: boolean;
 }
 
@@ -49,6 +58,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
   const [unionMainBuildsHere, setUnionMainBuildsHere] = useState<boolean | null>(null);
   /** Whether homes/plans will be added by scraping or manually */
   const [homesSource, setHomesSource] = useState<'scraped' | 'manual'>('scraped');
+  const { startBackgroundScraping } = useScrapingProgress();
 
   const resetForm = () => {
     setCommunityName("");
@@ -108,59 +118,104 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
       return;
     }
 
-    setLoading(true);
     setError("");
-    try {
-      let imagePath: string | undefined;
-      let imageData: string | undefined;
-      if (imageFile) {
-        const formData = new FormData();
-        formData.append("image", imageFile);
-        formData.append("name", communityName.trim());
-        const uploadRes = await fetch(API_URL + "/communities/upload-image", {
-          method: "POST",
-          body: formData,
-        });
-        if (!uploadRes.ok) {
-          const errData = await uploadRes.json().catch(() => ({}));
-          throw new Error(errData.error || "Failed to upload image");
+    const communityNameValue = communityName.trim();
+    const descriptionValue = description.trim() || undefined;
+    const locationValue = location.trim() || undefined;
+    const companyNamesValue = selectedCommunity?.companies || undefined;
+    const companyDetailsValue = selectedCommunity?.companyDetails || undefined;
+    const communityTypeValue =
+      unionMainBuildsHere === true ? "standard" : unionMainBuildsHere === false ? "competitor" : "standard";
+    const homesSourceValue = homesSource;
+    const imageFileValue = imageFile;
+
+    const buildersLabel = Array.isArray(companyNamesValue) && companyNamesValue.length > 0
+      ? companyNamesValue.length === 1
+        ? companyNamesValue[0]
+        : `${companyNamesValue[0]} +${companyNamesValue.length - 1}`
+      : "Builders";
+
+    // Close immediately so the UI feels instant; work continues in background banner.
+    setOpen(false);
+    resetForm();
+
+    startBackgroundScraping({
+      companyName: buildersLabel,
+      communityName: communityNameValue,
+      runOnlyBeforeScrape: true,
+      loadingText:
+        homesSourceValue === "scraped"
+          ? "Adding community and syncing plans..."
+          : "Adding community...",
+      successText:
+        homesSourceValue === "scraped"
+          ? "Community added and sync finished"
+          : "Community added",
+      errorText: "Community add failed",
+      beforeScrape: async () => {
+        let imagePath: string | undefined;
+        let imageData: string | undefined;
+
+        if (imageFileValue) {
+          const formData = new FormData();
+          formData.append("image", imageFileValue);
+          formData.append("name", communityNameValue);
+          const uploadRes = await fetch(API_URL + "/communities/upload-image", {
+            method: "POST",
+            body: formData,
+          });
+          if (!uploadRes.ok) {
+            const errData = await uploadRes.json().catch(() => ({}));
+            throw new Error(errData.error || "Failed to upload image");
+          }
+          const uploadJson = await uploadRes.json();
+          imageData = uploadJson.imageData;
+          imagePath = uploadJson.path;
         }
-        const uploadJson = await uploadRes.json();
-        // API returns path (Cloudinary URL) or imageData (base64 fallback)
-        imageData = uploadJson.imageData;
-        imagePath = uploadJson.path;
-      }
-      const res = await fetch(API_URL + "/communities", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: communityName.trim(),
-          description: description.trim() || undefined,
-          location: location.trim() || undefined,
-          imagePath: imagePath || undefined,
-          imageData: imageData || undefined,
-          communityType: unionMainBuildsHere === true ? "standard" : unionMainBuildsHere === false ? "competitor" : "standard",
-          homesSource,
-        }),
-      });
 
-      const data = await res.json();
+        const res = await fetch(API_URL + "/communities", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: communityNameValue,
+            description: descriptionValue,
+            location: locationValue,
+            companyNames: companyNamesValue,
+            companyDetails: companyDetailsValue,
+            imagePath: imagePath || undefined,
+            imageData: imageData || undefined,
+            communityType: communityTypeValue,
+            homesSource: homesSourceValue,
+          }),
+        });
 
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to add community");
-      }
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to add community");
+        }
 
-      handleClose();
-      if (onSuccess) {
-        onSuccess();
-      }
-    } catch (err: any) {
-      setError(err.message || "Unknown error");
-    } finally {
-      setLoading(false);
-    }
+        if (data?.scrapeSync?.failedCompanies?.length) {
+          const failedNames = data.scrapeSync.failedCompanies
+            .map((f: { company?: string }) => f.company)
+            .filter(Boolean)
+            .join(", ");
+          window.alert(
+            `Community added, but plan/spec sync failed for: ${failedNames}. You can retry sync from the community page.`
+          );
+        }
+      },
+      onComplete: () => {
+        if (onSuccess) {
+          onSuccess();
+        }
+      },
+      onError: (err) => {
+        // Modal is closed by design; surface failure explicitly.
+        window.alert(err.message || "Failed to add community");
+      },
+    });
   };
 
   const handleSearchCommunities = async () => {

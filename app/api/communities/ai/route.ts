@@ -7,6 +7,250 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+type CommunityResult = {
+  name: string;
+  description: string | null;
+  location: string | null;
+  companies: string[];
+  companyDetails: Array<{
+    name: string;
+    description: string | null;
+    website: string | null;
+    headquarters: string | null;
+    founded: string | null;
+  }>;
+  alreadyExists: boolean;
+};
+
+type RawCompany = {
+  name?: unknown;
+  description?: unknown;
+  website?: unknown;
+  headquarters?: unknown;
+  founded?: unknown;
+};
+
+type RawCommunity = {
+  name?: unknown;
+  description?: unknown;
+  location?: unknown;
+  companies?: unknown;
+  sourceUrl?: unknown;
+};
+
+function cleanJsonPayload(raw: string): string {
+  const trimmed = raw.trim();
+  const markdownCodeBlockPattern = /^```(?:json)?\s*\n?([\s\S]*?)\n?```$/;
+  const match = trimmed.match(markdownCodeBlockPattern);
+  return match?.[1]?.trim() || trimmed;
+}
+
+function normalizeCommunity(raw: RawCommunity): {
+  name: string;
+  description: string | null;
+  location: string | null;
+  companies: string[];
+  companyDetails: Array<{
+    name: string;
+    description: string | null;
+    website: string | null;
+    headquarters: string | null;
+    founded: string | null;
+  }>;
+} | null {
+  const name = typeof raw.name === 'string' ? raw.name.trim() : '';
+  if (!name) return null;
+
+  const description =
+    typeof raw.description === 'string' && raw.description.trim()
+      ? raw.description.trim()
+      : null;
+
+  const location =
+    typeof raw.location === 'string' && raw.location.trim()
+      ? raw.location.trim()
+      : null;
+
+  const normalizeCompany = (
+    company: unknown
+  ): {
+    name: string;
+    description: string | null;
+    website: string | null;
+    headquarters: string | null;
+    founded: string | null;
+  } | null => {
+    if (typeof company === 'string') {
+      const companyName = company.trim();
+      if (!companyName) return null;
+      return {
+        name: companyName,
+        description: null,
+        website: null,
+        headquarters: null,
+        founded: null,
+      };
+    }
+
+    if (!company || typeof company !== 'object') return null;
+    const rawCompany = company as RawCompany;
+    const companyName = typeof rawCompany.name === 'string' ? rawCompany.name.trim() : '';
+    if (!companyName) return null;
+
+    const description =
+      typeof rawCompany.description === 'string' && rawCompany.description.trim()
+        ? rawCompany.description.trim()
+        : null;
+    const website =
+      typeof rawCompany.website === 'string' && rawCompany.website.trim()
+        ? rawCompany.website.trim()
+        : null;
+    const headquarters =
+      typeof rawCompany.headquarters === 'string' && rawCompany.headquarters.trim()
+        ? rawCompany.headquarters.trim()
+        : null;
+    const founded =
+      rawCompany.founded != null && String(rawCompany.founded).trim()
+        ? String(rawCompany.founded).trim()
+        : null;
+
+    return {
+      name: companyName,
+      description,
+      website,
+      headquarters,
+      founded,
+    };
+  };
+
+  const companyDetails = Array.isArray(raw.companies)
+    ? raw.companies.map((c) => normalizeCompany(c)).filter(
+        (
+          c
+        ): c is {
+          name: string;
+          description: string | null;
+          website: string | null;
+          headquarters: string | null;
+          founded: string | null;
+        } => c !== null
+      )
+    : [];
+
+  const seenCompanyNames = new Set<string>();
+  const dedupedCompanyDetails: Array<{
+    name: string;
+    description: string | null;
+    website: string | null;
+    headquarters: string | null;
+    founded: string | null;
+  }> = [];
+  for (const company of companyDetails) {
+    const key = company.name.toLowerCase();
+    if (seenCompanyNames.has(key)) continue;
+    seenCompanyNames.add(key);
+    dedupedCompanyDetails.push(company);
+  }
+
+  // Always include UnionMain Homes for UnionMain-specific communities.
+  if (!dedupedCompanyDetails.some((c) => c.name.toLowerCase().includes('unionmain') || c.name.toLowerCase().includes('union main'))) {
+    dedupedCompanyDetails.unshift({
+      name: 'UnionMain Homes',
+      description: null,
+      website: null,
+      headquarters: null,
+      founded: null,
+    });
+  }
+
+  return {
+    name,
+    description,
+    location,
+    companies: dedupedCompanyDetails.map((c) => c.name),
+    companyDetails: dedupedCompanyDetails,
+  };
+}
+
+function dedupeCommunities(
+  communities: Array<{
+    name: string;
+    description: string | null;
+    location: string | null;
+    companies: string[];
+    companyDetails: Array<{
+      name: string;
+      description: string | null;
+      website: string | null;
+      headquarters: string | null;
+      founded: string | null;
+    }>;
+  }>
+) {
+  const seen = new Set<string>();
+  const deduped: Array<{
+    name: string;
+    description: string | null;
+    location: string | null;
+    companies: string[];
+    companyDetails: Array<{
+      name: string;
+      description: string | null;
+      website: string | null;
+      headquarters: string | null;
+      founded: string | null;
+    }>;
+  }> = [];
+
+  for (const c of communities) {
+    const key = c.name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(c);
+  }
+
+  return deduped;
+}
+
+function normalizeForMatch(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+async function verifyCommunitySource(raw: RawCommunity, communityName: string): Promise<boolean> {
+  const sourceUrl = typeof raw.sourceUrl === 'string' ? raw.sourceUrl.trim() : '';
+  if (!sourceUrl || !/^https?:\/\//i.test(sourceUrl)) {
+    return false;
+  }
+
+  try {
+    const res = await fetch(sourceUrl, {
+      headers: {
+        'user-agent': 'Mozilla/5.0 (compatible; community-search-bot/1.0)',
+      },
+      // Avoid hanging on slow pages.
+      signal: AbortSignal.timeout(8000),
+      cache: 'no-store',
+    });
+
+    if (!res.ok) return false;
+    const pageText = (await res.text()).toLowerCase();
+    const normalizedName = normalizeForMatch(communityName);
+
+    const mentionsUnionMain =
+      pageText.includes('unionmain homes') ||
+      pageText.includes('union main homes') ||
+      pageText.includes('by unionmain homes') ||
+      sourceUrl.toLowerCase().includes('unionmainhomes.com');
+
+    const mentionsCommunityName =
+      normalizedName.length > 0 && normalizeForMatch(pageText).includes(normalizedName);
+
+    return mentionsUnionMain && mentionsCommunityName;
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     if (!process.env.OPENAI_API_KEY) {
@@ -29,24 +273,57 @@ export async function POST(request: NextRequest) {
 
     const searchTerm = searchQuery.trim();
 
-    // Fetch community recommendations from OpenAI
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
+    // Ground results with web search and require explicit UnionMain verification.
+    const response = await openai.responses.create({
+      model: 'o4-mini',
+      tools: [{ type: 'web_search' }],
+      input: [
         {
           role: 'system',
-          content: 'You are a helpful assistant that searches and recommends residential home building communities specifically from Union Main Homes builder. Provide accurate, factual information in JSON format. Return ONLY valid JSON, no additional text. Always return an array of communities, even if there is only one match.',
+          content:
+            'You are a strict data extraction assistant for UnionMain Homes communities. Use live web search and include a community ONLY when a source explicitly indicates UnionMain Homes (or Union Main Homes) builds in that community. If uncertain, omit it. For each included community, return all builders/companies that build in that same community (not only UnionMain). Prefer official community or builder pages when available. Return ONLY valid JSON and nothing else.',
         },
         {
           role: 'user',
-          content: `Search for residential home building communities built by Union Main Homes matching "${searchTerm}". This could be a partial community name, location (like Dallas, TX), or description. IMPORTANT: Only return communities that are built by Union Main Homes builder. Do not include communities from other builders. Return a JSON object with a "communities" array. Each community object should have: name (exact community name as it appears on Union Main Homes website or marketing), description (brief overview with features and amenities specific to this Union Main Homes community), location (city and state, e.g., "Dallas, Texas"). Return up to 8 most relevant Union Main Homes communities. If the search term is very specific, still return an array with matching communities. Only return the JSON object, no additional text.`,
+          content: `Search for residential home building communities built by Union Main Homes matching "${searchTerm}".
+
+This can match partial community name, location, or description.
+
+Hard requirements:
+1) Community eligibility: include a community only if UnionMain Homes / Union Main Homes is one of the builders in that community.
+2) Companies field: include ALL builders/companies for that same community (for example: ["UnionMain Homes", "Fischer Homes"]).
+3) Use exact community names as shown in marketing or listing pages.
+4) Location must be "City, State" format (example: "Dallas, Texas").
+5) Return up to 8 most relevant matches.
+6) If no verified matches exist, return an empty array.
+
+Return exactly this JSON structure:
+{
+  "communities": [
+    {
+      "name": "string",
+      "description": "string",
+      "location": "City, State",
+      "companies": [
+        {
+          "name": "UnionMain Homes",
+          "description": "string or null",
+          "website": "https://... or null",
+          "headquarters": "City, State or null",
+          "founded": "year or null"
+        }
+      ],
+      "sourceUrl": "https://..."
+    }
+  ]
+}
+
+Return ONLY valid JSON.`,
         },
       ],
-      response_format: { type: 'json_object' },
-      temperature: 0.5,
     });
 
-    const aiResponse = completion.choices[0]?.message?.content;
+    const aiResponse = response.output_text;
 
     if (!aiResponse) {
       return NextResponse.json(
@@ -55,31 +332,73 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let responseData;
+    let responseData: { communities?: RawCommunity[]; community?: RawCommunity[] } = {};
     try {
-      responseData = JSON.parse(aiResponse);
+      const cleaned = cleanJsonPayload(aiResponse);
+      responseData = JSON.parse(cleaned);
     } catch (parseError) {
       return NextResponse.json(
-        { error: 'Failed to parse AI response', details: aiResponse },
+        { error: 'Failed to parse AI response as JSON', details: aiResponse },
         { status: 500 }
       );
     }
 
-    // Extract communities array
-    const communities = responseData.communities || responseData.community || [];
-    
-    // Ensure it's an array
-    if (!Array.isArray(communities)) {
-      // If response is a single object, convert to array
-      if (responseData.name) {
-        communities.push(responseData);
-      } else {
-        return NextResponse.json(
-          { error: 'Invalid response format from AI', details: responseData },
-          { status: 500 }
-        );
-      }
-    }
+    const rawCommunities = responseData.communities || responseData.community || [];
+    const safeArray = Array.isArray(rawCommunities) ? rawCommunities : [];
+
+    const normalizedCandidates = safeArray
+      .map((item) => ({
+        normalized: normalizeCommunity(item),
+        raw: item,
+      }))
+      .filter(
+        (
+          item
+        ): item is {
+          normalized: {
+            name: string;
+            description: string | null;
+            location: string | null;
+            companies: string[];
+            companyDetails: Array<{
+              name: string;
+              description: string | null;
+              website: string | null;
+              headquarters: string | null;
+              founded: string | null;
+            }>;
+          };
+          raw: RawCommunity;
+        } =>
+          item.normalized !== null
+      );
+
+    const verification = await Promise.all(
+      normalizedCandidates.map(async (candidate) => {
+        const verified = await verifyCommunitySource(candidate.raw, candidate.normalized.name);
+        return verified ? candidate.normalized : null;
+      })
+    );
+
+    const communities = dedupeCommunities(
+      verification.filter(
+        (
+          item
+        ): item is {
+          name: string;
+          description: string | null;
+          location: string | null;
+          companies: string[];
+          companyDetails: Array<{
+            name: string;
+            description: string | null;
+            website: string | null;
+            headquarters: string | null;
+            founded: string | null;
+          }>;
+        } => item !== null
+      )
+    ).slice(0, 8);
 
     // Check which communities already exist in database
     const communityNames = communities.map((c: any) => c.name).filter(Boolean);
@@ -91,10 +410,12 @@ export async function POST(request: NextRequest) {
     const existingNames = new Set(existingCommunities.map((c: any) => c.name.toLowerCase()));
 
     // Mark which communities already exist
-    const communitiesWithStatus = communities.map((community: any) => ({
+    const communitiesWithStatus: CommunityResult[] = communities.map((community) => ({
       name: community.name,
       description: community.description || null,
       location: community.location || null,
+      companies: Array.isArray(community.companies) ? community.companies : [],
+      companyDetails: Array.isArray(community.companyDetails) ? community.companyDetails : [],
       alreadyExists: existingNames.has(community.name?.toLowerCase() || ''),
     }));
 

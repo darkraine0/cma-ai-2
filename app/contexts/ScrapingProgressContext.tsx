@@ -11,6 +11,9 @@ export interface ScrapingJob {
   communityName: string;
   subcommunities?: string[];
   status: ScrapingStatus;
+  loadingText?: string;
+  successText?: string;
+  errorText?: string;
   error?: string | null;
   onComplete?: () => void;
 }
@@ -21,6 +24,12 @@ interface ScrapingProgressContextValue {
     companyName: string;
     communityName: string;
     subcommunities?: string[];
+    /** If true, only runs beforeScrape and skips /scrape call. */
+    runOnlyBeforeScrape?: boolean;
+    /** Optional custom status texts for the bottom banner. */
+    loadingText?: string;
+    successText?: string;
+    errorText?: string;
     onComplete?: () => void;
     onError?: (err: Error) => void;
     /** Run before starting the scrape (e.g. add company to community). Bar shows immediately; this runs after. */
@@ -78,6 +87,10 @@ export function ScrapingProgressProvider({ children }: { children: React.ReactNo
       companyName: string;
       communityName: string;
       subcommunities?: string[];
+      runOnlyBeforeScrape?: boolean;
+      loadingText?: string;
+      successText?: string;
+      errorText?: string;
       onComplete?: () => void;
       onError?: (err: Error) => void;
       beforeScrape?: () => Promise<void>;
@@ -88,17 +101,22 @@ export function ScrapingProgressProvider({ children }: { children: React.ReactNo
         communityName: params.communityName,
         subcommunities: params.subcommunities,
         status: "loading",
+        loadingText: params.loadingText,
+        successText: params.successText,
+        errorText: params.errorText,
         onComplete: params.onComplete,
       });
 
       const run = async () => {
         try {
           await params.beforeScrape?.();
-          await runScrape({
-            companyName: params.companyName,
-            communityName: params.communityName,
-            subcommunities: params.subcommunities,
-          });
+          if (!params.runOnlyBeforeScrape) {
+            await runScrape({
+              companyName: params.companyName,
+              communityName: params.communityName,
+              subcommunities: params.subcommunities,
+            });
+          }
           setJob((prev) =>
             prev ? { ...prev, status: "success", error: null } : null
           );
@@ -172,9 +190,9 @@ function ScrapingProgressBar() {
             <XCircle className="h-5 w-5 shrink-0 text-destructive" />
           )}
           <span className="truncate text-sm font-medium">
-            {job.status === "loading" && "Scraping plans..."}
-            {job.status === "success" && "Scraping completed"}
-            {job.status === "error" && "Scraping failed"}
+            {job.status === "loading" && (job.loadingText || "Scraping plans...")}
+            {job.status === "success" && (job.successText || "Scraping completed")}
+            {job.status === "error" && (job.errorText || "Scraping failed")}
           </span>
           <span className="truncate text-sm text-muted-foreground">{label}</span>
           {job.status === "error" && job.error && (

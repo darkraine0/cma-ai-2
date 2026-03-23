@@ -9,6 +9,7 @@ import SegmentCompany from '@/app/models/SegmentCompany';
 import PriceHistory from '@/app/models/PriceHistory';
 import mongoose from 'mongoose';
 import { requirePermission } from '@/app/lib/admin';
+import { getCompanyColor } from '@/app/utils/colors';
 
 export async function GET(request: NextRequest) {
   try {
@@ -315,7 +316,18 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
     const body = await request.json();
-    const { name, description, location, parentCommunityId, imagePath, imageData, communityType, homesSource } = body;
+    const {
+      name,
+      description,
+      location,
+      parentCommunityId,
+      imagePath,
+      imageData,
+      companyNames,
+      companyDetails,
+      communityType,
+      homesSource,
+    } = body;
 
     const validCommunityType = communityType === 'competitor' ? 'competitor' : 'standard';
     const validHomesSource = homesSource === 'manual' ? 'manual' : 'scraped';
@@ -359,8 +371,254 @@ export async function POST(request: NextRequest) {
       homesSource: validHomesSource,
     });
 
+    const normalizedCompanyNames = Array.isArray(companyNames)
+      ? companyNames
+          .map((c: unknown) => (typeof c === 'string' ? c.trim() : ''))
+          .filter((c: string) => c.length > 0)
+      : [];
+
+    type NormalizedCompanyDetail = {
+      name: string;
+      description: string | null;
+      website: string | null;
+      headquarters: string | null;
+      founded: string | null;
+    };
+
+    const normalizedCompanyDetails: NormalizedCompanyDetail[] = Array.isArray(companyDetails)
+      ? companyDetails
+          .map((item: any): NormalizedCompanyDetail | null => {
+            if (!item || typeof item !== 'object') return null;
+            const detailName = typeof item.name === 'string' ? item.name.trim() : '';
+            if (!detailName) return null;
+            return {
+              name: detailName,
+              description:
+                typeof item.description === 'string' && item.description.trim()
+                  ? item.description.trim()
+                  : null,
+              website:
+                typeof item.website === 'string' && item.website.trim()
+                  ? item.website.trim()
+                  : null,
+              headquarters:
+                typeof item.headquarters === 'string' && item.headquarters.trim()
+                  ? item.headquarters.trim()
+                  : null,
+              founded:
+                item.founded != null && String(item.founded).trim()
+                  ? String(item.founded).trim()
+                  : null,
+            };
+          })
+          .filter((item): item is NormalizedCompanyDetail => item !== null)
+      : [];
+
+    const seenCompanyNames = new Set<string>();
+    const dedupedCompanyNames: string[] = [];
+    for (const companyName of normalizedCompanyNames) {
+      const key = companyName.toLowerCase();
+      if (seenCompanyNames.has(key)) continue;
+      seenCompanyNames.add(key);
+      dedupedCompanyNames.push(companyName);
+    }
+
+    const detailByName = new Map<
+      string,
+      {
+        name: string;
+        description: string | null;
+        website: string | null;
+        headquarters: string | null;
+        founded: string | null;
+      }
+    >();
+
+    for (const detail of normalizedCompanyDetails) {
+      const key = detail.name.toLowerCase();
+      if (!detailByName.has(key)) {
+        detailByName.set(key, detail);
+      }
+      if (!seenCompanyNames.has(key)) {
+        seenCompanyNames.add(key);
+        dedupedCompanyNames.push(detail.name);
+      }
+    }
+
+    function escapeRegex(input: string) {
+      return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    const normalizeHexColor = (value: string | null | undefined): string | undefined => {
+      if (!value || typeof value !== 'string') return undefined;
+      const raw = value.trim();
+      const hex = raw.startsWith('#') ? raw.slice(1) : raw;
+      if (!/^[0-9A-Fa-f]{6}$/.test(hex)) return undefined;
+      return `#${hex.toLowerCase()}`;
+    };
+
+    if (dedupedCompanyNames.length > 0) {
+      const companyIds: mongoose.Types.ObjectId[] = [];
+
+      for (const companyName of dedupedCompanyNames) {
+        const escapedName = escapeRegex(companyName);
+        const companyDetail = detailByName.get(companyName.toLowerCase());
+        const inferredColor = normalizeHexColor(getCompanyColor(companyName));
+        let companyDoc = await Company.findOne({
+          name: { $regex: new RegExp(`^${escapedName}$`, 'i') },
+        });
+
+        if (!companyDoc) {
+          try {
+            companyDoc = await Company.create({
+              name: companyName,
+              ...(companyDetail?.description ? { description: companyDetail.description } : {}),
+              ...(companyDetail?.website ? { website: companyDetail.website } : {}),
+              ...(companyDetail?.headquarters ? { headquarters: companyDetail.headquarters } : {}),
+              ...(companyDetail?.founded ? { founded: companyDetail.founded } : {}),
+              ...(inferredColor ? { color: inferredColor } : {}),
+            });
+          } catch (err: any) {
+            // Handle race conditions on unique key and re-query case-insensitive.
+            if (err?.code === 11000) {
+              companyDoc = await Company.findOne({
+                name: { $regex: new RegExp(`^${escapedName}$`, 'i') },
+              });
+            } else {
+              throw err;
+            }
+          }
+        } else {
+          let shouldSaveExistingCompany = false;
+
+          if (!companyDoc.color && inferredColor) {
+            // Backfill missing color for existing companies so chips/chart dots are visible.
+            companyDoc.color = inferredColor;
+            shouldSaveExistingCompany = true;
+          }
+          if (!companyDoc.description && companyDetail?.description) {
+            companyDoc.description = companyDetail.description;
+            shouldSaveExistingCompany = true;
+          }
+          if (!companyDoc.website && companyDetail?.website) {
+            companyDoc.website = companyDetail.website;
+            shouldSaveExistingCompany = true;
+          }
+          if (!companyDoc.headquarters && companyDetail?.headquarters) {
+            companyDoc.headquarters = companyDetail.headquarters;
+            shouldSaveExistingCompany = true;
+          }
+          if (!companyDoc.founded && companyDetail?.founded) {
+            companyDoc.founded = companyDetail.founded;
+            shouldSaveExistingCompany = true;
+          }
+
+          if (shouldSaveExistingCompany) {
+            await companyDoc.save();
+          }
+        }
+
+        if (companyDoc?._id) {
+          const objectId =
+            companyDoc._id instanceof mongoose.Types.ObjectId
+              ? companyDoc._id
+              : new mongoose.Types.ObjectId(String(companyDoc._id));
+          companyIds.push(objectId);
+        }
+      }
+
+      const uniqueCompanyIds = Array.from(
+        new Map(companyIds.map((id) => [id.toString(), id])).values()
+      );
+      community.companies = uniqueCompanyIds as any;
+    }
+
     await community.save();
-    return NextResponse.json(community, { status: 201 });
+
+    // Keep CommunityCompany link records in sync for auto-added builder links.
+    if (Array.isArray(community.companies) && community.companies.length > 0) {
+      await Promise.all(
+        community.companies.map((companyId: any) =>
+          CommunityCompany.findOneAndUpdate(
+            { communityId: community._id, companyId },
+            {},
+            { upsert: true, new: true }
+          )
+        )
+      );
+    }
+
+    // Auto-sync plans/specs for newly added communities when source is "scraped".
+    // This ensures the community page has data right after creation.
+    let scrapeSync:
+      | {
+          attempted: number;
+          syncedCompanies: string[];
+          failedCompanies: Array<{ company: string; error: string }>;
+        }
+      | undefined;
+
+    if (validHomesSource === 'scraped' && dedupedCompanyNames.length > 0) {
+      const origin = new URL(request.url).origin;
+      const cookieHeader = request.headers.get('cookie') || '';
+      const communityNameForSync = name.trim();
+
+      const scrapeResults = await Promise.allSettled(
+        dedupedCompanyNames.map(async (companyName) => {
+          const scrapeRes = await fetch(`${origin}/api/scrape`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(cookieHeader ? { cookie: cookieHeader } : {}),
+            },
+            body: JSON.stringify({
+              company: companyName,
+              community: communityNameForSync,
+            }),
+            cache: 'no-store',
+          });
+
+          const scrapeData = await scrapeRes.json().catch(() => ({}));
+          if (!scrapeRes.ok) {
+            throw new Error(scrapeData?.error || scrapeData?.message || 'Failed to sync plans/specs');
+          }
+
+          return companyName;
+        })
+      );
+
+      const syncedCompanies: string[] = [];
+      const failedCompanies: Array<{ company: string; error: string }> = [];
+
+      scrapeResults.forEach((result, index) => {
+        const companyName = dedupedCompanyNames[index];
+        if (result.status === 'fulfilled') {
+          syncedCompanies.push(result.value);
+        } else {
+          failedCompanies.push({
+            company: companyName,
+            error:
+              result.reason instanceof Error
+                ? result.reason.message
+                : 'Failed to sync plans/specs',
+          });
+        }
+      });
+
+      scrapeSync = {
+        attempted: dedupedCompanyNames.length,
+        syncedCompanies,
+        failedCompanies,
+      };
+    }
+
+    return NextResponse.json(
+      {
+        ...community.toObject(),
+        ...(scrapeSync ? { scrapeSync } : {}),
+      },
+      { status: 201 }
+    );
   } catch (error: any) {
     if (error.code === 11000) {
       return NextResponse.json(
