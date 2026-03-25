@@ -5,6 +5,7 @@ import { extractCompanyName } from "../../../utils/companyHelpers";
 export interface ChartDataPoint {
   x: number;
   y: number;
+  planName: string;
 }
 
 export interface ChartDataset {
@@ -47,6 +48,7 @@ export function prepareChartDatasets(
         data: sortedPlans.map((plan) => ({
           x: plan.sqft,
           y: plan.price,
+          planName: plan.plan_name?.trim() || "Unnamed plan",
         })),
         borderColor: color,
         backgroundColor: `${color}40`,

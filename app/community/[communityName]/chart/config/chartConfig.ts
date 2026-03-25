@@ -1,4 +1,4 @@
-import { ChartOptions } from 'chart.js';
+import { ChartOptions, TooltipItem } from 'chart.js';
 
 /**
  * Chart configuration for price vs square footage chart.
@@ -46,9 +46,16 @@ export const createChartOptions = (isMobile: boolean = false): ChartOptions<'lin
     },
     tooltip: {
       callbacks: {
-        label: function (context: any) {
-          const point = context.raw;
-          return `Sqft: ${point.x.toLocaleString()} | Price: $${point.y.toLocaleString()}`;
+        title: function (tooltipItems: TooltipItem<'line'>[]) {
+          const raw = tooltipItems[0]?.raw as { planName?: string } | undefined;
+          return raw?.planName ?? "";
+        },
+        label: function (context: TooltipItem<'line'>) {
+          const raw = context.raw as { x: number; y: number } | undefined;
+          const builder = context.dataset.label ?? "";
+          if (!raw) return builder;
+          const detail = `Sqft: ${raw.x.toLocaleString()} | Price: $${raw.y.toLocaleString()}`;
+          return [builder, detail];
         },
       },
     },
