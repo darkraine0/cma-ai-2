@@ -78,6 +78,7 @@ export default function CommunityHeader({
   onAddPlan,
 }: CommunityHeaderProps) {
   const router = useRouter();
+  const [realImageLoaded, setRealImageLoaded] = React.useState(false);
   const hasSubcommunities = childCommunities.length > 0;
   // Show "Parent [Subcommunity]" when a subcommunity is selected from dropdown, or when we're on a subcommunity's page
   const displayTitle = selectedSubcommunity
@@ -96,6 +97,11 @@ export default function CommunityHeader({
     if (child) onSubcommunityChange(child);
   };
 
+  const placeholderSrc = React.useMemo(
+    () => getCommunityImage(communitySlug),
+    [communitySlug]
+  );
+
   // Wait for community object first, then resolve image from that object only.
   // This avoids slug-based initial flicker while still showing the community's actual mapped/uploaded image.
   const bannerSrc =
@@ -103,15 +109,31 @@ export default function CommunityHeader({
       ? getCommunityImage(bannerImageSource)
       : null;
 
+  React.useEffect(() => {
+    setRealImageLoaded(false);
+  }, [bannerSrc]);
+
   return (
     <div className="relative overflow-hidden h-36 sm:h-40 rounded-t-lg">
-      {/* Background Image (only when real persisted image is available) */}
+      {/* Immediate color placeholder image (prevents black header while loading) */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={placeholderSrc}
+        alt={communityName}
+        className="absolute inset-0 w-full h-full object-cover"
+      />
+
+      {/* Real image fades in after it fully loads */}
       {bannerSrc && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={bannerSrc}
           alt={communityName}
-          className="w-full h-full object-cover"
+          onLoad={() => setRealImageLoaded(true)}
+          className={cn(
+            "absolute inset-0 w-full h-full object-cover transition-opacity duration-300",
+            realImageLoaded ? "opacity-100" : "opacity-0"
+          )}
         />
       )}
 
