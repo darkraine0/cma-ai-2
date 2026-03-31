@@ -96,17 +96,24 @@ export default function CommunityHeader({
     if (child) onSubcommunityChange(child);
   };
 
-  const bannerSrc = getCommunityImage(bannerImageSource ?? communitySlug);
+  // Wait for community object first, then resolve image from that object only.
+  // This avoids slug-based initial flicker while still showing the community's actual mapped/uploaded image.
+  const bannerSrc =
+    bannerImageSource && typeof bannerImageSource === "object"
+      ? getCommunityImage(bannerImageSource)
+      : null;
 
   return (
     <div className="relative overflow-hidden h-36 sm:h-40 rounded-t-lg">
-      {/* Background Image (uses imagePath when set) */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={bannerSrc}
-        alt={communityName}
-        className="w-full h-full object-cover"
-      />
+      {/* Background Image (only when real persisted image is available) */}
+      {bannerSrc && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={bannerSrc}
+          alt={communityName}
+          className="w-full h-full object-cover"
+        />
+      )}
 
       {/* Dark gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/60" />
