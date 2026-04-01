@@ -18,6 +18,7 @@ import { Plus, Loader2, Sparkles, Search, ImagePlus, X, AlertTriangle } from "lu
 import ErrorMessage from "./ErrorMessage";
 import { useScrapingProgress } from "../contexts/ScrapingProgressContext";
 import API_URL from '../config';
+import GooglePlacesAutocompleteInput from "./GooglePlacesAutocompleteInput";
 
 interface AddCommunityModalProps {
   onSuccess?: () => void;
@@ -218,8 +219,9 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
     });
   };
 
-  const handleSearchCommunities = async () => {
-    if (!searchQuery.trim()) {
+  const handleSearchCommunities = async (forcedQuery?: string) => {
+    const queryToUse = (forcedQuery ?? searchQuery).trim();
+    if (!queryToUse) {
       setError("Please enter a search term");
       return;
     }
@@ -237,7 +239,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          searchQuery: searchQuery.trim(),
+          searchQuery: queryToUse,
         }),
       });
 
@@ -316,21 +318,22 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
                   Search for Union Main Homes Communities
                 </label>
                 <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="e.g., Elevon, Cambridge, Dallas communities..."
-                    className="flex-1 px-3 py-2 rounded-md border-2 border-border bg-card text-card-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter" && !loadingAI && searchQuery.trim()) {
-                        handleSearchCommunities();
-                      }
-                    }}
-                    disabled={loading || loadingAI}
-                  />
+                      <div className="flex-1">
+                        <GooglePlacesAutocompleteInput
+                          value={searchQuery}
+                          onChange={(nextValue, meta) => {
+                            setSearchQuery(nextValue);
+                            // Zillow-like: when user picks a location suggestion, run the community search immediately.
+                            if (meta?.placeId && !loadingAI && nextValue.trim()) {
+                              handleSearchCommunities(nextValue);
+                            }
+                          }}
+                          placeholder="e.g., Three Rivers, MI"
+                          disabled={loading || loadingAI}
+                        />
+                      </div>
                   <Button
-                    onClick={handleSearchCommunities}
+                        onClick={() => handleSearchCommunities()}
                     disabled={loadingAI || !searchQuery.trim()}
                     variant="default"
                     className="flex items-center gap-2"
@@ -444,12 +447,10 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
                     <label className="block text-sm font-medium mb-2">
                       Location (Optional)
                     </label>
-                    <input
-                      type="text"
+                    <GooglePlacesAutocompleteInput
                       value={location}
-                      onChange={(e) => setLocation(e.target.value)}
+                      onChange={(nextValue) => setLocation(nextValue)}
                       placeholder="e.g., Dallas, TX"
-                      className="w-full px-3 py-2 rounded-md border-2 border-border bg-card text-card-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                       disabled={loading || loadingAI}
                     />
                   </div>
@@ -603,12 +604,10 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
                 <label className="block text-sm font-medium mb-2">
                   Location (Optional)
                 </label>
-                <input
-                  type="text"
+                <GooglePlacesAutocompleteInput
                   value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  onChange={(nextValue) => setLocation(nextValue)}
                   placeholder="e.g., Dallas, TX"
-                  className="w-full px-3 py-2 rounded-md border-2 border-border bg-card text-card-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   disabled={loading || loadingAI}
                 />
               </div>

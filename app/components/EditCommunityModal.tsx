@@ -13,6 +13,7 @@ import { Loader2, ImagePlus } from "lucide-react";
 import ErrorMessage from "./ErrorMessage";
 import API_URL from "../config";
 import { getCommunityCardImage } from "../utils/communityImages";
+import GooglePlacesAutocompleteInput from "./GooglePlacesAutocompleteInput";
 
 export interface EditCommunityModalCommunity {
   _id: string;
@@ -183,12 +184,10 @@ export default function EditCommunityModal({
             <label className="block text-sm font-medium mb-2">
               Location (Optional)
             </label>
-            <input
-              type="text"
+            <GooglePlacesAutocompleteInput
               value={location}
-              onChange={(e) => setLocation(e.target.value)}
+              onChange={(next) => setLocation(next)}
               placeholder="e.g., Dallas, TX"
-              className="w-full px-3 py-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
               disabled={loading}
             />
           </div>
