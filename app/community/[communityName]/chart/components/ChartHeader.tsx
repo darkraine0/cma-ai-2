@@ -28,6 +28,7 @@ interface ChartHeaderProps {
   productLines?: ProductLineOption[];
   selectedProductLineId?: string;
   onProductLineChange?: (id: string) => void;
+  productLinesLoading?: boolean;
   /** Optional sub-community breakdown filter (filters chart plans by child community). */
   subcommunities?: Array<{ _id: string; name: string }>;
   selectedSubcommunityId?: string;
@@ -47,6 +48,7 @@ export default function ChartHeader({
   productLines = [],
   selectedProductLineId = "__all__",
   onProductLineChange,
+  productLinesLoading = false,
   subcommunities = [],
   selectedSubcommunityId = "__all__",
   onSubcommunityChange,
@@ -138,10 +140,14 @@ export default function ChartHeader({
               ))}
             </div>
           )}
-          {productLines.length > 0 && onProductLineChange && (
+          {onProductLineChange && (
             <Select value={selectedProductLineId} onValueChange={onProductLineChange}>
-              <SelectTrigger className="w-[120px] sm:w-[140px] h-8 sm:h-9 text-xs sm:text-sm bg-white/20 hover:bg-white/30 text-white border-white/20 backdrop-blur-sm">
-                <SelectValue>{selectedProductLineLabel}</SelectValue>
+              <SelectTrigger
+                className="w-[120px] sm:w-[140px] h-8 sm:h-9 text-xs sm:text-sm bg-white/20 hover:bg-white/30 text-white border-white/20 backdrop-blur-sm"
+                disabled={productLinesLoading}
+                title={productLinesLoading ? "Loading product lines..." : undefined}
+              >
+                <SelectValue>{productLinesLoading ? "Loading..." : selectedProductLineLabel}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">All</SelectItem>
@@ -157,7 +163,6 @@ export default function ChartHeader({
 
           {subcommunities.length > 0 && onSubcommunityChange && (
             <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-lg p-1">
-              <span className="text-xs sm:text-sm text-white/80 px-1">Sub-communities</span>
               <Select value={selectedSubcommunityId} onValueChange={onSubcommunityChange}>
                 <SelectTrigger className="w-[160px] h-8 sm:h-9 text-xs sm:text-sm bg-white/20 hover:bg-white/30 text-white border-white/20 backdrop-blur-sm">
                   <SelectValue>

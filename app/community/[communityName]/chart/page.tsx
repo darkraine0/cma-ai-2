@@ -22,12 +22,14 @@ export default function ChartPage() {
   const { toast } = useToast();
   const [isSyncing, setIsSyncing] = useState(false);
   const [productLines, setProductLines] = useState<{ _id: string; name: string; label: string }[]>([]);
+  const [productLinesLoading, setProductLinesLoading] = useState(false);
   const [v1Plans, setV1Plans] = useState<Plan[]>([]);
   const [loadingV1, setLoadingV1] = useState(false);
   const [isV1FetchCompleted, setIsV1FetchCompleted] = useState(false);
   const [selectedSubcommunityId, setSelectedSubcommunityId] = useState<string>("__all__");
   const [subcommunityPlansById, setSubcommunityPlansById] = useState<Record<string, Plan[]>>({});
   const [subcommunityPlansLoading, setSubcommunityPlansLoading] = useState(false);
+  const [stableSubcommunityId, setStableSubcommunityId] = useState<string>("__all__");
 
   const communitySlug = params?.communityName
     ? decodeURIComponent(params.communityName as string).toLowerCase()
@@ -51,6 +53,7 @@ export default function ChartPage() {
   // Reset cached child plans when switching to a different route community.
   useEffect(() => {
     setSubcommunityPlansById({});
+    setStableSubcommunityId("__all__");
   }, [communitySlug]);
 
   const displayCommunityId = useMemo(() => {
@@ -60,6 +63,33 @@ export default function ChartPage() {
     }
     return selectedSubcommunityId;
   }, [community?._id, selectedSubcommunityId]);
+
+  const requiredChildIdsForAll = useMemo(() => {
+    if (!Array.isArray(childCommunities) || childCommunities.length === 0) return [];
+    return childCommunities.map((c) => c._id);
+  }, [childCommunities]);
+
+  const allChildPlansLoaded = useMemo(() => {
+    if (requiredChildIdsForAll.length === 0) return true;
+    return requiredChildIdsForAll.every((id) => subcommunityPlansById[id] !== undefined);
+  }, [requiredChildIdsForAll, subcommunityPlansById]);
+
+  // Avoid flicker when switching to "All": only switch once all child plan fetches are done.
+  const effectiveSubcommunityId = useMemo(() => {
+    if (selectedSubcommunityId !== "__all__") return selectedSubcommunityId;
+    return allChildPlansLoaded ? "__all__" : stableSubcommunityId;
+  }, [selectedSubcommunityId, allChildPlansLoaded, stableSubcommunityId]);
+
+  // Track the last "stable" selection (data fully loaded) so we can keep the chart steady while loading.
+  useEffect(() => {
+    if (selectedSubcommunityId === "__all__") {
+      if (allChildPlansLoaded) setStableSubcommunityId("__all__");
+      return;
+    }
+    if (selectedSubcommunityId && subcommunityPlansById[selectedSubcommunityId] !== undefined) {
+      setStableSubcommunityId(selectedSubcommunityId);
+    }
+  }, [selectedSubcommunityId, allChildPlansLoaded, subcommunityPlansById]);
 
   // Fetch V1 plans from external API (same as community page)
   const v1CommunityName = community?.v1ExternalCommunityName ?? community?.name;
@@ -72,7 +102,7 @@ export default function ChartPage() {
 
     // When showing a single child subcommunity, exclude V1 data:
     // the external API isn't reliably subcommunity-level.
-    if (selectedSubcommunityId !== "__all__") {
+    if (effectiveSubcommunityId !== "__all__") {
       setV1Plans([]);
       setIsV1FetchCompleted(true);
       return;
@@ -119,7 +149,7 @@ export default function ChartPage() {
     return () => {
       cancelled = true;
     };
-  }, [v1CommunityName, community?.name, selectedSubcommunityId]);
+  }, [v1CommunityName, community?.name, effectiveSubcommunityId]);
 
   // Fetch V2 plans for child communities (so we can render builder lines split by subcommunity).
   useEffect(() => {
@@ -309,12 +339,12 @@ export default function ChartPage() {
     };
 
     const v2PlansForChart: Plan[] = (() => {
-      if (selectedSubcommunityId === "__all__") {
+      if (effectiveSubcommunityId === "__all__") {
         const childIds = (childCommunities ?? []).map((c) => c._id);
         const childPlans = childIds.flatMap((id) => subcommunityPlansById[id] ?? []);
         return [...plans, ...childPlans];
       }
-      return subcommunityPlansById[selectedSubcommunityId] ?? [];
+      return subcommunityPlansById[effectiveSubcommunityId] ?? [];
     })();
 
     for (const p of v1Plans) addToGroup(p, "v1");
@@ -336,7 +366,7 @@ export default function ChartPage() {
     isV1FetchCompleted,
     v1Plans,
     plans,
-    selectedSubcommunityId,
+    effectiveSubcommunityId,
     childCommunities,
     subcommunityPlansById,
   ]);
@@ -345,10 +375,10 @@ export default function ChartPage() {
   // When a subcommunity has no segments, fall back to parent community segments.
   useEffect(() => {
     if (!displayCommunityId || !community?._id) {
-      setProductLines([]);
       return;
     }
     let cancelled = false;
+    setProductLinesLoading(true);
 
     fetch(`${API_URL}/product-segments?communityId=${displayCommunityId}`)
       .then((res) => (res.ok ? res.json() : []))
@@ -360,7 +390,7 @@ export default function ChartPage() {
         if (
           !cancelled &&
           list.length === 0 &&
-          selectedSubcommunityId !== "__all__" &&
+          effectiveSubcommunityId !== "__all__" &&
           community?._id
         ) {
           fetch(`${API_URL}/product-segments?communityId=${community._id}`)
@@ -375,11 +405,14 @@ export default function ChartPage() {
       })
       .catch(() => {
         if (!cancelled) setProductLines([]);
+      })
+      .finally(() => {
+        if (!cancelled) setProductLinesLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [displayCommunityId, community?._id, selectedSubcommunityId]);
+  }, [displayCommunityId, community?._id, effectiveSubcommunityId]);
 
   // V1 product line options from V1 plans (price tiers: 20s, 30s, etc.)
   const v1ProductLineOptions = useMemo(() => {
@@ -413,11 +446,11 @@ export default function ChartPage() {
 
   const selectedCommunitiesForCompanies = useMemo((): Community[] => {
     if (!community) return [];
-    if (selectedSubcommunityId === "__all__") return [community, ...(childCommunities ?? [])];
+    if (effectiveSubcommunityId === "__all__") return [community, ...(childCommunities ?? [])];
 
-    const child = (childCommunities ?? []).find((c) => c._id === selectedSubcommunityId);
+    const child = (childCommunities ?? []).find((c) => c._id === effectiveSubcommunityId);
     return [child ?? community];
-  }, [community, childCommunities, selectedSubcommunityId]);
+  }, [community, childCommunities, effectiveSubcommunityId]);
 
   // Companies: union of V1 plan companies and V2 companies for the selected community set
   const companies = useMemo(() => {
@@ -473,17 +506,17 @@ export default function ChartPage() {
   const syncableCompanies = useMemo(
     () => {
       if (!community) return [];
-      if (selectedSubcommunityId === "__all__") return [];
+      if (effectiveSubcommunityId === "__all__") return [];
 
-      const child = (childCommunities ?? []).find((c) => c._id === selectedSubcommunityId);
+      const child = (childCommunities ?? []).find((c) => c._id === effectiveSubcommunityId);
       return getCompanyNames(child?.companies);
     },
-    [community, childCommunities, selectedSubcommunityId]
+    [community, childCommunities, effectiveSubcommunityId]
   );
 
   // Handle sync/re-scrape (V2 companies only)
   const handleSync = async () => {
-    if (selectedSubcommunityId === "__all__") {
+    if (effectiveSubcommunityId === "__all__") {
       toast({
         variant: "destructive",
         title: "Error",
@@ -502,10 +535,10 @@ export default function ChartPage() {
       return;
     }
 
-    const targetCommunityId = selectedSubcommunityId;
+    const targetCommunityId = effectiveSubcommunityId;
 
     const targetCommunityName =
-      (childCommunities ?? []).find((c) => c._id === selectedSubcommunityId)?.name ?? community.name;
+      (childCommunities ?? []).find((c) => c._id === effectiveSubcommunityId)?.name ?? community.name;
 
     setIsSyncing(true);
     
@@ -613,6 +646,7 @@ export default function ChartPage() {
               productLines={displayProductLines}
               selectedProductLineId={selectedProductLineId}
               onProductLineChange={setSelectedProductLineId}
+              productLinesLoading={productLinesLoading}
               subcommunities={subcommunityOptions}
               selectedSubcommunityId={selectedSubcommunityId}
               onSubcommunityChange={setSelectedSubcommunityId}
