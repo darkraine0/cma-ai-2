@@ -49,6 +49,8 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
   const [loadingAI, setLoadingAI] = useState(false);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  /** Set when user picks a Google Places suggestion; required for Google-based community search. */
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<CommunityRecommendation[]>([]);
   const [selectedCommunity, setSelectedCommunity] = useState<CommunityRecommendation | null>(null);
   const [showRecommendations, setShowRecommendations] = useState(false);
@@ -67,6 +69,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
     setLocation("");
     setError("");
     setSearchQuery("");
+    setSelectedPlaceId(null);
     setRecommendations([]);
     setSelectedCommunity(null);
     setShowRecommendations(false);
@@ -221,13 +224,16 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
 
   const handleSearchCommunities = async (
     forcedQuery?: string,
-    options?: { fromPlaceSelection?: boolean }
+    options?: { fromPlaceSelection?: boolean; placeId?: string | null }
   ) => {
     const queryToUse = (forcedQuery ?? searchQuery).trim();
     if (!queryToUse) {
       setError("Please enter a search term");
       return;
     }
+
+    const placeId =
+      options?.placeId !== undefined ? options.placeId : selectedPlaceId;
 
     setLoadingAI(true);
     setError("");
@@ -236,27 +242,44 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
     setShowRecommendations(true);
     
     try {
-      const res = await fetch(API_URL + "/communities/ai", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          searchQuery: queryToUse,
-          fromPlaceSelection: Boolean(options?.fromPlaceSelection),
-        }),
-      });
+      const useGooglePlaces = Boolean(placeId && String(placeId).trim());
+
+      const res = useGooglePlaces
+        ? await fetch(API_URL + "/communities/google-search", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              placeId: String(placeId).trim(),
+              locationLabel: queryToUse,
+            }),
+          })
+        : await fetch(API_URL + "/communities/ai", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              searchQuery: queryToUse,
+              fromPlaceSelection: Boolean(options?.fromPlaceSelection),
+            }),
+          });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to search communities with AI");
+        throw new Error(data.error || data.message || "Failed to search communities");
       }
 
       setRecommendations(data.communities || []);
       
       if (!data.communities || data.communities.length === 0) {
-        setError("No communities found. Try a different search term.");
+        setError(
+          useGooglePlaces
+            ? "No communities found in Google Places for this area. Try a smaller city or use Search without picking from the list for AI results."
+            : "No communities found. Try a different search term."
+        );
       }
     } catch (err: any) {
       setError(err.message || "Unknown error");
@@ -278,6 +301,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
     setLocation(community.location || "");
     setShowRecommendations(false);
     setSearchQuery("");
+    setSelectedPlaceId(null);
     // Keep in same tab - don't switch
   };
 
@@ -322,7 +346,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
                   Search for Union Main Homes Communities
                 </label>
                 <p className="text-xs text-muted-foreground mb-2">
-                  Choose a city or area from the list — we&apos;ll search for Union Main communities there.
+                  Pick a city or area from the list to search Google Places for nearby communities, or type a term and press Search for AI (UnionMain) web results.
                 </p>
                 <div className="flex gap-2">
                       <div className="flex-1">
@@ -330,10 +354,15 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
                           value={searchQuery}
                           onChange={(nextValue) => {
                             setSearchQuery(nextValue);
+                            setSelectedPlaceId(null);
                           }}
-                          onPlaceSelected={({ description }) => {
+                          onPlaceSelected={({ description, placeId }) => {
                             setSearchQuery(description);
-                            void handleSearchCommunities(description, { fromPlaceSelection: true });
+                            setSelectedPlaceId(placeId);
+                            void handleSearchCommunities(description, {
+                              fromPlaceSelection: true,
+                              placeId,
+                            });
                           }}
                           placeholder="e.g., Frisco, TX or Atlanta, GA"
                           disabled={loading || loadingAI}
@@ -343,6 +372,11 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
                   <Button
                         onClick={() => handleSearchCommunities()}
                     disabled={loadingAI || !searchQuery.trim()}
+                    title={
+                      selectedPlaceId
+                        ? "Search Google Places using the selected area"
+                        : "Search with AI (select a location from the list first for Google Places)"
+                    }
                     variant="default"
                     className="flex items-center gap-2"
                   >
