@@ -216,7 +216,11 @@ function normalizeForMatch(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-async function verifyCommunitySource(raw: RawCommunity, communityName: string): Promise<boolean> {
+async function verifyCommunitySource(
+  raw: RawCommunity,
+  communityName: string,
+  options?: { relaxNameMatch?: boolean }
+): Promise<boolean> {
   const sourceUrl = typeof raw.sourceUrl === 'string' ? raw.sourceUrl.trim() : '';
   if (!sourceUrl || !/^https?:\/\//i.test(sourceUrl)) {
     return false;
@@ -235,6 +239,7 @@ async function verifyCommunitySource(raw: RawCommunity, communityName: string): 
     if (!res.ok) return false;
     const pageText = (await res.text()).toLowerCase();
     const normalizedName = normalizeForMatch(communityName);
+    const normalizedPage = normalizeForMatch(pageText);
 
     const mentionsUnionMain =
       pageText.includes('unionmain homes') ||
@@ -243,9 +248,17 @@ async function verifyCommunitySource(raw: RawCommunity, communityName: string): 
       sourceUrl.toLowerCase().includes('unionmainhomes.com');
 
     const mentionsCommunityName =
-      normalizedName.length > 0 && normalizeForMatch(pageText).includes(normalizedName);
+      normalizedName.length > 0 && normalizedPage.includes(normalizedName);
 
-    return mentionsUnionMain && mentionsCommunityName;
+    if (mentionsUnionMain && mentionsCommunityName) return true;
+
+    // Map place search: allow a strong UnionMain signal plus a distinctive word from the community name.
+    if (options?.relaxNameMatch && mentionsUnionMain && normalizedName.length > 0) {
+      const token = normalizedName.split(/\s+/).find((t) => t.length >= 4);
+      if (token && normalizedPage.includes(token)) return true;
+    }
+
+    return false;
   } catch {
     return false;
   }
@@ -262,7 +275,7 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
     const body = await request.json();
-    const { searchQuery } = body;
+    const { searchQuery, fromPlaceSelection } = body;
 
     if (!searchQuery || !searchQuery.trim()) {
       return NextResponse.json(
@@ -272,6 +285,15 @@ export async function POST(request: NextRequest) {
     }
 
     const searchTerm = searchQuery.trim();
+    const fromMapsPlace = Boolean(fromPlaceSelection);
+
+    const placeSelectionNote = fromMapsPlace
+      ? `The user selected this location from Google Maps: "${searchTerm}".
+Your job is to list named residential communities or master-planned developments in that city, metro area, or state (as appropriate) where UnionMain Homes or Union Main Homes builds homes.
+Return real community development names (e.g. "Waterside", "Cambridge Crossing"), not airports, malls, stadiums, aquariums, or generic POIs unless the development is literally named that way.
+Each community must still satisfy the sourceUrl and verification rules below.
+`
+      : '';
 
     // Ground results with web search and require explicit UnionMain verification.
     const response = await openai.responses.create({
@@ -285,7 +307,7 @@ export async function POST(request: NextRequest) {
         },
         {
           role: 'user',
-          content: `Search for residential home building communities built by Union Main Homes matching "${searchTerm}".
+          content: `${placeSelectionNote}Search for residential home building communities built by Union Main Homes matching "${searchTerm}".
 
 This can match partial community name, location, or description.
 
@@ -375,7 +397,9 @@ Return ONLY valid JSON.`,
 
     const verification = await Promise.all(
       normalizedCandidates.map(async (candidate) => {
-        const verified = await verifyCommunitySource(candidate.raw, candidate.normalized.name);
+        const verified = await verifyCommunitySource(candidate.raw, candidate.normalized.name, {
+          relaxNameMatch: fromMapsPlace,
+        });
         return verified ? candidate.normalized : null;
       })
     );

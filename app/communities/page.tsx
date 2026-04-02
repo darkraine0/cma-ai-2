@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
 import API_URL from '../config';
 import { getCompanyColor } from '../utils/colors';
 import { getCommunityCardImage } from '../utils/communityImages';
@@ -40,6 +41,26 @@ interface Community {
   parentCommunityId?: string | null;
   children?: Community[];
   communityType?: 'standard' | 'competitor';
+  state?: string;
+}
+
+type CommunityUSRegion = "texas" | "georgia" | "other";
+
+function getCommunityUSRegion(c: Community): CommunityUSRegion {
+  const s = (c.state || "").trim().toLowerCase();
+  if (s === "tx" || s === "texas") return "texas";
+  if (s === "ga" || s === "georgia") return "georgia";
+
+  const loc = (c.location || "").trim();
+  if (!loc) return "other";
+  const lower = loc.toLowerCase();
+  if (/,?\s*tx\s*$/i.test(loc) || lower.endsWith(", texas") || lower.includes("texas")) {
+    return "texas";
+  }
+  if (/,?\s*ga\s*$/i.test(loc) || lower.endsWith(", georgia") || lower.includes("georgia")) {
+    return "georgia";
+  }
+  return "other";
 }
 
 export default function CommunitiesPage() {
@@ -64,6 +85,7 @@ export default function CommunitiesPage() {
   const [filteredCommunities, setFilteredCommunities] = useState<Community[]>(communities);
   const [searchQuery, setSearchQuery] = useState("");
   const [communityTypeFilter, setCommunityTypeFilter] = useState<"all" | "general" | "site">("all");
+  const [regionTab, setRegionTab] = useState<CommunityUSRegion>("texas");
   const [sortBy, setSortBy] = useState<"name_asc" | "name_desc" | "builders_desc" | "plans_desc">("name_asc");
   const [loading, setLoading] = useState(communities.length === 0);
   const [refreshing, setRefreshing] = useState(false);
@@ -124,6 +146,7 @@ export default function CommunitiesPage() {
           recentChanges: 0,
           description: comm.description,
           location: comm.location,
+          state: comm.state,
           _id: comm._id,
           hasImage: comm.hasImage || false,
           imagePath: comm.imagePath || null,
@@ -202,6 +225,31 @@ export default function CommunitiesPage() {
 
     setFilteredCommunities(filtered);
   }, [searchQuery, sortBy, communitiesForFilter]);
+
+  const communitiesByRegion = useMemo(() => {
+    const texas: Community[] = [];
+    const georgia: Community[] = [];
+    const other: Community[] = [];
+    for (const c of filteredCommunities) {
+      const r = getCommunityUSRegion(c);
+      if (r === "texas") texas.push(c);
+      else if (r === "georgia") georgia.push(c);
+      else other.push(c);
+    }
+    return { texas, georgia, other };
+  }, [filteredCommunities]);
+
+  useEffect(() => {
+    const { texas, georgia, other } = communitiesByRegion;
+    const currentEmpty =
+      (regionTab === "texas" && texas.length === 0) ||
+      (regionTab === "georgia" && georgia.length === 0) ||
+      (regionTab === "other" && other.length === 0);
+    if (!currentEmpty) return;
+    if (texas.length > 0) setRegionTab("texas");
+    else if (georgia.length > 0) setRegionTab("georgia");
+    else if (other.length > 0) setRegionTab("other");
+  }, [communitiesByRegion, regionTab]);
 
   const handleCommunityClick = (community: Community) => {
     const slug = communityNameToSlug(community.name);
@@ -428,23 +476,54 @@ export default function CommunitiesPage() {
                 )}
               </div>
             </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredCommunities.map((community) => renderCommunityCard(community))}
-        </div>
-        
-        {filteredCommunities.length === 0 && (
+
+        {filteredCommunities.length === 0 ? (
           <Card>
             <CardContent className="pt-6">
               <div className="text-center py-12">
                 <p className="text-lg text-muted-foreground">
-                  {searchQuery.trim() 
+                  {searchQuery.trim()
                     ? `No communities found matching "${searchQuery}"`
                     : "No communities found."}
                 </p>
               </div>
             </CardContent>
           </Card>
+        ) : (
+          <Tabs value={regionTab} onValueChange={(v) => setRegionTab(v as CommunityUSRegion)}>
+            <TabsList className="mb-6 inline-flex h-auto min-h-10 w-fit max-w-full flex-wrap gap-1 p-1 items-center">
+              <TabsTrigger value="texas" className="gap-1.5">
+                Texas
+                <span className="tabular-nums text-muted-foreground">({communitiesByRegion.texas.length})</span>
+              </TabsTrigger>
+              <TabsTrigger value="georgia" className="gap-1.5">
+                Georgia
+                <span className="tabular-nums text-muted-foreground">({communitiesByRegion.georgia.length})</span>
+              </TabsTrigger>
+              {communitiesByRegion.other.length > 0 && (
+                <TabsTrigger value="other" className="gap-1.5">
+                  Other
+                  <span className="tabular-nums text-muted-foreground">({communitiesByRegion.other.length})</span>
+                </TabsTrigger>
+              )}
+            </TabsList>
+
+            <TabsContent value="texas" className="mt-0">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {communitiesByRegion.texas.map((community) => renderCommunityCard(community))}
+              </div>
+            </TabsContent>
+            <TabsContent value="georgia" className="mt-0">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {communitiesByRegion.georgia.map((community) => renderCommunityCard(community))}
+              </div>
+            </TabsContent>
+            <TabsContent value="other" className="mt-0">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {communitiesByRegion.other.map((community) => renderCommunityCard(community))}
+              </div>
+            </TabsContent>
+          </Tabs>
         )}
 
         <EditCommunityModal

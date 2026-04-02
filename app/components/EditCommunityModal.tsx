@@ -189,6 +189,7 @@ export default function EditCommunityModal({
               onChange={(next) => setLocation(next)}
               placeholder="e.g., Dallas, TX"
               disabled={loading}
+              restrictToTexasAndGeorgia
             />
           </div>
 

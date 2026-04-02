@@ -219,7 +219,10 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
     });
   };
 
-  const handleSearchCommunities = async (forcedQuery?: string) => {
+  const handleSearchCommunities = async (
+    forcedQuery?: string,
+    options?: { fromPlaceSelection?: boolean }
+  ) => {
     const queryToUse = (forcedQuery ?? searchQuery).trim();
     if (!queryToUse) {
       setError("Please enter a search term");
@@ -240,6 +243,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
         },
         body: JSON.stringify({
           searchQuery: queryToUse,
+          fromPlaceSelection: Boolean(options?.fromPlaceSelection),
         }),
       });
 
@@ -317,19 +321,23 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
                 <label className="block text-sm font-medium mb-2">
                   Search for Union Main Homes Communities
                 </label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Choose a city or area from the list — we&apos;ll search for Union Main communities there.
+                </p>
                 <div className="flex gap-2">
                       <div className="flex-1">
                         <GooglePlacesAutocompleteInput
                           value={searchQuery}
-                          onChange={(nextValue, meta) => {
+                          onChange={(nextValue) => {
                             setSearchQuery(nextValue);
-                            // Zillow-like: when user picks a location suggestion, run the community search immediately.
-                            if (meta?.placeId && !loadingAI && nextValue.trim()) {
-                              handleSearchCommunities(nextValue);
-                            }
                           }}
-                          placeholder="e.g., Three Rivers, MI"
+                          onPlaceSelected={({ description }) => {
+                            setSearchQuery(description);
+                            void handleSearchCommunities(description, { fromPlaceSelection: true });
+                          }}
+                          placeholder="e.g., Frisco, TX or Atlanta, GA"
                           disabled={loading || loadingAI}
+                          restrictToTexasAndGeorgia
                         />
                       </div>
                   <Button
@@ -356,7 +364,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
               {/* Recommendations List */}
               {!selectedCommunity && showRecommendations && recommendations.length > 0 && (
                 <div className="max-h-64 overflow-y-auto space-y-2 border rounded-md p-3 bg-muted/50">
-                  <p className="text-sm font-medium mb-2">Recommended Communities:</p>
+                  <p className="text-sm font-medium mb-2">Communities in this area:</p>
                   {recommendations.map((community, index) => (
                     <Card
                       key={index}
@@ -452,6 +460,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
                       onChange={(nextValue) => setLocation(nextValue)}
                       placeholder="e.g., Dallas, TX"
                       disabled={loading || loadingAI}
+                      restrictToTexasAndGeorgia
                     />
                   </div>
 
@@ -609,6 +618,7 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
                   onChange={(nextValue) => setLocation(nextValue)}
                   placeholder="e.g., Dallas, TX"
                   disabled={loading || loadingAI}
+                  restrictToTexasAndGeorgia
                 />
               </div>
 

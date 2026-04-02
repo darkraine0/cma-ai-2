@@ -22,6 +22,25 @@ function useDebouncedValue<T>(input: T, delayMs: number) {
   return debounced;
 }
 
+/** True if the Places description refers to Texas or Georgia (US), not other countries/states. */
+function isTexasOrGeorgiaUSPlace(description: string): boolean {
+  const d = description.trim();
+  if (!d) return false;
+
+  const texas =
+    /,\s*TX(\s*,|\s*$|\s*,\s*USA)/i.test(d) ||
+    /^Texas(\s*,\s*(USA|United States)|\s*$)/i.test(d) ||
+    /\bTexas\s*,\s*(USA|United States)/i.test(d) ||
+    (/\bTX\b/.test(d) && /\b(USA|United States)\b/i.test(d));
+
+  const georgia =
+    /,\s*GA(\s*,|\s*$|\s*,\s*USA)/i.test(d) ||
+    /\bGeorgia\s*,\s*(USA|United States)/i.test(d) ||
+    (/\bGA\b/.test(d) && /\b(USA|United States)\b/i.test(d));
+
+  return texas || georgia;
+}
+
 type GooglePlacesAutocompleteInputProps = {
   value: string;
   onChange: (value: string, meta?: { placeId?: string }) => void;
@@ -32,12 +51,16 @@ type GooglePlacesAutocompleteInputProps = {
   types?: string[];
   /** Restrict results to a country code, e.g. "us" */
   country?: string;
+  /** Only suggest places in Texas or Georgia (US). Implies US country restriction and filters query autocomplete. */
+  restrictToTexasAndGeorgia?: boolean;
   /** Minimum chars before querying */
   minLength?: number;
   /** Max dropdown items */
   maxItems?: number;
   /** If true, selects trigger onChange but do not run side-effects */
   suppressSelectSideEffects?: boolean;
+  /** Called only when the user picks a suggestion (not on every keystroke). */
+  onPlaceSelected?: (payload: { description: string; placeId: string }) => void;
 };
 
 export default function GooglePlacesAutocompleteInput({
@@ -48,11 +71,16 @@ export default function GooglePlacesAutocompleteInput({
   label,
   types,
   country,
+  restrictToTexasAndGeorgia = false,
   minLength = 2,
   maxItems = 12,
+  suppressSelectSideEffects = false,
+  onPlaceSelected,
 }: GooglePlacesAutocompleteInputProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const [error, setError] = useState<string>("");
+  /** After picking a suggestion, block reopening the list when debounced fetch completes for the same text. */
+  const lockDropdownClosedRef = useRef(false);
 
   const { isLoaded } = useLoadScript({
     googleMapsApiKey: apiKey ?? "",
@@ -111,6 +139,12 @@ export default function GooglePlacesAutocompleteInput({
     let placeResults: Prediction[] = [];
     let queryResults: Prediction[] = [];
 
+    const componentRestrictions = restrictToTexasAndGeorgia
+      ? { country: "us" as const }
+      : country
+        ? { country }
+        : undefined;
+
     const finish = () => {
       pending -= 1;
       if (pending > 0) return;
@@ -121,22 +155,30 @@ export default function GooglePlacesAutocompleteInput({
 
       const merged = [...queryResults, ...placeResults];
       const seen = new Set<string>();
-      const deduped = merged.filter((item) => {
+      let deduped = merged.filter((item) => {
         const key = item.place_id || item.description.toLowerCase();
         if (!key || seen.has(key)) return false;
         seen.add(key);
         return true;
       });
 
+      if (restrictToTexasAndGeorgia) {
+        deduped = deduped.filter((item) => isTexasOrGeorgiaUSPlace(item.description));
+      }
+
       setPredictions(deduped);
-      setOpen(deduped.length > 0);
+      if (lockDropdownClosedRef.current) {
+        setOpen(false);
+      } else {
+        setOpen(deduped.length > 0);
+      }
     };
 
     serviceRef.current.getPlacePredictions(
       {
         input: q,
         types: types?.length ? types : undefined,
-        componentRestrictions: country ? { country } : undefined,
+        componentRestrictions,
       },
       (results, status) => {
         if (!cancelled && latestReqRef.current === reqId) {
@@ -179,7 +221,7 @@ export default function GooglePlacesAutocompleteInput({
     return () => {
       cancelled = true;
     };
-  }, [debouncedQuery, isLoaded, apiKey, disabled, typesKey, country, minLength]);
+  }, [debouncedQuery, isLoaded, apiKey, disabled, typesKey, country, restrictToTexasAndGeorgia, minLength]);
 
   const closeSoon = () => {
     window.setTimeout(() => setOpen(false), 120);
@@ -196,6 +238,7 @@ export default function GooglePlacesAutocompleteInput({
           placeholder={placeholder}
           disabled={disabled || !apiKey}
           onChange={(e) => {
+            lockDropdownClosedRef.current = false;
             setQuery(e.target.value);
             onChange(e.target.value);
           }}
@@ -224,8 +267,15 @@ export default function GooglePlacesAutocompleteInput({
                       className="w-full text-left px-3 py-2 hover:bg-muted/60 text-sm"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => {
+                        lockDropdownClosedRef.current = true;
                         setQuery(p.description);
                         onChange(p.description, { placeId: p.place_id });
+                        if (!suppressSelectSideEffects) {
+                          onPlaceSelected?.({
+                            description: p.description,
+                            placeId: p.place_id,
+                          });
+                        }
                         setOpen(false);
                         setPredictions([]);
                       }}
