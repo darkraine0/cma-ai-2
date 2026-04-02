@@ -144,10 +144,8 @@ export default function ChartHeader({
             <Select value={selectedProductLineId} onValueChange={onProductLineChange}>
               <SelectTrigger
                 className="w-[120px] sm:w-[140px] h-8 sm:h-9 text-xs sm:text-sm bg-white/20 hover:bg-white/30 text-white border-white/20 backdrop-blur-sm"
-                disabled={productLinesLoading}
-                title={productLinesLoading ? "Loading product lines..." : undefined}
               >
-                <SelectValue>{productLinesLoading ? "Loading..." : selectedProductLineLabel}</SelectValue>
+                <SelectValue>{selectedProductLineLabel}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">All</SelectItem>
