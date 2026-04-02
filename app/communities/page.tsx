@@ -492,18 +492,27 @@ export default function CommunitiesPage() {
         ) : (
           <Tabs value={regionTab} onValueChange={(v) => setRegionTab(v as CommunityUSRegion)}>
             <TabsList className="mb-6 inline-flex h-auto min-h-10 w-fit max-w-full flex-wrap gap-1 p-1 items-center">
-              <TabsTrigger value="texas" className="gap-1.5">
+              <TabsTrigger
+                value="texas"
+                className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"
+              >
                 Texas
-                <span className="tabular-nums text-muted-foreground">({communitiesByRegion.texas.length})</span>
+                <span className="tabular-nums text-inherit">({communitiesByRegion.texas.length})</span>
               </TabsTrigger>
-              <TabsTrigger value="georgia" className="gap-1.5">
+              <TabsTrigger
+                value="georgia"
+                className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"
+              >
                 Georgia
-                <span className="tabular-nums text-muted-foreground">({communitiesByRegion.georgia.length})</span>
+                <span className="tabular-nums text-inherit">({communitiesByRegion.georgia.length})</span>
               </TabsTrigger>
               {communitiesByRegion.other.length > 0 && (
-                <TabsTrigger value="other" className="gap-1.5">
+                <TabsTrigger
+                  value="other"
+                  className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"
+                >
                   Other
-                  <span className="tabular-nums text-muted-foreground">({communitiesByRegion.other.length})</span>
+                  <span className="tabular-nums text-inherit">({communitiesByRegion.other.length})</span>
                 </TabsTrigger>
               )}
             </TabsList>
