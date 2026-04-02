@@ -54,10 +54,11 @@ function getCommunityUSRegion(c: Community): CommunityUSRegion {
   const loc = (c.location || "").trim();
   if (!loc) return "other";
   const lower = loc.toLowerCase();
-  if (/,?\s*tx\s*$/i.test(loc) || lower.endsWith(", texas") || lower.includes("texas")) {
+  // Match "City, TX", "City, TX 78071", "City TX …" (abbreviation is not only at string end when ZIP follows).
+  if (/,?\s*tx\b/i.test(loc) || lower.endsWith(", texas") || lower.includes("texas")) {
     return "texas";
   }
-  if (/,?\s*ga\s*$/i.test(loc) || lower.endsWith(", georgia") || lower.includes("georgia")) {
+  if (/,?\s*ga\b/i.test(loc) || lower.endsWith(", georgia") || lower.includes("georgia")) {
     return "georgia";
   }
   return "other";
