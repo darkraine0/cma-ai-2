@@ -14,7 +14,7 @@ import { getCompanyNames, extractCompanyName, normalizeCompanyNameForMatch } fro
 import { useChartFilters } from "./hooks/useChartFilters";
 import { getV1ProductLineLabel } from "../../utils/v1ProductLine";
 import API_URL from '../../../config';
-import type { CommunityCompany, Plan } from "../../types";
+import type { Community, CommunityCompany, Plan } from "../../types";
 
 export default function ChartPage() {
   const params = useParams();
@@ -25,6 +25,9 @@ export default function ChartPage() {
   const [v1Plans, setV1Plans] = useState<Plan[]>([]);
   const [loadingV1, setLoadingV1] = useState(false);
   const [isV1FetchCompleted, setIsV1FetchCompleted] = useState(false);
+  const [selectedSubcommunityId, setSelectedSubcommunityId] = useState<string>("__all__");
+  const [subcommunityPlansById, setSubcommunityPlansById] = useState<Record<string, Plan[]>>({});
+  const [subcommunityPlansLoading, setSubcommunityPlansLoading] = useState(false);
 
   const communitySlug = params?.communityName
     ? decodeURIComponent(params.communityName as string).toLowerCase()
@@ -33,7 +36,30 @@ export default function ChartPage() {
   const urlType = searchParams?.get('type');
 
   // Fetch community and plans data (V2)
-  const { community, plans, loading, error, refetch } = useCommunityData(communitySlug);
+  const { community, plans, childCommunities, loading, error, refetch } = useCommunityData(communitySlug);
+
+  const subcommunityOptions = useMemo(
+    () =>
+      Array.isArray(childCommunities)
+        ? childCommunities
+            .filter((c) => c?._id && c?.name)
+            .map((c) => ({ _id: c._id, name: c.name }))
+        : [],
+    [childCommunities]
+  );
+
+  // Reset cached child plans when switching to a different route community.
+  useEffect(() => {
+    setSubcommunityPlansById({});
+  }, [communitySlug]);
+
+  const displayCommunityId = useMemo(() => {
+    if (!community?._id) return null;
+    if (selectedSubcommunityId === "__all__") {
+      return community._id;
+    }
+    return selectedSubcommunityId;
+  }, [community?._id, selectedSubcommunityId]);
 
   // Fetch V1 plans from external API (same as community page)
   const v1CommunityName = community?.v1ExternalCommunityName ?? community?.name;
@@ -43,6 +69,15 @@ export default function ChartPage() {
       setIsV1FetchCompleted(true);
       return;
     }
+
+    // When showing a single child subcommunity, exclude V1 data:
+    // the external API isn't reliably subcommunity-level.
+    if (selectedSubcommunityId !== "__all__") {
+      setV1Plans([]);
+      setIsV1FetchCompleted(true);
+      return;
+    }
+
     let cancelled = false;
     setIsV1FetchCompleted(false);
     setLoadingV1(true);
@@ -84,7 +119,54 @@ export default function ChartPage() {
     return () => {
       cancelled = true;
     };
-  }, [v1CommunityName, community?.name]);
+  }, [v1CommunityName, community?.name, selectedSubcommunityId]);
+
+  // Fetch V2 plans for child communities (so we can render builder lines split by subcommunity).
+  useEffect(() => {
+    if (!community?._id) return;
+    if (!Array.isArray(childCommunities) || childCommunities.length === 0) return;
+
+    const idsToFetch: string[] =
+      selectedSubcommunityId === "__all__"
+        ? childCommunities.map((c) => c._id)
+        : selectedSubcommunityId
+          ? [selectedSubcommunityId]
+          : [];
+
+    const missingIds = idsToFetch.filter((id) => subcommunityPlansById[id] === undefined);
+    if (missingIds.length === 0) return;
+    if (idsToFetch.length === 0) return;
+
+    let cancelled = false;
+    setSubcommunityPlansLoading(true);
+    Promise.all(
+      missingIds.map(async (id) => {
+        try {
+          const res = await fetch(`${API_URL}/communities/${id}/plans`);
+          if (!res.ok) return { id, plans: [] as Plan[] };
+          const data = (await res.json()) as Plan[];
+          return { id, plans: Array.isArray(data) ? data : [] };
+        } catch {
+          return { id, plans: [] as Plan[] };
+        }
+      })
+    )
+      .then((results) => {
+        if (cancelled) return;
+        setSubcommunityPlansById((prev) => {
+          const next = { ...prev };
+          for (const r of results) next[r.id] = r.plans;
+          return next;
+        });
+      })
+      .finally(() => {
+        if (!cancelled) setSubcommunityPlansLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [community?._id, childCommunities, selectedSubcommunityId, subcommunityPlansById]);
 
   const normalizeAddressLike = (value: string) => {
     const raw = String(value ?? "")
@@ -226,8 +308,17 @@ export default function ChartPage() {
       }
     };
 
+    const v2PlansForChart: Plan[] = (() => {
+      if (selectedSubcommunityId === "__all__") {
+        const childIds = (childCommunities ?? []).map((c) => c._id);
+        const childPlans = childIds.flatMap((id) => subcommunityPlansById[id] ?? []);
+        return [...plans, ...childPlans];
+      }
+      return subcommunityPlansById[selectedSubcommunityId] ?? [];
+    })();
+
     for (const p of v1Plans) addToGroup(p, "v1");
-    for (const p of plans) addToGroup(p, "v2");
+    for (const p of v2PlansForChart) addToGroup(p, "v2");
 
     const result: Plan[] = [];
     for (const group of byKey.values()) {
@@ -241,19 +332,46 @@ export default function ChartPage() {
     }
 
     return result;
-  }, [isV1FetchCompleted, v1Plans, plans]);
+  }, [
+    isV1FetchCompleted,
+    v1Plans,
+    plans,
+    selectedSubcommunityId,
+    childCommunities,
+    subcommunityPlansById,
+  ]);
 
-  // Fetch product lines (segments) for this community (V2)
+  // Fetch product lines (segments) for the selected display community (V2).
+  // When a subcommunity has no segments, fall back to parent community segments.
   useEffect(() => {
-    if (!community?._id) {
+    if (!displayCommunityId || !community?._id) {
       setProductLines([]);
       return;
     }
     let cancelled = false;
-    fetch(`${API_URL}/product-segments?communityId=${community._id}`)
+
+    fetch(`${API_URL}/product-segments?communityId=${displayCommunityId}`)
       .then((res) => (res.ok ? res.json() : []))
       .then((data: { _id: string; name: string; label: string }[]) => {
-        if (!cancelled) setProductLines(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data : [];
+        if (!cancelled) setProductLines(list);
+
+        // Fallback: when a child has no segments, use parent's segments.
+        if (
+          !cancelled &&
+          list.length === 0 &&
+          selectedSubcommunityId !== "__all__" &&
+          community?._id
+        ) {
+          fetch(`${API_URL}/product-segments?communityId=${community._id}`)
+            .then((parentRes) => (parentRes.ok ? parentRes.json() : []))
+            .then((parentData: { _id: string; name: string; label: string }[]) => {
+              if (!cancelled) setProductLines(Array.isArray(parentData) ? parentData : []);
+            })
+            .catch(() => {
+              if (!cancelled) setProductLines([]);
+            });
+        }
       })
       .catch(() => {
         if (!cancelled) setProductLines([]);
@@ -261,7 +379,7 @@ export default function ChartPage() {
     return () => {
       cancelled = true;
     };
-  }, [community?._id]);
+  }, [displayCommunityId, community?._id, selectedSubcommunityId]);
 
   // V1 product line options from V1 plans (price tiers: 20s, 30s, etc.)
   const v1ProductLineOptions = useMemo(() => {
@@ -293,9 +411,19 @@ export default function ChartPage() {
     );
   }, [productLines, v1ProductLineOptions]);
 
-  // Companies: union of V1 plan companies and V2 community companies (all builders shown)
+  const selectedCommunitiesForCompanies = useMemo((): Community[] => {
+    if (!community) return [];
+    if (selectedSubcommunityId === "__all__") return [community, ...(childCommunities ?? [])];
+
+    const child = (childCommunities ?? []).find((c) => c._id === selectedSubcommunityId);
+    return [child ?? community];
+  }, [community, childCommunities, selectedSubcommunityId]);
+
+  // Companies: union of V1 plan companies and V2 companies for the selected community set
   const companies = useMemo(() => {
-    const fromV2 = getCompanyNames(community?.companies);
+    const fromV2 = getCompanyNames(
+      selectedCommunitiesForCompanies.flatMap((c) => c?.companies ?? [])
+    );
     const fromV1 = new Set<string>();
     v1Plans.forEach((p) => {
       const name = extractCompanyName(p.company);
@@ -303,20 +431,27 @@ export default function ChartPage() {
     });
     const union = new Set([...fromV2, ...fromV1]);
     return Array.from(union).sort((a, b) => a.localeCompare(b));
-  }, [community, v1Plans]);
+  }, [selectedCommunitiesForCompanies, v1Plans]);
 
   // Map company name -> stored color for distinct graph lines (avoids similar/black lines)
   const companyColorMap = useMemo(() => {
     const map: Record<string, string> = {};
-    const list = community?.companies;
-    if (!Array.isArray(list)) return map;
-    list.forEach((c: CommunityCompany) => {
-      if (c?.name && c?.color != null && c.color !== '' && /^#[0-9A-Fa-f]{6}$/.test(c.color.trim())) {
-        map[c.name] = c.color.trim();
-      }
+    selectedCommunitiesForCompanies.forEach((comm) => {
+      const list = comm?.companies;
+      if (!Array.isArray(list)) return;
+      list.forEach((c: CommunityCompany) => {
+        if (
+          c?.name &&
+          c?.color != null &&
+          c.color !== '' &&
+          /^#[0-9A-Fa-f]{6}$/.test(c.color.trim())
+        ) {
+          if (!map[c.name]) map[c.name] = c.color.trim();
+        }
+      });
     });
     return map;
-  }, [community?.companies]);
+  }, [selectedCommunitiesForCompanies]);
 
   const companyNamesSet = useMemo(
     () => new Set(companies),
@@ -336,12 +471,28 @@ export default function ChartPage() {
 
   // Sync only V2 (registered) companies — V1 data comes from external API
   const syncableCompanies = useMemo(
-    () => getCompanyNames(community?.companies),
-    [community?.companies]
+    () => {
+      if (!community) return [];
+      if (selectedSubcommunityId === "__all__") return [];
+
+      const child = (childCommunities ?? []).find((c) => c._id === selectedSubcommunityId);
+      return getCompanyNames(child?.companies);
+    },
+    [community, childCommunities, selectedSubcommunityId]
   );
 
   // Handle sync/re-scrape (V2 companies only)
   const handleSync = async () => {
+    if (selectedSubcommunityId === "__all__") {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description:
+          "Sync is available for a single community. Switch the sub-community filter away from “All”.",
+      });
+      return;
+    }
+
     if (!community || syncableCompanies.length === 0) {
       toast({
         variant: "destructive",
@@ -351,12 +502,17 @@ export default function ChartPage() {
       return;
     }
 
+    const targetCommunityId = selectedSubcommunityId;
+
+    const targetCommunityName =
+      (childCommunities ?? []).find((c) => c._id === selectedSubcommunityId)?.name ?? community.name;
+
     setIsSyncing(true);
     
     try {
       // Remove all existing plans for this community before syncing, then save new plans per company
-      if (community._id) {
-        const deleteRes = await fetch(`${API_URL}/communities/${community._id}/plans`, {
+      if (targetCommunityId) {
+        const deleteRes = await fetch(`${API_URL}/communities/${targetCommunityId}/plans`, {
           method: "DELETE",
         });
         if (!deleteRes.ok) {
@@ -373,7 +529,7 @@ export default function ChartPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               company: company,
-              community: community.name,
+              community: targetCommunityName,
             }),
           });
 
@@ -418,7 +574,11 @@ export default function ChartPage() {
         });
       }
 
-      // Refetch the data to show updated plans
+      // Refetch the data to show updated plans.
+      // `refetch()` only refreshes the route community, so for a child sync we refresh that child directly.
+      const res = await fetch(`${API_URL}/communities/${targetCommunityId}/plans`);
+      const data = (res.ok ? await res.json() : []) as Plan[];
+      setSubcommunityPlansById((prev) => ({ ...prev, [targetCommunityId]: Array.isArray(data) ? data : [] }));
       await refetch();
       
     } catch (error) {
@@ -453,12 +613,15 @@ export default function ChartPage() {
               productLines={displayProductLines}
               selectedProductLineId={selectedProductLineId}
               onProductLineChange={setSelectedProductLineId}
+              subcommunities={subcommunityOptions}
+              selectedSubcommunityId={selectedSubcommunityId}
+              onSubcommunityChange={setSelectedSubcommunityId}
               onSync={handleSync}
               isSyncing={isSyncing}
             />
 
             <div className="p-4 md:p-6 lg:p-8 min-h-[500px] md:min-h-[450px]">
-              {loading ? (
+              {loading || subcommunityPlansLoading ? (
                 <ChartSkeleton />
               ) : error ? (
                 <ErrorMessage message={error} />

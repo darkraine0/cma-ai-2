@@ -28,6 +28,10 @@ interface ChartHeaderProps {
   productLines?: ProductLineOption[];
   selectedProductLineId?: string;
   onProductLineChange?: (id: string) => void;
+  /** Optional sub-community breakdown filter (filters chart plans by child community). */
+  subcommunities?: Array<{ _id: string; name: string }>;
+  selectedSubcommunityId?: string;
+  onSubcommunityChange?: (id: string) => void;
   onSync?: () => void;
   isSyncing?: boolean;
 }
@@ -43,6 +47,9 @@ export default function ChartHeader({
   productLines = [],
   selectedProductLineId = "__all__",
   onProductLineChange,
+  subcommunities = [],
+  selectedSubcommunityId = "__all__",
+  onSubcommunityChange,
   onSync,
   isSyncing = false,
 }: ChartHeaderProps) {
@@ -146,6 +153,29 @@ export default function ChartHeader({
                 ))}
               </SelectContent>
             </Select>
+          )}
+
+          {subcommunities.length > 0 && onSubcommunityChange && (
+            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-lg p-1">
+              <span className="text-xs sm:text-sm text-white/80 px-1">Sub-communities</span>
+              <Select value={selectedSubcommunityId} onValueChange={onSubcommunityChange}>
+                <SelectTrigger className="w-[160px] h-8 sm:h-9 text-xs sm:text-sm bg-white/20 hover:bg-white/30 text-white border-white/20 backdrop-blur-sm">
+                  <SelectValue>
+                    {selectedSubcommunityId === "__all__"
+                      ? "All"
+                      : subcommunities.find((c) => c._id === selectedSubcommunityId)?.name ?? "Sub-community"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All</SelectItem>
+                  {subcommunities.map((c) => (
+                    <SelectItem key={c._id} value={c._id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
         </div>
       </div>
