@@ -6,6 +6,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { ScrapingProgressProvider } from "./contexts/ScrapingProgressContext";
 import { V1CommunitiesProvider } from "./contexts/V1CommunitiesContext";
 import Navbar from "./components/Navbar";
+import AssistantChatBubble from "./components/AssistantChatBubble";
 import AuthGuard from "./components/AuthGuard";
 import { Toaster } from "./components/ui/toaster";
 
@@ -45,6 +46,7 @@ export default function RootLayout({
               <ScrapingProgressProvider>
                 <V1CommunitiesProvider>
                   <Navbar />
+                  <AssistantChatBubble />
                   {children}
                 </V1CommunitiesProvider>
               </ScrapingProgressProvider>
