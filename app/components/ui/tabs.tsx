@@ -52,10 +52,12 @@ interface TabsTriggerProps {
   value: string
   children: React.ReactNode
   className?: string
+  disabled?: boolean
+  title?: string
 }
 
 const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>(
-  ({ value, children, className }, ref) => {
+  ({ value, children, className, disabled, title }, ref) => {
     const context = React.useContext(TabsContext)
     if (!context) {
       throw new Error("TabsTrigger must be used within a Tabs component")
@@ -70,6 +72,8 @@ const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>(
         type="button"
         role="tab"
         aria-selected={isSelected}
+        aria-disabled={disabled || undefined}
+        disabled={disabled}
         data-state={isSelected ? "active" : "inactive"}
         className={cn(
           "group inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
@@ -78,7 +82,11 @@ const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>(
             : "text-muted-foreground hover:bg-background/50 hover:text-foreground",
           className
         )}
-        onClick={() => onValueChange(value)}
+        onClick={() => {
+          if (disabled) return
+          onValueChange(value)
+        }}
+        title={title}
       >
         {children}
       </button>

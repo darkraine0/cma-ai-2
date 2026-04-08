@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import connectDB from '@/app/lib/mongodb';
 import { getCurrentUserFromRequest } from '@/app/lib/auth';
+import { requireApproved } from '@/app/lib/admin';
 import AssistantInteraction from '@/app/models/AssistantInteraction';
-
+import {
+  ASSISTANT_TOOLS,
+  dedupeButtons,
+  executeAssistantTool,
+  type AssistantToolContext,
+} from '@/app/lib/assistantTools';
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -12,17 +19,24 @@ const MODEL = 'gpt-4o-mini';
 
 const MAX_MESSAGES = 24;
 const MAX_CONTENT_CHARS = 4000;
+const MAX_TOOL_ROUNDS = 8;
 
-const SYSTEM_PROMPT = `You are the in-app assistant for MarketMap Homes (CMA), used by UnionMain Homes teams to explore residential communities, home plans, builders, and pricing.
+const BASE_SYSTEM = `You are the in-app assistant for MarketMap Homes (CMA), used by UnionMain Homes teams.
 
-Your role:
-- Help users navigate the app: Communities list, Companies, Manage/admin tasks, community detail pages, charts, and related workflows.
-- Answer "how do I" questions with clear, short steps.
-- When the user is stuck, ask a brief clarifying question if needed.
-- Do not invent specific community names, prices, plan counts, or availability—only explain how to find or enter that information in the tool.
-- If something requires admin access, email verification, or an approval workflow, say so plainly.
+Behavior:
+- Use tools to search communities and plans (real database data).
+- For finding a plan or spec by address, street, or name, use find_plans_by_text first. Spec (quick move-in) rows often store the street in the address field, not plan_name — find_plans_by_text searches both.
+- When the current page path is a community page, find_plans_by_text automatically limits results to that community unless the user asks to search all communities (then set search_all_communities true).
+- search_plans lists plans for a known MongoDB community id; it matches plan_name OR address.
+- Use navigate_to_community to add an "Open [community]" button — you never redirect the user automatically.
+- Use suggest_add_community ONLY when the user wants to create a brand-new community (subdivision) in MarketMap — shows "Add new community". Do NOT use it when the user wants to add a plan, spec, or home to an existing community — that is open_plan_ui_workflow with action add (shows "Add plan in [Community]").
+- Use open_plan_ui_workflow for add/edit/delete plan or spec. For "add plan/spec to [Community]", use action add with community_name_or_query = that community (or the user sentence).
+- find_plans_by_text and search_plans automatically add Edit and Delete buttons under the reply when they return matching plans (up to 3 plans). Tell the user to use those buttons; do not say you will add buttons later.
 
-Keep replies concise and scannable. Use short paragraphs or bullet points for multi-step instructions.`;
+Rules:
+- Do not invent names, prices, or counts; use tools or say no match was found.
+- Keep the reply concise. Mention that users can use the buttons below your message when tools add them.
+- Editors can add/edit/delete plans in the UI; viewers may only browse.`;
 
 type ChatRole = 'user' | 'assistant';
 
@@ -61,6 +75,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const approved = await requireApproved(request);
+    if (approved instanceof NextResponse) {
+      return approved;
+    }
+
     const body = await request.json();
     const pathname =
       typeof body.pathname === 'string' ? body.pathname.slice(0, 512) : null;
@@ -72,25 +91,68 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const completion = await openai.chat.completions.create({
-      model: MODEL,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        ...messages.map((m) => ({ role: m.role, content: m.content })),
-      ],
-      temperature: 0.6,
-      max_tokens: 1200,
-    });
+    const pathLine = pathname
+      ? `\nCurrent page path (for context): ${pathname}`
+      : '';
 
-    const assistantReply = completion.choices[0]?.message?.content?.trim();
-    if (!assistantReply) {
-      return NextResponse.json(
-        { error: 'No reply from assistant' },
-        { status: 500 }
-      );
+    const messagesForModel: ChatCompletionMessageParam[] = [
+      { role: 'system', content: `${BASE_SYSTEM}${pathLine}` },
+      ...messages.map((m) => ({ role: m.role, content: m.content })),
+    ];
+
+    const lastUserMessage = messages[messages.length - 1].content;
+    const toolCtx: AssistantToolContext = {
+      buttons: [],
+      pathname,
+      userMessage: lastUserMessage,
+    };
+    let assistantReply = '';
+    let rounds = 0;
+
+    while (rounds < MAX_TOOL_ROUNDS) {
+      rounds += 1;
+      const completion = await openai.chat.completions.create({
+        model: MODEL,
+        messages: messagesForModel,
+        tools: ASSISTANT_TOOLS,
+        tool_choice: 'auto',
+        temperature: 0.45,
+        max_tokens: 2000,
+      });
+
+      const choice = completion.choices[0]?.message;
+      if (!choice) break;
+
+      if (choice.tool_calls?.length) {
+        messagesForModel.push(choice);
+        for (const tc of choice.tool_calls) {
+          if (tc.type !== 'function') continue;
+          const name = tc.function.name;
+          const args = tc.function.arguments ?? '{}';
+          const result = await executeAssistantTool(name, args, toolCtx);
+          messagesForModel.push({
+            role: 'tool',
+            tool_call_id: tc.id,
+            content: result,
+          });
+        }
+        continue;
+      }
+
+      const text = choice.content?.trim();
+      if (text) {
+        assistantReply = text;
+        break;
+      }
+      break;
     }
 
-    const lastUser = messages[messages.length - 1].content;
+    if (!assistantReply) {
+      assistantReply =
+        'I could not complete that request. Try rephrasing or being more specific.';
+    }
+
+    const buttons = dedupeButtons(toolCtx.buttons);
 
     void (async () => {
       try {
@@ -98,7 +160,7 @@ export async function POST(request: NextRequest) {
         await AssistantInteraction.create({
           userId: tokenPayload.userId,
           pathname,
-          userMessage: lastUser,
+          userMessage: lastUserMessage,
           assistantReply,
           openaiModel: MODEL,
         });
@@ -107,7 +169,7 @@ export async function POST(request: NextRequest) {
       }
     })();
 
-    return NextResponse.json({ reply: assistantReply }, { status: 200 });
+    return NextResponse.json({ reply: assistantReply, buttons }, { status: 200 });
   } catch (error: unknown) {
     const err = error as { message?: string; response?: { data?: { error?: { message?: string } } } };
     console.error('Assistant chat error:', error);

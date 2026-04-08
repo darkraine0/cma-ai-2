@@ -1,10 +1,17 @@
 "use client"
 
 import React, { useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import { Card, CardContent } from "../../components/ui/card";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "../../components/ui/sheet";
 import { Button } from "../../components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog";
 import { useToast } from "../../components/ui/use-toast";
 import Loader from "../../components/Loader";
 import ErrorMessage from "../../components/ErrorMessage";
@@ -26,6 +33,7 @@ import AddPlanDialog from "../components/AddPlanDialog";
 
 export default function CommunityDetail() {
   const params = useParams();
+  const pathname = usePathname();
   const { toast } = useToast();
   const communitySlug = params?.communityName 
     ? decodeURIComponent(params.communityName as string).toLowerCase() 
@@ -39,6 +47,11 @@ export default function CommunityDetail() {
   const [subcommunityPlansLoading, setSubcommunityPlansLoading] = useState(false);
   const [productLines, setProductLines] = useState<{ _id: string; name: string; label: string }[]>([]);
   const [addPlanOpen, setAddPlanOpen] = useState(false);
+  const [assistantEditPlanId, setAssistantEditPlanId] = useState<string | null>(null);
+  const [assistantDeletePlanId, setAssistantDeletePlanId] = useState<string | null>(null);
+  const [assistantDeleteDialogOpen, setAssistantDeleteDialogOpen] = useState(false);
+  const [assistantDeleteLoading, setAssistantDeleteLoading] = useState(false);
+  const assistantDeleteHandledRef = React.useRef<string | null>(null);
   /** Version filter: All (V1 + V2), V1 only, or V2 only. Only used when viewing main community (no subcommunity). */
   const [versionFilter, setVersionFilter] = useState<"all" | "v1" | "v2">("all");
   const [v1Plans, setV1Plans] = useState<Plan[]>([]);
@@ -274,6 +287,106 @@ export default function CommunityDetail() {
     }
     return result.filter(shouldShowPlan);
   }, [selectedSubcommunity, subcommunityPlans, versionFilter, isV1FetchCompleted, v1Plans, plans]);
+
+  const applyAssistantSessionForSlug = React.useCallback(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const add = sessionStorage.getItem("assistant:open-add-plan");
+      if (add) {
+        const { slug } = JSON.parse(add) as { slug?: string };
+        if (slug && slug.toLowerCase() === communitySlug.toLowerCase()) {
+          sessionStorage.removeItem("assistant:open-add-plan");
+          setAddPlanOpen(true);
+        }
+      }
+      const ed = sessionStorage.getItem("assistant:open-edit-plan");
+      if (ed) {
+        const { slug, planId } = JSON.parse(ed) as { slug?: string; planId?: string };
+        if (
+          slug &&
+          planId &&
+          slug.toLowerCase() === communitySlug.toLowerCase()
+        ) {
+          sessionStorage.removeItem("assistant:open-edit-plan");
+          setAssistantEditPlanId(planId);
+        }
+      }
+      const del = sessionStorage.getItem("assistant:open-delete-plan");
+      if (del) {
+        const { slug, planId } = JSON.parse(del) as { slug?: string; planId?: string };
+        if (
+          slug &&
+          planId &&
+          slug.toLowerCase() === communitySlug.toLowerCase()
+        ) {
+          sessionStorage.removeItem("assistant:open-delete-plan");
+          setAssistantDeletePlanId(planId);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [communitySlug]);
+
+  React.useEffect(() => {
+    applyAssistantSessionForSlug();
+  }, [applyAssistantSessionForSlug, pathname]);
+
+  React.useEffect(() => {
+    const onAdd = () => setAddPlanOpen(true);
+    const onEdit = (e: Event) => {
+      const pid = (e as CustomEvent<{ planId?: string }>).detail?.planId;
+      if (pid) setAssistantEditPlanId(pid);
+    };
+    const onDel = (e: Event) => {
+      const pid = (e as CustomEvent<{ planId?: string }>).detail?.planId;
+      if (pid) setAssistantDeletePlanId(pid);
+    };
+    window.addEventListener("assistant:open-add-plan", onAdd);
+    window.addEventListener("assistant:open-edit-plan", onEdit as EventListener);
+    window.addEventListener("assistant:open-delete-plan", onDel as EventListener);
+    return () => {
+      window.removeEventListener("assistant:open-add-plan", onAdd);
+      window.removeEventListener("assistant:open-edit-plan", onEdit as EventListener);
+      window.removeEventListener("assistant:open-delete-plan", onDel as EventListener);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (!assistantDeletePlanId || loading) return;
+    if (assistantDeleteHandledRef.current === assistantDeletePlanId) return;
+    const fallbackList = selectedSubcommunity ? subcommunityPlans : plans;
+    const p =
+      displayPlans.find((pl) => pl._id === assistantDeletePlanId) ??
+      fallbackList.find((pl) => pl._id === assistantDeletePlanId);
+    if (!p) {
+      toast({
+        variant: "destructive",
+        title: "Plan not found",
+        description: "That plan is not in the current list.",
+      });
+      setAssistantDeletePlanId(null);
+      return;
+    }
+    if (p._id?.startsWith("v1-")) {
+      toast({
+        title: "Cannot delete here",
+        description: "V1 plans are managed via sync.",
+      });
+      setAssistantDeletePlanId(null);
+      return;
+    }
+    assistantDeleteHandledRef.current = assistantDeletePlanId;
+    setAssistantDeleteDialogOpen(true);
+  }, [
+    assistantDeletePlanId,
+    loading,
+    displayPlans,
+    plans,
+    subcommunityPlans,
+    selectedSubcommunity,
+    toast,
+  ]);
 
   // Community companies (from DB) — used for Sync and when showing V2 or subcommunity
   const communityCompanies = useMemo(
@@ -530,6 +643,40 @@ export default function CommunityDetail() {
     exportToCSV(filteredPlans, (selectedSubcommunity ?? community)?.name || formattedSlug);
   };
 
+  const handleAssistantDeleteConfirm = async () => {
+    if (!assistantDeletePlanId) return;
+    setAssistantDeleteLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/plans/${assistantDeletePlanId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          typeof data.error === "string" ? data.error : data.message || "Failed to delete plan"
+        );
+      }
+      toast({ title: "Plan removed", description: "The plan was deleted." });
+      setAssistantDeleteDialogOpen(false);
+      setAssistantDeletePlanId(null);
+      assistantDeleteHandledRef.current = null;
+      await refetch();
+      if (selectedSubcommunity?._id) {
+        const r = await fetch(`${API_URL}/communities/${selectedSubcommunity._id}/plans`);
+        if (r.ok) setSubcommunityPlans(await r.json());
+      }
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Delete failed",
+        description: err instanceof Error ? err.message : "Could not delete plan.",
+      });
+    } finally {
+      setAssistantDeleteLoading(false);
+    }
+  };
+
   // Error state
   if (!communitySlug) {
     return <ErrorMessage message="Community not found" />;
@@ -621,6 +768,10 @@ export default function CommunityDetail() {
                   ) : (
                     <PlansTable
                       plans={paginatedPlans}
+                      planLookupList={displayPlans}
+                      planLookupFallback={selectedSubcommunity ? subcommunityPlans : plans}
+                      assistantOpenPlanId={assistantEditPlanId}
+                      onAssistantOpenPlanConsumed={() => setAssistantEditPlanId(null)}
                       currentPage={page}
                       totalPages={totalPages}
                       onPageChange={setPage}
@@ -650,6 +801,47 @@ export default function CommunityDetail() {
             </div>
           </CardContent>
         </Card>
+
+        <Dialog
+          open={assistantDeleteDialogOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setAssistantDeleteDialogOpen(false);
+              setAssistantDeletePlanId(null);
+              assistantDeleteHandledRef.current = null;
+            }
+          }}
+        >
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Delete this plan?</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              This permanently removes the plan from the community. This cannot be undone.
+            </p>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setAssistantDeleteDialogOpen(false);
+                  setAssistantDeletePlanId(null);
+                  assistantDeleteHandledRef.current = null;
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={assistantDeleteLoading}
+                onClick={() => void handleAssistantDeleteConfirm()}
+              >
+                {assistantDeleteLoading ? "Deleting…" : "Delete"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <AddPlanDialog
           open={addPlanOpen}

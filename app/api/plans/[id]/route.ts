@@ -144,3 +144,38 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest, { params }: Params) {
+  try {
+    const permissionCheck = await requirePermission(request, 'editor');
+    if (permissionCheck instanceof NextResponse) {
+      return permissionCheck;
+    }
+
+    await connectDB();
+    const resolvedParams = params instanceof Promise ? await params : params;
+    const id = resolvedParams.id;
+
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json(
+        { error: 'Valid plan ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const plan = await Plan.findById(id);
+    if (!plan) {
+      return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
+    }
+
+    await PriceHistory.deleteMany({ plan_id: plan._id });
+    await Plan.deleteOne({ _id: plan._id });
+
+    return NextResponse.json({ success: true, message: 'Plan deleted' });
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: 'Failed to delete plan', message: error.message },
+      { status: 500 }
+    );
+  }
+}

@@ -96,6 +96,37 @@ export default function CommunitiesPage() {
   const [communityToEdit, setCommunityToEdit] = useState<EditCommunityModalCommunity | null>(null);
   const router = useRouter();
   const hasFetched = useRef(false);
+  const [addCommunityModalOpen, setAddCommunityModalOpen] = useState(false);
+  const [addCommunityPreferManual, setAddCommunityPreferManual] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const flag = sessionStorage.getItem("assistant:open-add-community");
+      if (flag === "manual" || flag === "1") {
+        sessionStorage.removeItem("assistant:open-add-community");
+        setAddCommunityPreferManual(flag === "manual");
+        setAddCommunityModalOpen(true);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ preferManual?: boolean }>).detail;
+      try {
+        sessionStorage.removeItem("assistant:open-add-community");
+      } catch {
+        /* ignore */
+      }
+      setAddCommunityPreferManual(detail?.preferManual === true);
+      setAddCommunityModalOpen(true);
+    };
+    window.addEventListener("assistant:open-add-community", handler);
+    return () => window.removeEventListener("assistant:open-add-community", handler);
+  }, []);
 
   const fetchCommunities = async (forceRefresh = false) => {
     // Check cache first unless force refresh
@@ -461,7 +492,14 @@ export default function CommunitiesPage() {
                     </button>
                     {/* Only show Add Community button for editors/admins and not pending users */}
                     {isEditor && !isPending && (
-                      <AddCommunityModal 
+                      <AddCommunityModal
+                        open={addCommunityModalOpen}
+                        onOpenChange={(v) => {
+                          setAddCommunityModalOpen(v);
+                          if (!v) setAddCommunityPreferManual(false);
+                        }}
+                        defaultTabOnOpen={addCommunityPreferManual ? "manual" : "ai"}
+                        disableAiSearchTab={addCommunityPreferManual}
                         onSuccess={() => {
                           fetchCommunities(true); // Force refresh
                         }}

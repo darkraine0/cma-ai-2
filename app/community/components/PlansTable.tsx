@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
@@ -32,6 +32,10 @@ interface PlansTableProps {
   emptyMessage?: string;
   /** Optional map of company name -> hex so table matches sidebar and Companies page */
   companyColorMap?: Record<string, string> | null;
+  assistantOpenPlanId?: string | null;
+  onAssistantOpenPlanConsumed?: () => void;
+  planLookupList?: Plan[];
+  planLookupFallback?: Plan[];
 }
 
 export default function PlansTable({
@@ -45,10 +49,43 @@ export default function PlansTable({
   onProductLineUpdated,
   emptyMessage,
   companyColorMap,
+  assistantOpenPlanId,
+  onAssistantOpenPlanConsumed,
+  planLookupList,
+  planLookupFallback,
 }: PlansTableProps) {
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [updatingPlanId, setUpdatingPlanId] = useState<string | null>(null);
+  const assistantHandledRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!assistantOpenPlanId) {
+      assistantHandledRef.current = null;
+      return;
+    }
+    if (assistantHandledRef.current === assistantOpenPlanId) return;
+    const primary = planLookupList ?? plans;
+    let match = primary.find((p) => p._id === assistantOpenPlanId);
+    if (!match && planLookupFallback) {
+      match = planLookupFallback.find((p) => p._id === assistantOpenPlanId);
+    }
+    if (match && match._id && !match._id.startsWith("v1-") && onPlanUpdated != null) {
+      setEditingPlan(match);
+      setEditOpen(true);
+      assistantHandledRef.current = assistantOpenPlanId;
+      onAssistantOpenPlanConsumed?.();
+    } else {
+      onAssistantOpenPlanConsumed?.();
+    }
+  }, [
+    assistantOpenPlanId,
+    plans,
+    planLookupList,
+    planLookupFallback,
+    onPlanUpdated,
+    onAssistantOpenPlanConsumed,
+  ]);
 
   const handleProductLineChange = async (plan: Plan, newSegmentId: string) => {
     if (!plan._id || (!onPlanUpdated && !onProductLineUpdated)) return;

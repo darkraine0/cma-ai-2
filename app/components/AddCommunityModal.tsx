@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,13 @@ import GooglePlacesAutocompleteInput from "./GooglePlacesAutocompleteInput";
 interface AddCommunityModalProps {
   onSuccess?: () => void;
   trigger?: React.ReactNode;
+  /** When set with onOpenChange, dialog is controlled by the parent (e.g. assistant button). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Applied when the dialog opens (e.g. assistant opens Manual Entry). */
+  defaultTabOnOpen?: "ai" | "manual";
+  /** When true (e.g. opened from the help panel), the AI Search tab cannot be selected. */
+  disableAiSearchTab?: boolean;
 }
 
 interface CommunityRecommendation {
@@ -40,8 +47,21 @@ interface CommunityRecommendation {
   alreadyExists: boolean;
 }
 
-export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityModalProps) {
-  const [open, setOpen] = useState(false);
+export default function AddCommunityModal({
+  onSuccess,
+  trigger,
+  open: controlledOpen,
+  onOpenChange,
+  defaultTabOnOpen = "ai",
+  disableAiSearchTab = false,
+}: AddCommunityModalProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = (v: boolean) => {
+    if (isControlled) onOpenChange?.(v);
+    else setInternalOpen(v);
+  };
   const [communityName, setCommunityName] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
@@ -62,6 +82,15 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
   /** Whether homes/plans will be added by scraping or manually */
   const [homesSource, setHomesSource] = useState<'scraped' | 'manual'>('scraped');
   const { startBackgroundScraping } = useScrapingProgress();
+
+  useEffect(() => {
+    if (!open) return;
+    if (disableAiSearchTab) {
+      setActiveTab("manual");
+    } else {
+      setActiveTab(defaultTabOnOpen === "manual" ? "manual" : "ai");
+    }
+  }, [open, defaultTabOnOpen, disableAiSearchTab]);
 
   const resetForm = () => {
     setCommunityName("");
@@ -327,9 +356,24 @@ export default function AddCommunityModal({ onSuccess, trigger }: AddCommunityMo
         <DialogClose />
 
         <div className="space-y-4 mt-4">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => {
+              if (disableAiSearchTab && v === "ai") return;
+              setActiveTab(v);
+            }}
+          >
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="ai" className="flex items-center gap-2">
+              <TabsTrigger
+                value="ai"
+                disabled={disableAiSearchTab}
+                className="flex items-center gap-2"
+                title={
+                  disableAiSearchTab
+                    ? "Not available when opened from Help — use Manual Entry"
+                    : undefined
+                }
+              >
                 <Sparkles className="h-4 w-4" />
                 AI Search
               </TabsTrigger>

@@ -1,23 +1,25 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { usePathname } from "next/navigation"
-import { Loader2, MessageCircle, Send, Sparkles, X } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { Loader2, MessageCircle, Pencil, Plus, Send, Trash2, X } from "lucide-react"
 import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/app/components/ui/card"
 import { useAuth } from "@/app/contexts/AuthContext"
 import { useToast } from "@/app/components/ui/use-toast"
 import { cn } from "@/app/utils/utils"
+import type { AssistantChatButton } from "@/app/lib/assistantChatTypes"
 
 const publicRoutes = ["/signin", "/signup", "/forgot-password", "/reset-password", "/verify-email"]
 
 const WELCOME =
-  "Ask how to do something in the tool or describe where you're stuck. I can walk you through Communities, Companies, plans, and other workflows. Your questions also help us learn what context matters most for UnionMain Homes."
+  "Use the shortcuts below when they appear, or type what you want to do. Buttons open the right screen (Add Community, go to a community, add/edit/delete a plan). Nothing changes until you click a button."
 
 type ChatMessage = {
   id: string
   role: "user" | "assistant"
   content: string
+  buttons?: AssistantChatButton[]
 }
 
 function newId() {
@@ -27,7 +29,19 @@ function newId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
+function slugFromPathname(path: string | null): string | null {
+  if (!path?.startsWith("/community/")) return null
+  const seg = path.slice("/community/".length).split("/")[0]
+  if (!seg) return null
+  try {
+    return decodeURIComponent(seg).toLowerCase()
+  } catch {
+    return seg.toLowerCase()
+  }
+}
+
 export default function AssistantChatBubble() {
+  const router = useRouter()
   const pathname = usePathname()
   const { user } = useAuth()
   const { toast } = useToast()
@@ -55,6 +69,85 @@ export default function AssistantChatBubble() {
       el.scrollTop = el.scrollHeight
     }
   }, [open, messages, isSending])
+
+  const runAssistantButton = (b: AssistantChatButton) => {
+    const here = slugFromPathname(pathname)
+    const targetSlug =
+      "communitySlug" in b ? b.communitySlug.toLowerCase() : undefined
+    const sameCommunity =
+      targetSlug != null && here != null && here === targetSlug
+
+    const closePanel = () => setOpen(false)
+
+    if (b.kind === "add_community") {
+      sessionStorage.setItem("assistant:open-add-community", "manual")
+      const onCommunities = pathname === "/communities"
+      if (onCommunities) {
+        window.dispatchEvent(
+          new CustomEvent("assistant:open-add-community", { detail: { preferManual: true } })
+        )
+      } else {
+        router.push("/communities")
+      }
+      closePanel()
+      return
+    }
+
+    if (b.kind === "go_to_community") {
+      if (sameCommunity) {
+        toast({ title: "Already here", description: "You’re already on this community page." })
+        return
+      }
+      router.push(`/community/${encodeURIComponent(b.communitySlug)}`)
+      closePanel()
+      return
+    }
+
+    if (b.kind === "add_plan") {
+      if (sameCommunity) {
+        window.dispatchEvent(new CustomEvent("assistant:open-add-plan"))
+      } else {
+        sessionStorage.setItem(
+          "assistant:open-add-plan",
+          JSON.stringify({ slug: b.communitySlug })
+        )
+        router.push(`/community/${encodeURIComponent(b.communitySlug)}`)
+      }
+      closePanel()
+      return
+    }
+
+    if (b.kind === "edit_plan") {
+      if (sameCommunity) {
+        window.dispatchEvent(
+          new CustomEvent("assistant:open-edit-plan", { detail: { planId: b.planId } })
+        )
+      } else {
+        sessionStorage.setItem(
+          "assistant:open-edit-plan",
+          JSON.stringify({ slug: b.communitySlug, planId: b.planId })
+        )
+        router.push(`/community/${encodeURIComponent(b.communitySlug)}`)
+      }
+      closePanel()
+      return
+    }
+
+    if (b.kind === "delete_plan") {
+      if (sameCommunity) {
+        window.dispatchEvent(
+          new CustomEvent("assistant:open-delete-plan", { detail: { planId: b.planId } })
+        )
+      } else {
+        sessionStorage.setItem(
+          "assistant:open-delete-plan",
+          JSON.stringify({ slug: b.communitySlug, planId: b.planId })
+        )
+        router.push(`/community/${encodeURIComponent(b.communitySlug)}`)
+      }
+      closePanel()
+    }
+  }
 
   if (!pathname || publicRoutes.includes(pathname)) return null
   if (user?.status === "pending") return null
@@ -104,7 +197,14 @@ export default function AssistantChatBubble() {
         return
       }
 
-      setMessages((prev) => [...prev, { id: newId(), role: "assistant", content: reply }])
+      const rawButtons = data.buttons
+      let buttons: AssistantChatButton[] | undefined
+      if (Array.isArray(rawButtons)) {
+        buttons = rawButtons.filter((x: unknown) => x && typeof x === "object" && "kind" in (x as object)) as AssistantChatButton[]
+        if (buttons.length === 0) buttons = undefined
+      }
+
+      setMessages((prev) => [...prev, { id: newId(), role: "assistant", content: reply, buttons }])
     } catch {
       toast({
         variant: "destructive",
@@ -133,12 +233,12 @@ export default function AssistantChatBubble() {
                   className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary"
                   aria-hidden
                 >
-                  <Sparkles className="h-5 w-5" />
+                  <MessageCircle className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold leading-tight text-foreground">Assistant</p>
+                  <p className="text-sm font-semibold leading-tight text-foreground">Help</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    Help and guidance for MarketMap Homes
+                    Shortcuts and steps for MarketMap Homes
                   </p>
                 </div>
               </div>
@@ -148,7 +248,7 @@ export default function AssistantChatBubble() {
                 size="icon"
                 className="h-9 w-9 flex-shrink-0 text-muted-foreground hover:text-foreground"
                 onClick={() => setOpen(false)}
-                aria-label="Close assistant"
+                aria-label="Close help panel"
               >
                 <X className="h-5 w-5" />
               </Button>
@@ -168,12 +268,40 @@ export default function AssistantChatBubble() {
                   )}
                 >
                   <p className="whitespace-pre-wrap text-foreground">{m.content}</p>
+                  {m.role === "assistant" && m.buttons && m.buttons.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {m.buttons.map((btn, i) => (
+                        <Button
+                          key={`${m.id}-btn-${i}`}
+                          type="button"
+                          size="sm"
+                          variant={btn.kind === "delete_plan" ? "destructive" : "secondary"}
+                          className="h-auto min-h-9 gap-1.5 whitespace-normal py-2 text-left font-medium"
+                          onClick={() => runAssistantButton(btn)}
+                        >
+                          {btn.kind === "add_community" || btn.kind === "add_plan" ? (
+                            <Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                          ) : null}
+                          {btn.kind === "edit_plan" ? (
+                            <Pencil className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                          ) : null}
+                          {btn.kind === "delete_plan" ? (
+                            <Trash2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                          ) : null}
+                          {btn.kind === "go_to_community" ? (
+                            <MessageCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                          ) : null}
+                          <span>{btn.label}</span>
+                        </Button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
               {isSending && (
                 <div className="flex items-center gap-2 rounded-lg border border-border/80 bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  <span>Thinking…</span>
+                  <span>Loading…</span>
                 </div>
               )}
             </CardContent>
@@ -216,7 +344,7 @@ export default function AssistantChatBubble() {
                 </Button>
               </form>
               <p className="text-center text-[11px] text-muted-foreground">
-                Conversations are logged to improve the assistant.
+                Use the buttons above to open screens; confirm changes in the dialogs.
               </p>
             </CardFooter>
           </Card>
@@ -235,7 +363,7 @@ export default function AssistantChatBubble() {
         aria-controls={open ? "assistant-chat-panel" : undefined}
         id="assistant-chat-launcher"
       >
-        <span className="sr-only">{open ? "Close assistant" : "Open assistant"}</span>
+        <span className="sr-only">{open ? "Close help panel" : "Open help panel"}</span>
         {open ? <X className="h-7 w-7" aria-hidden /> : <MessageCircle className="h-7 w-7" aria-hidden />}
       </Button>
     </div>
