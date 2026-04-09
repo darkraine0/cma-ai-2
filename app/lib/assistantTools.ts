@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Community from '@/app/models/Community';
 import Plan from '@/app/models/Plan';
+import Company from '@/app/models/Company';
 import { communityNameToSlug } from '@/app/community/utils/formatCommunityName';
 import type { AssistantChatButton } from '@/app/lib/assistantChatTypes';
 import type { ChatCompletionTool } from 'openai/resources/chat/completions';
@@ -11,6 +12,8 @@ export type AssistantToolContext = {
   pathname?: string | null;
   /** Last user message (for correcting wrong tool choice). */
   userMessage?: string | null;
+  /** True for admin/editor users; required for mutating tools. */
+  canManagePlans?: boolean;
 };
 
 function escapeRegex(s: string) {
@@ -378,6 +381,31 @@ export const ASSISTANT_TOOLS: ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'create_plan_from_prompt',
+      description:
+        'Create a new plan/spec in MarketMap from user-provided details. Use only when the user explicitly asks to add/create a plan/spec/home entry. Requires community_name_or_query, plan_name, price, and company_name.',
+      parameters: {
+        type: 'object',
+        properties: {
+          community_name_or_query: { type: 'string' },
+          plan_name: { type: 'string' },
+          company_name: { type: 'string' },
+          price: { type: 'number' },
+          type: { type: 'string', enum: ['plan', 'now'] },
+          address: { type: 'string' },
+          sqft: { type: 'number' },
+          stories: { type: 'string' },
+          beds: { type: 'string' },
+          baths: { type: 'string' },
+          design_number: { type: 'string' },
+        },
+        required: ['community_name_or_query', 'plan_name', 'company_name', 'price'],
+      },
+    },
+  },
 ];
 
 export async function executeAssistantTool(
@@ -708,6 +736,125 @@ export async function executeAssistantTool(
         success: true,
         plan: { id: planId, plan_name: plan.plan_name },
         slug,
+      });
+    }
+
+    case 'create_plan_from_prompt': {
+      if (!ctx.canManagePlans) {
+        return JSON.stringify({
+          error: 'Editor permission required to create plans.',
+        });
+      }
+
+      const communityQuery =
+        typeof args.community_name_or_query === 'string'
+          ? args.community_name_or_query.trim()
+          : '';
+      const planName = typeof args.plan_name === 'string' ? args.plan_name.trim() : '';
+      const companyName = typeof args.company_name === 'string' ? args.company_name.trim() : '';
+      const typeArg = typeof args.type === 'string' ? args.type.trim().toLowerCase() : '';
+      const type: 'plan' | 'now' = typeArg === 'now' ? 'now' : 'plan';
+      const price =
+        typeof args.price === 'number'
+          ? args.price
+          : Number(typeof args.price === 'string' ? args.price : NaN);
+      const sqft =
+        typeof args.sqft === 'number'
+          ? args.sqft
+          : Number(typeof args.sqft === 'string' ? args.sqft : NaN);
+      const stories = typeof args.stories === 'string' ? args.stories.trim() : undefined;
+      const beds = typeof args.beds === 'string' ? args.beds.trim() : undefined;
+      const baths = typeof args.baths === 'string' ? args.baths.trim() : undefined;
+      const address = typeof args.address === 'string' ? args.address.trim() : undefined;
+      const designNumber =
+        typeof args.design_number === 'string' ? args.design_number.trim() : undefined;
+
+      if (!communityQuery || !planName || !companyName || !Number.isFinite(price) || price <= 0) {
+        return JSON.stringify({
+          error:
+            'community_name_or_query, plan_name, company_name, and a valid positive price are required.',
+        });
+      }
+
+      const list = await findCommunitiesByNameSearch(communityQuery, 8);
+      if (list.length === 0) {
+        return JSON.stringify({ error: 'No matching community found' });
+      }
+      const candSet = new Set(communityNameCandidates(communityQuery).map((s) => s.toLowerCase()));
+      const best =
+        list.find(
+          (c) =>
+            candSet.has(c.name.toLowerCase()) || (c.slug && candSet.has(String(c.slug).toLowerCase()))
+        ) || list[0];
+
+      let companyDoc = await Company.findOne({ name: companyName });
+      if (!companyDoc) {
+        companyDoc = await Company.create({ name: companyName });
+      }
+
+      const companyRef = { _id: companyDoc._id, name: companyDoc.name };
+      const communityRef = {
+        _id: best._id as mongoose.Types.ObjectId,
+        name: best.name,
+        location: (best as { location?: string }).location,
+      };
+      const computedPpsf = Number.isFinite(sqft) && sqft > 0 ? Number((price / sqft).toFixed(2)) : undefined;
+
+      const existing = await Plan.findOne({
+        plan_name: planName,
+        'company.name': companyRef.name,
+        'community._id': communityRef._id,
+        type,
+      });
+      if (existing) {
+        return JSON.stringify({
+          error: 'A plan with the same name/company/type already exists in that community.',
+          existing_plan_id: String(existing._id),
+        });
+      }
+
+      const created = await Plan.create({
+        plan_name: planName,
+        price,
+        sqft: Number.isFinite(sqft) && sqft > 0 ? sqft : undefined,
+        stories: stories || undefined,
+        price_per_sqft: computedPpsf,
+        company: companyRef,
+        community: communityRef,
+        type,
+        beds: beds || undefined,
+        baths: baths || undefined,
+        address: address || undefined,
+        design_number: designNumber || undefined,
+        last_updated: new Date(),
+      });
+
+      pushPlanActionButtonsForFoundPlans(
+        [
+          {
+            _id: created._id,
+            plan_name: created.plan_name,
+            address: created.address ?? null,
+            type: created.type,
+            community: { name: best.name },
+          },
+        ],
+        ctx,
+        1
+      );
+
+      return JSON.stringify({
+        success: true,
+        created: {
+          id: String(created._id),
+          plan_name: created.plan_name,
+          community: best.name,
+          company: companyRef.name,
+          type: created.type,
+          price: created.price,
+        },
+        ui_buttons_added:
+          'View, Edit, and Delete buttons were added for the created plan.',
       });
     }
 
