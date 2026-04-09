@@ -181,7 +181,7 @@ function dedupeButtons(buttons: AssistantChatButton[]): AssistantChatButton[] {
     seen.add(key);
     out.push(b);
   }
-  return out.slice(0, 6);
+  return out.slice(0, 9);
 }
 
 /** Label shown in table for a plan/spec row (matches PlansTable). */
@@ -198,10 +198,10 @@ function planButtonLabel(p: {
 }
 
 /**
- * When search tools return matching plans, register Edit / Delete chips (dedupeButtons caps total).
- * Up to 3 plans → 6 buttons (edit+delete each).
+ * When search tools return matching plans, register View/Edit/Delete chips.
+ * Up to 3 plans -> 9 buttons (view+edit+delete each, capped by dedupeButtons).
  */
-function pushEditDeleteButtonsForFoundPlans(
+function pushPlanActionButtonsForFoundPlans(
   plans: Array<{
     _id: unknown;
     plan_name?: string;
@@ -220,6 +220,12 @@ function pushEditDeleteButtonsForFoundPlans(
     if (!cname) continue;
     const slug = communityNameToSlug(cname);
     const labelBase = planButtonLabel(p);
+    ctx.buttons.push({
+      kind: 'view_plan',
+      label: `View ${labelBase}`,
+      communitySlug: slug,
+      planId,
+    });
     ctx.buttons.push({
       kind: 'edit_plan',
       label: `Edit ${labelBase}`,
@@ -263,6 +269,27 @@ export const ASSISTANT_TOOLS: ChatCompletionTool[] = [
         type: 'object',
         properties: {
           community_name_or_query: { type: 'string' },
+        },
+        required: ['community_name_or_query'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'navigate_to_community_chart',
+      description:
+        'Offer a button to open the price analysis chart page for a community (Now vs Plan pricing). Use when the user asks for the chart, price chart, graph, or MarketMap chart for a subdivision.',
+      parameters: {
+        type: 'object',
+        properties: {
+          community_name_or_query: { type: 'string' },
+          chart_type: {
+            type: 'string',
+            enum: ['now', 'plan'],
+            description:
+              'Optional. now = current/spec pricing; plan = base plan pricing. Default now.',
+          },
         },
         required: ['community_name_or_query'],
       },
@@ -412,6 +439,40 @@ export async function executeAssistantTool(
       });
     }
 
+    case 'navigate_to_community_chart': {
+      const q =
+        typeof args.community_name_or_query === 'string' ? args.community_name_or_query.trim() : '';
+      if (!q) return JSON.stringify({ error: 'community_name_or_query is required' });
+      const rawType = typeof args.chart_type === 'string' ? args.chart_type.trim().toLowerCase() : '';
+      const chartType: 'now' | 'plan' = rawType === 'plan' ? 'plan' : 'now';
+      const list = await findCommunitiesByNameSearch(q, 8);
+      if (list.length === 0) {
+        return JSON.stringify({ error: 'No matching community found' });
+      }
+      const candSet = new Set(communityNameCandidates(q).map((s) => s.toLowerCase()));
+      const exact =
+        list.find(
+          (c) =>
+            candSet.has(c.name.toLowerCase()) ||
+            (c.slug && candSet.has(String(c.slug).toLowerCase()))
+        ) || list[0];
+      const best = exact;
+      const slug = communityNameToSlug(best.name);
+      const typeLabel = chartType === 'plan' ? 'Plan' : 'Now';
+      ctx.buttons.push({
+        kind: 'go_to_community_chart',
+        label: `Open ${typeLabel} chart — ${best.name}`,
+        communitySlug: slug,
+        chartType,
+      });
+      return JSON.stringify({
+        success: true,
+        community: { id: String(best._id), name: best.name, slug },
+        chart_type: chartType,
+        buttonAdded: true,
+      });
+    }
+
     case 'search_plans': {
       const communityId = typeof args.community_id === 'string' ? args.community_id.trim() : '';
       if (!communityId || !mongoose.Types.ObjectId.isValid(communityId)) {
@@ -437,7 +498,7 @@ export async function executeAssistantTool(
       const filter = { $and: parts };
       const plans = await Plan.find(filter).sort({ last_updated: -1 }).limit(40).lean();
       if (plans.length > 0) {
-        pushEditDeleteButtonsForFoundPlans(plans, ctx);
+        pushPlanActionButtonsForFoundPlans(plans, ctx);
       }
       return JSON.stringify({
         plans: plans.map((p) => ({
@@ -452,7 +513,7 @@ export async function executeAssistantTool(
         count: plans.length,
         ui_buttons_added:
           plans.length > 0
-            ? 'Edit and Delete buttons were added for up to the first 3 matching plans.'
+            ? 'View, Edit, and Delete buttons were added for up to the first 3 matching plans.'
             : undefined,
       });
     }
@@ -523,7 +584,7 @@ export async function executeAssistantTool(
       }
 
       if (plans.length > 0) {
-        pushEditDeleteButtonsForFoundPlans(plans, ctx);
+        pushPlanActionButtonsForFoundPlans(plans, ctx);
       }
 
       return JSON.stringify({
@@ -544,7 +605,7 @@ export async function executeAssistantTool(
         count: plans.length,
         ui_buttons_added:
           plans.length > 0
-            ? 'Edit and Delete buttons were added for up to the first 3 matching plans.'
+            ? 'View, Edit, and Delete buttons were added for up to the first 3 matching plans.'
             : undefined,
         hint:
           plans.length === 0

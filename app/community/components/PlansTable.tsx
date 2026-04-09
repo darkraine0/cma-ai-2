@@ -34,6 +34,7 @@ interface PlansTableProps {
   companyColorMap?: Record<string, string> | null;
   assistantOpenPlanId?: string | null;
   onAssistantOpenPlanConsumed?: () => void;
+  assistantViewPlanId?: string | null;
   planLookupList?: Plan[];
   planLookupFallback?: Plan[];
 }
@@ -51,6 +52,7 @@ export default function PlansTable({
   companyColorMap,
   assistantOpenPlanId,
   onAssistantOpenPlanConsumed,
+  assistantViewPlanId,
   planLookupList,
   planLookupFallback,
 }: PlansTableProps) {
@@ -160,7 +162,13 @@ export default function PlansTable({
             return (
               <TableRow
                 key={plan._id ?? `${plan.plan_name}-${plan.last_updated}-${extractCompanyName(plan.company)}`}
-                className={plan.price_changed_recently ? "bg-primary/5" : ""}
+                className={
+                  assistantViewPlanId != null && plan._id === assistantViewPlanId
+                    ? "bg-amber-100/60 dark:bg-amber-900/25"
+                    : plan.price_changed_recently
+                      ? "bg-primary/5"
+                      : ""
+                }
               >
                 <TableCell className="font-medium whitespace-nowrap" title={plan.type === 'now' && plan.address ? plan.address : plan.plan_name}>
                   {plan.type === 'now' && plan.address ? plan.address : plan.plan_name}

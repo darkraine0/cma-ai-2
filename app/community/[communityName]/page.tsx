@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useMemo, useState } from "react";
-import { useParams, usePathname } from "next/navigation";
+import { useParams, usePathname, useSearchParams } from "next/navigation";
 import { Card, CardContent } from "../../components/ui/card";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "../../components/ui/sheet";
 import { Button } from "../../components/ui/button";
@@ -34,6 +34,7 @@ import AddPlanDialog from "../components/AddPlanDialog";
 export default function CommunityDetail() {
   const params = useParams();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const communitySlug = params?.communityName 
     ? decodeURIComponent(params.communityName as string).toLowerCase() 
@@ -48,6 +49,7 @@ export default function CommunityDetail() {
   const [productLines, setProductLines] = useState<{ _id: string; name: string; label: string }[]>([]);
   const [addPlanOpen, setAddPlanOpen] = useState(false);
   const [assistantEditPlanId, setAssistantEditPlanId] = useState<string | null>(null);
+  const [assistantViewPlanId, setAssistantViewPlanId] = useState<string | null>(null);
   const [assistantDeletePlanId, setAssistantDeletePlanId] = useState<string | null>(null);
   const [assistantDeleteDialogOpen, setAssistantDeleteDialogOpen] = useState(false);
   const [assistantDeleteLoading, setAssistantDeleteLoading] = useState(false);
@@ -291,6 +293,14 @@ export default function CommunityDetail() {
   const applyAssistantSessionForSlug = React.useCallback(() => {
     if (typeof window === "undefined") return;
     try {
+      const view = sessionStorage.getItem("assistant:view-plan");
+      if (view) {
+        const { slug, planId } = JSON.parse(view) as { slug?: string; planId?: string };
+        if (slug && planId && slug.toLowerCase() === communitySlug.toLowerCase()) {
+          sessionStorage.removeItem("assistant:view-plan");
+          setAssistantViewPlanId(planId);
+        }
+      }
       const add = sessionStorage.getItem("assistant:open-add-plan");
       if (add) {
         const { slug } = JSON.parse(add) as { slug?: string };
@@ -329,10 +339,21 @@ export default function CommunityDetail() {
   }, [communitySlug]);
 
   React.useEffect(() => {
-    applyAssistantSessionForSlug();
-  }, [applyAssistantSessionForSlug, pathname]);
+    const fromUrl = searchParams?.get("planId");
+    if (fromUrl) {
+      setAssistantViewPlanId(fromUrl);
+    }
+  }, [searchParams]);
 
   React.useEffect(() => {
+    applyAssistantSessionForSlug();
+  }, [applyAssistantSessionForSlug, pathname, searchParams]);
+
+  React.useEffect(() => {
+    const onView = (e: Event) => {
+      const pid = (e as CustomEvent<{ planId?: string }>).detail?.planId;
+      if (pid) setAssistantViewPlanId(pid);
+    };
     const onAdd = () => setAddPlanOpen(true);
     const onEdit = (e: Event) => {
       const pid = (e as CustomEvent<{ planId?: string }>).detail?.planId;
@@ -342,10 +363,12 @@ export default function CommunityDetail() {
       const pid = (e as CustomEvent<{ planId?: string }>).detail?.planId;
       if (pid) setAssistantDeletePlanId(pid);
     };
+    window.addEventListener("assistant:view-plan", onView as EventListener);
     window.addEventListener("assistant:open-add-plan", onAdd);
     window.addEventListener("assistant:open-edit-plan", onEdit as EventListener);
     window.addEventListener("assistant:open-delete-plan", onDel as EventListener);
     return () => {
+      window.removeEventListener("assistant:view-plan", onView as EventListener);
       window.removeEventListener("assistant:open-add-plan", onAdd);
       window.removeEventListener("assistant:open-edit-plan", onEdit as EventListener);
       window.removeEventListener("assistant:open-delete-plan", onDel as EventListener);
@@ -519,6 +542,23 @@ export default function CommunityDetail() {
     totalPages,
     handleSort,
   } = usePlansFilter(displayPlans, companyNamesSet, displayProductLines);
+
+  const assistantFocusedPlan = useMemo(() => {
+    if (!assistantViewPlanId) return null;
+    const primary = displayPlans.find((p) => p._id === assistantViewPlanId);
+    if (primary) return primary;
+    const fallback = (selectedSubcommunity ? subcommunityPlans : plans).find(
+      (p) => p._id === assistantViewPlanId
+    );
+    return fallback ?? null;
+  }, [assistantViewPlanId, displayPlans, selectedSubcommunity, subcommunityPlans, plans]);
+
+  const plansForTable = useMemo(() => {
+    if (!assistantFocusedPlan) return paginatedPlans;
+    const existsOnPage = paginatedPlans.some((p) => p._id === assistantFocusedPlan._id);
+    if (existsOnPage) return paginatedPlans;
+    return [assistantFocusedPlan, ...paginatedPlans];
+  }, [assistantFocusedPlan, paginatedPlans]);
 
   // Handle sync/re-scrape (use community's registered companies, not version-filtered list)
   const handleSync = async () => {
@@ -767,10 +807,11 @@ export default function CommunityDetail() {
                     <ErrorMessage message={error} />
                   ) : (
                     <PlansTable
-                      plans={paginatedPlans}
+                      plans={plansForTable}
                       planLookupList={displayPlans}
                       planLookupFallback={selectedSubcommunity ? subcommunityPlans : plans}
                       assistantOpenPlanId={assistantEditPlanId}
+                      assistantViewPlanId={assistantViewPlanId}
                       onAssistantOpenPlanConsumed={() => setAssistantEditPlanId(null)}
                       currentPage={page}
                       totalPages={totalPages}

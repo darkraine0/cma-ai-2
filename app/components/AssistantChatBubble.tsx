@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { Loader2, MessageCircle, Pencil, Plus, Send, Trash2, X } from "lucide-react"
+import { Eye, LineChart, Loader2, MessageCircle, Pencil, Plus, Send, Trash2, X } from "lucide-react"
 import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/app/components/ui/card"
 import { useAuth } from "@/app/contexts/AuthContext"
@@ -13,7 +13,7 @@ import type { AssistantChatButton } from "@/app/lib/assistantChatTypes"
 const publicRoutes = ["/signin", "/signup", "/forgot-password", "/reset-password", "/verify-email"]
 
 const WELCOME =
-  "Use the shortcuts below when they appear, or type what you want to do. Buttons open the right screen (Add Community, go to a community, add/edit/delete a plan). Nothing changes until you click a button."
+  "Use the shortcuts below when they appear, or type what you want to do. Buttons open the right screen (Add Community, go to a community or its price chart, view a specific plan, add/edit/delete a plan). Nothing changes until you click a button."
 
 type ChatMessage = {
   id: string
@@ -103,6 +103,39 @@ export default function AssistantChatBubble() {
       return
     }
 
+    if (b.kind === "go_to_community_chart") {
+      const parts = pathname?.split("/").filter(Boolean) ?? []
+      const onChartPage =
+        parts.length >= 3 && parts[0] === "community" && parts[2] === "chart"
+      let slugHere: string | null = null
+      try {
+        slugHere = parts[1] ? decodeURIComponent(parts[1]).toLowerCase() : null
+      } catch {
+        slugHere = parts[1]?.toLowerCase() ?? null
+      }
+      const wantType = (b.chartType ?? "now").toLowerCase()
+      const typeHere = (
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("type")
+          : null
+      )?.toLowerCase() ?? "now"
+      if (
+        onChartPage &&
+        slugHere != null &&
+        targetSlug != null &&
+        slugHere === targetSlug &&
+        typeHere === wantType
+      ) {
+        toast({ title: "Already here", description: "You’re already on this chart." })
+        return
+      }
+      router.push(
+        `/community/${encodeURIComponent(b.communitySlug)}/chart?type=${encodeURIComponent(wantType)}`
+      )
+      closePanel()
+      return
+    }
+
     if (b.kind === "add_plan") {
       if (sameCommunity) {
         window.dispatchEvent(new CustomEvent("assistant:open-add-plan"))
@@ -110,6 +143,22 @@ export default function AssistantChatBubble() {
         sessionStorage.setItem(
           "assistant:open-add-plan",
           JSON.stringify({ slug: b.communitySlug })
+        )
+        router.push(`/community/${encodeURIComponent(b.communitySlug)}`)
+      }
+      closePanel()
+      return
+    }
+
+    if (b.kind === "view_plan") {
+      if (sameCommunity) {
+        window.dispatchEvent(
+          new CustomEvent("assistant:view-plan", { detail: { planId: b.planId } })
+        )
+      } else {
+        sessionStorage.setItem(
+          "assistant:view-plan",
+          JSON.stringify({ slug: b.communitySlug, planId: b.planId })
         )
         router.push(`/community/${encodeURIComponent(b.communitySlug)}`)
       }
@@ -290,6 +339,12 @@ export default function AssistantChatBubble() {
                           ) : null}
                           {btn.kind === "go_to_community" ? (
                             <MessageCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                          ) : null}
+                          {btn.kind === "go_to_community_chart" ? (
+                            <LineChart className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                          ) : null}
+                          {btn.kind === "view_plan" ? (
+                            <Eye className="h-3.5 w-3.5 shrink-0" aria-hidden />
                           ) : null}
                           <span>{btn.label}</span>
                         </Button>
