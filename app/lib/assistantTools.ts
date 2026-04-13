@@ -201,8 +201,7 @@ function planButtonLabel(p: {
 }
 
 /**
- * When search tools return matching plans, register View/Edit/Delete chips.
- * Up to 3 plans -> 9 buttons (view+edit+delete each, capped by dedupeButtons).
+ * When search tools return matching plans, register View (and for editors, Edit/Delete) chips.
  */
 function pushPlanActionButtonsForFoundPlans(
   plans: Array<{
@@ -216,6 +215,7 @@ function pushPlanActionButtonsForFoundPlans(
   maxPlans = 3
 ) {
   const slice = plans.slice(0, maxPlans);
+  const canEdit = Boolean(ctx.canManagePlans);
   for (const p of slice) {
     const planId = String(p._id);
     if (!mongoose.Types.ObjectId.isValid(planId)) continue;
@@ -229,18 +229,20 @@ function pushPlanActionButtonsForFoundPlans(
       communitySlug: slug,
       planId,
     });
-    ctx.buttons.push({
-      kind: 'edit_plan',
-      label: `Edit ${labelBase}`,
-      communitySlug: slug,
-      planId,
-    });
-    ctx.buttons.push({
-      kind: 'delete_plan',
-      label: `Delete ${labelBase}`,
-      communitySlug: slug,
-      planId,
-    });
+    if (canEdit) {
+      ctx.buttons.push({
+        kind: 'edit_plan',
+        label: `Edit ${labelBase}`,
+        communitySlug: slug,
+        planId,
+      });
+      ctx.buttons.push({
+        kind: 'delete_plan',
+        label: `Delete ${labelBase}`,
+        communitySlug: slug,
+        planId,
+      });
+    }
   }
 }
 
@@ -408,6 +410,22 @@ export const ASSISTANT_TOOLS: ChatCompletionTool[] = [
   },
 ];
 
+const MUTATING_ASSISTANT_TOOL_NAMES = new Set([
+  'suggest_add_community',
+  'open_plan_ui_workflow',
+  'create_plan_from_prompt',
+]);
+
+/** Editors get full tools; Viewers get search/navigation only (no add/edit/delete workflows). */
+export function getAssistantToolsForUser(canManagePlans: boolean): ChatCompletionTool[] {
+  if (canManagePlans) return ASSISTANT_TOOLS;
+  return ASSISTANT_TOOLS.filter(
+    (t) =>
+      t.type === 'function' &&
+      !MUTATING_ASSISTANT_TOOL_NAMES.has(t.function.name)
+  );
+}
+
 export async function executeAssistantTool(
   name: string,
   rawArgs: string,
@@ -541,7 +559,9 @@ export async function executeAssistantTool(
         count: plans.length,
         ui_buttons_added:
           plans.length > 0
-            ? 'View, Edit, and Delete buttons were added for up to the first 3 matching plans.'
+            ? ctx.canManagePlans
+              ? 'View, Edit, and Delete buttons were added for up to the first 3 matching plans.'
+              : 'View buttons were added for up to the first 3 matching plans (Viewer: browse only).'
             : undefined,
       });
     }
@@ -633,7 +653,9 @@ export async function executeAssistantTool(
         count: plans.length,
         ui_buttons_added:
           plans.length > 0
-            ? 'View, Edit, and Delete buttons were added for up to the first 3 matching plans.'
+            ? ctx.canManagePlans
+              ? 'View, Edit, and Delete buttons were added for up to the first 3 matching plans.'
+              : 'View buttons were added for up to the first 3 matching plans (Viewer: browse only).'
             : undefined,
         hint:
           plans.length === 0
@@ -643,6 +665,18 @@ export async function executeAssistantTool(
     }
 
     case 'suggest_add_community': {
+      if (!ctx.canManagePlans) {
+        if (ctx.userMessage && userIntendsAddPlanOrSpec(ctx.userMessage)) {
+          return JSON.stringify({
+            error:
+              'Adding plans requires Editor permission. Viewers can search and view plans only.',
+          });
+        }
+        return JSON.stringify({
+          error:
+            'Creating a community requires Editor permission. Viewers can browse and search communities only.',
+        });
+      }
       if (ctx.userMessage && userIntendsAddPlanOrSpec(ctx.userMessage)) {
         return await executeAssistantTool(
           'open_plan_ui_workflow',
@@ -661,6 +695,12 @@ export async function executeAssistantTool(
     }
 
     case 'open_plan_ui_workflow': {
+      if (!ctx.canManagePlans) {
+        return JSON.stringify({
+          error:
+            'Editor permission is required to add, edit, or delete plans. Viewers can search and view only.',
+        });
+      }
       const action = args.action;
       if (action !== 'add' && action !== 'edit' && action !== 'delete') {
         return JSON.stringify({ error: 'action must be add, edit, or delete' });

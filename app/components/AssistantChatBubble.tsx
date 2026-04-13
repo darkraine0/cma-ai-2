@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { Eye, LineChart, Loader2, MessageCircle, Pencil, Plus, Send, Trash2, X } from "lucide-react"
+import { Badge } from "@/app/components/ui/badge"
 import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/app/components/ui/card"
 import { useAuth } from "@/app/contexts/AuthContext"
@@ -12,8 +13,11 @@ import type { AssistantChatButton } from "@/app/lib/assistantChatTypes"
 
 const publicRoutes = ["/signin", "/signup", "/forgot-password", "/reset-password", "/verify-email"]
 
-const WELCOME =
+const WELCOME_EDITOR =
   "Use the shortcuts below when they appear, or type what you want to do. Buttons open the right screen (Add Community, go to a community or its price chart, view a specific plan, add/edit/delete a plan). Nothing changes until you click a button."
+
+const WELCOME_VIEWER =
+  "Use the shortcuts below when they appear, or type what you want to do. You can search communities and plans, open a community or its price chart, and view plans. Your account is view-only — you cannot add or change communities or plans from here. Nothing changes until you click a button."
 
 type ChatMessage = {
   id: string
@@ -49,7 +53,7 @@ export default function AssistantChatBubble() {
   const [draft, setDraft] = useState("")
   const [isSending, setIsSending] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
-    { id: "welcome", role: "assistant", content: WELCOME },
+    { id: "welcome", role: "assistant", content: WELCOME_EDITOR },
   ])
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -70,7 +74,32 @@ export default function AssistantChatBubble() {
     }
   }, [open, messages, isSending])
 
+  const canManageContent =
+    user?.role === "admin" || user?.permission === "editor"
+
+  useEffect(() => {
+    const text = canManageContent ? WELCOME_EDITOR : WELCOME_VIEWER
+    setMessages((prev) =>
+      prev.map((m) => (m.id === "welcome" ? { ...m, content: text } : m))
+    )
+  }, [canManageContent])
+
   const runAssistantButton = (b: AssistantChatButton) => {
+    const canManage = user?.role === "admin" || user?.permission === "editor"
+    if (
+      !canManage &&
+      (b.kind === "add_community" ||
+        b.kind === "add_plan" ||
+        b.kind === "edit_plan" ||
+        b.kind === "delete_plan")
+    ) {
+      toast({
+        title: "View only",
+        description: "Editor permission is required to add, edit, or delete plans or communities.",
+      })
+      return
+    }
+
     const here = slugFromPathname(pathname)
     const targetSlug =
       "communitySlug" in b ? b.communitySlug.toLowerCase() : undefined
@@ -220,6 +249,12 @@ export default function AssistantChatBubble() {
         body: JSON.stringify({
           messages: payloadMessages,
           pathname: pathname || null,
+          clientCapabilities: user
+            ? {
+                permission: user.permission ?? "viewer",
+                role: user.role ?? "user",
+              }
+            : undefined,
         }),
       })
 
@@ -285,7 +320,17 @@ export default function AssistantChatBubble() {
                   <MessageCircle className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold leading-tight text-foreground">Help</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-semibold leading-tight text-foreground">Help</p>
+                    {user && (
+                      <Badge
+                        variant={canManageContent ? "secondary" : "outline"}
+                        className="text-[10px] font-semibold uppercase tracking-wide"
+                      >
+                        {canManageContent ? "Editor" : "View only"}
+                      </Badge>
+                    )}
+                  </div>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     Shortcuts and steps for MarketMap Homes
                   </p>

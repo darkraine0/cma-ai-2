@@ -6,9 +6,9 @@ import { getCurrentUserFromRequest } from '@/app/lib/auth';
 import { requireApproved } from '@/app/lib/admin';
 import AssistantInteraction from '@/app/models/AssistantInteraction';
 import {
-  ASSISTANT_TOOLS,
   dedupeButtons,
   executeAssistantTool,
+  getAssistantToolsForUser,
   type AssistantToolContext,
 } from '@/app/lib/assistantTools';
 const openai = new OpenAI({
@@ -33,12 +33,79 @@ Behavior:
 - Use suggest_add_community ONLY when the user wants to create a brand-new community (subdivision) in MarketMap — shows "Add new community". Do NOT use it when the user wants to add a plan, spec, or home to an existing community — that is open_plan_ui_workflow with action add (shows "Add plan in [Community]").
 - Use open_plan_ui_workflow for add/edit/delete plan or spec. For "add plan/spec to [Community]", use action add with community_name_or_query = that community (or the user sentence).
 - If the user provides concrete plan details and explicitly wants you to add/create it now, use create_plan_from_prompt to create the plan record directly.
-- find_plans_by_text and search_plans automatically add View, Edit, and Delete buttons under the reply when they return matching plans (up to 3 plans). If the user asked to find/show a specific plan, direct them to click View to open that plan in its community.
+- find_plans_by_text and search_plans add shortcut buttons for matching plans (up to 3): Editors get View, Edit, Delete; Viewers get View only.
 
 Rules:
 - Do not invent names, prices, or counts; use tools or say no match was found.
 - Keep the reply concise. Mention that users can use the buttons below your message when tools add them.
-- Editors can add/edit/delete plans in the UI and via tools; viewers may only browse.`;
+- Editors can add/edit/delete plans and communities (where applicable); Viewers can only search and view.
+
+Critical — no fake Markdown links:
+- Never write [text](#) or other Markdown links for navigation. Use navigate_to_community / navigate_to_community_chart so real buttons appear.`;
+
+const VIEWER_PERMISSION_BLOCK = `
+
+=== SIGNED-IN USER: VIEWER (read-only) ===
+This user has Viewer permission. They can search and open communities, companies, plans, and charts only.
+They cannot add, edit, or delete communities, plans, or companies. Do not describe "Add community" or edit/delete flows as available to them.
+If they ask how to add/create/edit/delete/update/remove data, explain they are view-only and can contact an Admin for Editor access.`;
+
+function stripMarkdownLinksToPlainLabels(text: string): string {
+  return text
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+async function ensureCommunityNavigateButtonFromReply(
+  reply: string,
+  lastUserMessage: string,
+  ctx: AssistantToolContext
+) {
+  const hasNav = ctx.buttons.some(
+    (b) => b.kind === 'go_to_community' || b.kind === 'go_to_community_chart'
+  );
+  if (hasNav) return;
+  if (!/\[[^\]]+\]\([^)]*\)/.test(reply)) return;
+
+  let query: string | null = null;
+  const openLabel = reply.match(/\[\s*Open\s+([^\]]+?)\s*\]\s*\([^)]*\)/i);
+  if (openLabel?.[1]) query = openLabel[1].trim();
+  else {
+    const anyLink = reply.match(/\[([^\]]+)\]\([^)]*\)/);
+    if (anyLink?.[1]) {
+      const raw = anyLink[1].trim();
+      query = raw.replace(/^open\s+/i, '').trim() || raw;
+    }
+  }
+  if (!query) {
+    const u = lastUserMessage.trim();
+    if (u.length >= 2 && u.length <= 120) query = u;
+  }
+  if (!query || query.length < 2) return;
+
+  await executeAssistantTool(
+    'navigate_to_community',
+    JSON.stringify({ community_name_or_query: query }),
+    ctx
+  );
+}
+
+type AssistantCapabilities = {
+  role: 'admin' | 'user';
+  permission: 'viewer' | 'editor';
+  canManagePlans: boolean;
+};
+
+function capabilitiesFromDbUser(user: {
+  role?: string;
+  permission?: string;
+}): AssistantCapabilities {
+  const role = user.role === 'admin' ? 'admin' : 'user';
+  const permission = user.permission === 'editor' ? 'editor' : 'viewer';
+  const canManagePlans = user.role === 'admin' || user.permission === 'editor';
+  return { role, permission, canManagePlans };
+}
 
 type ChatRole = 'user' | 'assistant';
 
@@ -85,6 +152,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const pathname =
       typeof body.pathname === 'string' ? body.pathname.slice(0, 512) : null;
+    const clientCapabilities = body.clientCapabilities as
+      | { permission?: string; role?: string }
+      | undefined;
     const messages = normalizeMessages(body.messages);
     if (!messages) {
       return NextResponse.json(
@@ -97,8 +167,24 @@ export async function POST(request: NextRequest) {
       ? `\nCurrent page path (for context): ${pathname}`
       : '';
 
+    const capabilities = capabilitiesFromDbUser(approved.user);
+    if (
+      process.env.NODE_ENV === 'development' &&
+      clientCapabilities?.permission &&
+      clientCapabilities.permission !== capabilities.permission
+    ) {
+      console.warn('[assistant/chat] clientCapabilities.permission does not match database', {
+        client: clientCapabilities.permission,
+        database: capabilities.permission,
+      });
+    }
+
+    const canManagePlans = capabilities.canManagePlans;
     const messagesForModel: ChatCompletionMessageParam[] = [
-      { role: 'system', content: `${BASE_SYSTEM}${pathLine}` },
+      {
+        role: 'system',
+        content: `${BASE_SYSTEM}${canManagePlans ? '' : VIEWER_PERMISSION_BLOCK}${pathLine}`,
+      },
       ...messages.map((m) => ({ role: m.role, content: m.content })),
     ];
 
@@ -107,8 +193,7 @@ export async function POST(request: NextRequest) {
       buttons: [],
       pathname,
       userMessage: lastUserMessage,
-      canManagePlans:
-        approved.user.role === 'admin' || approved.user.permission === 'editor',
+      canManagePlans,
     };
     let assistantReply = '';
     let rounds = 0;
@@ -118,9 +203,9 @@ export async function POST(request: NextRequest) {
       const completion = await openai.chat.completions.create({
         model: MODEL,
         messages: messagesForModel,
-        tools: ASSISTANT_TOOLS,
+        tools: getAssistantToolsForUser(canManagePlans),
         tool_choice: 'auto',
-        temperature: 0.45,
+        temperature: canManagePlans ? 0.45 : 0.25,
         max_tokens: 2000,
       });
 
@@ -156,6 +241,9 @@ export async function POST(request: NextRequest) {
         'I could not complete that request. Try rephrasing or being more specific.';
     }
 
+    await ensureCommunityNavigateButtonFromReply(assistantReply, lastUserMessage, toolCtx);
+    assistantReply = stripMarkdownLinksToPlainLabels(assistantReply);
+
     const buttons = dedupeButtons(toolCtx.buttons);
 
     void (async () => {
@@ -173,7 +261,10 @@ export async function POST(request: NextRequest) {
       }
     })();
 
-    return NextResponse.json({ reply: assistantReply, buttons }, { status: 200 });
+    return NextResponse.json(
+      { reply: assistantReply, buttons, capabilities },
+      { status: 200 }
+    );
   } catch (error: unknown) {
     const err = error as { message?: string; response?: { data?: { error?: { message?: string } } } };
     console.error('Assistant chat error:', error);
