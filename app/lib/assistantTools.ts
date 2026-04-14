@@ -1,9 +1,10 @@
-import mongoose from 'mongoose';
+﻿import mongoose from 'mongoose';
+import OpenAI from 'openai';
 import Community from '@/app/models/Community';
 import Plan from '@/app/models/Plan';
 import Company from '@/app/models/Company';
 import { communityNameToSlug } from '@/app/community/utils/formatCommunityName';
-import type { AssistantChatButton } from '@/app/lib/assistantChatTypes';
+import type { AssistantChatButton, AssistantPlanItem } from '@/app/lib/assistantChatTypes';
 import type { ChatCompletionTool } from 'openai/resources/chat/completions';
 
 export type AssistantToolContext = {
@@ -348,9 +349,28 @@ export const ASSISTANT_TOOLS: ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
+      name: 'analyze_community_changes',
+      description:
+        'Search the web for current home plans and quick move-ins (spec homes) in a US community and show them in an in-chat modal. Use whenever the user asks to see, list, show, browse, analyze, or review plans for a community. Returns live data via web search — not the internal database.',
+      parameters: {
+        type: 'object',
+        properties: {
+          community_name_or_query: {
+            type: 'string',
+            description:
+              'Community name or descriptive query (e.g. "Elevon", "Cambridge Crossing"). If omitted and the user is on a community page the current community is used.',
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'suggest_add_community',
       description:
-        'ONLY when the user wants to create a brand-new community (subdivision) in MarketMap. NEVER use for adding a plan, spec, or home to an existing community — use open_plan_ui_workflow with action add instead.',
+        'ONLY when the user wants to create a brand-new community (subdivision) in MarketMap. NEVER use for adding a plan, spec, or home to an existing community â€” use open_plan_ui_workflow with action add instead.',
       parameters: {
         type: 'object',
         properties: {
@@ -367,7 +387,7 @@ export const ASSISTANT_TOOLS: ChatCompletionTool[] = [
     function: {
       name: 'open_plan_ui_workflow',
       description:
-        'Register buttons to add, edit, or delete a plan or spec in the UI. For action add: user wants a new plan/spec inside an existing community — pass community_name_or_query (community name or full sentence).',
+        'Register buttons to add, edit, or delete a plan or spec in the UI. For action add: user wants a new plan/spec inside an existing community â€” pass community_name_or_query (community name or full sentence).',
       parameters: {
         type: 'object',
         properties: {
@@ -507,7 +527,7 @@ export async function executeAssistantTool(
       const typeLabel = chartType === 'plan' ? 'Plan' : 'Now';
       ctx.buttons.push({
         kind: 'go_to_community_chart',
-        label: `Open ${typeLabel} chart — ${best.name}`,
+        label: `Open ${typeLabel} chart â€” ${best.name}`,
         communitySlug: slug,
         chartType,
       });
@@ -895,6 +915,141 @@ export async function executeAssistantTool(
         },
         ui_buttons_added:
           'View, Edit, and Delete buttons were added for the created plan.',
+      });
+    }
+
+    case 'analyze_community_changes': {
+      const rawCommQ =
+        typeof args.community_name_or_query === 'string'
+          ? args.community_name_or_query.trim()
+          : '';
+
+      // Resolve community name/slug (DB lookup for canonical name only, not plan data)
+      let resolvedName: string | null = null;
+      let resolvedSlug: string | null = null;
+
+      if (rawCommQ) {
+        const list = await findCommunitiesByNameSearch(rawCommQ, 8);
+        if (list.length > 0) {
+          const candSet = new Set(communityNameCandidates(rawCommQ).map((s) => s.toLowerCase()));
+          const exact =
+            list.find(
+              (c) =>
+                candSet.has(c.name.toLowerCase()) ||
+                (c.slug && candSet.has(String(c.slug).toLowerCase()))
+            ) || list[0];
+          resolvedName = exact.name;
+          resolvedSlug = communityNameToSlug(exact.name);
+        }
+      }
+
+      if (!resolvedName && ctx.pathname) {
+        const slug = communitySlugFromPath(ctx.pathname);
+        if (slug) {
+          const comm = await findCommunityByUrlSlug(slug);
+          if (comm) {
+            resolvedName = comm.name;
+            resolvedSlug = communityNameToSlug(comm.name);
+          }
+        }
+      }
+
+      // Fallback: community may not be in DB yet — use raw query directly
+      if (!resolvedName && rawCommQ) {
+        resolvedName = rawCommQ;
+        resolvedSlug = communityNameToSlug(rawCommQ);
+      }
+
+      if (!resolvedName || !resolvedSlug) {
+        return JSON.stringify({
+          error: 'Could not identify the community. Please specify a community name (e.g. "Elevon").',
+        });
+      }
+
+      // Fetch live plans via OpenAI web search (same approach as /api/scrape)
+      const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const webPrompt = `Web search for all current home floor plans and quick move-ins (spec homes) available in the ${resolvedName} community in the United States. List every builder/company and each of their available plans.
+
+Return a JSON object with a "plans" array. Each plan object should have:
+- company (string): Builder/company name
+- plan_name (string): Plan name or model name (use full address for spec/quick move-in homes)
+- price (number): Price in USD
+- sqft (number, optional): Square footage
+- stories (string, optional): Number of stories
+- beds (string, optional): Number of bedrooms
+- baths (string, optional): Number of bathrooms
+- address (string, optional): Full address for spec/quick move-in homes
+- type (string): "plan" for floor plans, "now" for quick move-ins/spec homes
+
+Return ONLY valid JSON, no additional text.`;
+
+      let livePlans: AssistantPlanItem[] = [];
+      try {
+        const completion = await openaiClient.responses.create({
+          model: 'o4-mini',
+          tools: [{ type: 'web_search' }],
+          input: [
+            {
+              role: 'system',
+              content:
+                'You are a helpful assistant that provides accurate, current information about home building communities in the United States. Always return ONLY valid JSON with accurate, up-to-date data. Do not include any text before or after the JSON.',
+            },
+            { role: 'user', content: webPrompt },
+          ],
+        });
+
+        const aiResponse = completion.output_text;
+        if (aiResponse) {
+          let cleaned = aiResponse.trim();
+          const codeBlock = cleaned.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
+          if (codeBlock?.[1]) cleaned = codeBlock[1].trim();
+          const parsed = JSON.parse(cleaned) as Record<string, unknown>;
+          const arr = Array.isArray(parsed)
+            ? (parsed as Record<string, unknown>[])
+            : ((parsed.plans ?? parsed.data ?? []) as Record<string, unknown>[]);
+
+          livePlans = arr.map((p, i) => ({
+            id: `live-${i}`,
+            display_label:
+              String(p.type) === 'now' && p.address
+                ? String(p.address)
+                : String(p.plan_name ?? ''),
+            plan_name: p.plan_name ? String(p.plan_name) : undefined,
+            address: p.address ? String(p.address) : null,
+            company: p.company ? String(p.company) : null,
+            price: p.price != null ? Number(p.price) : undefined,
+            sqft: p.sqft != null ? Number(p.sqft) : null,
+            beds: p.beds != null ? String(p.beds) : null,
+            baths: p.baths != null ? String(p.baths) : null,
+            type: p.type ? String(p.type) : 'plan',
+            days_ago: null,
+          }));
+        }
+      } catch (err) {
+        console.error('analyze_community_changes web search failed:', err);
+      }
+
+      ctx.buttons.push({
+        kind: 'show_plans',
+        label: `Show ${livePlans.length} plan${livePlans.length !== 1 ? 's' : ''} for ${resolvedName}`,
+        communitySlug: resolvedSlug,
+        communityName: resolvedName,
+        plans: livePlans.slice(0, 60),
+      });
+
+      if (ctx.canManagePlans) {
+        ctx.buttons.push({
+          kind: 'add_plan',
+          label: `Add plan in ${resolvedName}`,
+          communitySlug: resolvedSlug,
+        });
+      }
+
+      return JSON.stringify({
+        community: resolvedName,
+        total_plans: livePlans.length,
+        source: 'live_web_search',
+        ui_buttons_added: `"Show Plans" button with ${livePlans.length} live plans.${ctx.canManagePlans ? ' "Add plan" button also added.' : ''}`,
       });
     }
 
