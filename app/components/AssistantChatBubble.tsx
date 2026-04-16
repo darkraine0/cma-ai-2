@@ -70,6 +70,8 @@ function formatPrice(price?: number): string {
 
 type EditForm = {
   id: string
+  /** When set, save uses PATCH to update the existing MarketMap plan. */
+  existingPlanId?: string
   plan_name: string
   price: string
   sqft: string
@@ -86,25 +88,57 @@ type PlanModalProps = {
   onClose: () => void
 }
 
+function planMatchesFilter(p: AssistantPlanItem, filter: string) {
+  if (!filter.trim()) return true
+  const q = filter.toLowerCase()
+  return (
+    p.display_label?.toLowerCase().includes(q) ||
+    p.company?.toLowerCase().includes(q) ||
+    p.plan_name?.toLowerCase().includes(q) ||
+    p.address?.toLowerCase().includes(q)
+  )
+}
+
 function PlanListModal({ button, canManage, onClose }: PlanModalProps) {
   const [filter, setFilter] = useState("")
   const [savingId, setSavingId] = useState<string | null>(null)
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
+  const [deleteLoadingId, setDeleteLoadingId] = useState<string | null>(null)
   const [saveError, setSaveError] = useState("")
   const [editForm, setEditForm] = useState<EditForm | null>(null)
   const [editSaving, setEditSaving] = useState(false)
 
+  const pc = button.planComparison
   const filtered = filter.trim()
-    ? button.plans.filter((p) => {
-        const q = filter.toLowerCase()
-        return (
-          p.display_label?.toLowerCase().includes(q) ||
-          p.company?.toLowerCase().includes(q) ||
-          p.plan_name?.toLowerCase().includes(q) ||
-          p.address?.toLowerCase().includes(q)
-        )
-      })
+    ? button.plans.filter((p) => planMatchesFilter(p, filter))
     : button.plans
+
+  const filteredAdded =
+    pc?.added.filter(
+      (p) => !savedIds.has(p.id) && planMatchesFilter(p, filter)
+    ) ?? []
+  const filteredDiffers =
+    pc?.differs.filter(
+      (p) => !savedIds.has(p.id) && planMatchesFilter(p, filter)
+    ) ?? []
+  const filteredOnlyDb =
+    pc?.onlyInDb.filter((p) => {
+      const key = p.existing_plan_id || p.id
+      if (deletedIds.has(key)) return false
+      return planMatchesFilter(p, filter)
+    }) ?? []
+
+  const showComparisonIdle =
+    !!pc &&
+    pc.added.every((p) => savedIds.has(p.id)) &&
+    pc.differs.every((p) => savedIds.has(p.id)) &&
+    pc.onlyInDb.every((p) => deletedIds.has(p.existing_plan_id || p.id))
+
+  const hasAnyFiltered =
+    filteredAdded.length > 0 ||
+    filteredDiffers.length > 0 ||
+    filteredOnlyDb.length > 0
 
   async function handleAdd(plan: AssistantPlanItem) {
     if (savingId || savedIds.has(plan.id)) return
@@ -141,6 +175,7 @@ function PlanListModal({ button, canManage, onClose }: PlanModalProps) {
   function openEdit(plan: AssistantPlanItem) {
     setEditForm({
       id: plan.id,
+      existingPlanId: plan.existing_plan_id,
       plan_name: plan.plan_name || plan.display_label || "",
       price: plan.price != null ? String(plan.price) : "",
       sqft: plan.sqft != null ? String(plan.sqft) : "",
@@ -151,6 +186,66 @@ function PlanListModal({ button, canManage, onClose }: PlanModalProps) {
       baths: plan.baths || "",
     })
     setSaveError("")
+  }
+
+  async function handleApplyNew(plan: AssistantPlanItem) {
+    if (!plan.existing_plan_id || savingId || savedIds.has(plan.id)) return
+    const priceNum = Number(plan.price)
+    if (!plan.plan_name?.trim() && !plan.display_label?.trim()) {
+      setSaveError("Source data is missing a plan name.")
+      return
+    }
+    if (!priceNum || !(plan.company || "").trim()) {
+      setSaveError("Source data is missing price or company.")
+      return
+    }
+    setSavingId(plan.id)
+    setSaveError("")
+    try {
+      const res = await fetch(`${API_URL}/plans/${plan.existing_plan_id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan_name: (plan.plan_name || plan.display_label).trim(),
+          price: priceNum,
+          company: (plan.company || "").trim(),
+          community: button.communityName,
+          type: plan.type === "now" ? "now" : "plan",
+          address: plan.address?.trim() || undefined,
+          sqft: plan.sqft != null ? Number(plan.sqft) : undefined,
+          beds: plan.beds?.trim() || undefined,
+          baths: plan.baths?.trim() || undefined,
+        }),
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        throw new Error(d.error || d.message || "Failed to update plan")
+      }
+      setSavedIds((prev) => new Set([...prev, plan.id]))
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to update plan")
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  async function handleDeletePlan(plan: AssistantPlanItem) {
+    const oid = plan.existing_plan_id || plan.id
+    if (!oid || deleteLoadingId) return
+    setDeleteLoadingId(oid)
+    setSaveError("")
+    try {
+      const res = await fetch(`${API_URL}/plans/${oid}`, { method: "DELETE" })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        throw new Error(d.error || d.message || "Failed to delete plan")
+      }
+      setDeletedIds((prev) => new Set([...prev, oid]))
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to delete plan")
+    } finally {
+      setDeleteLoadingId(null)
+    }
   }
 
   async function handleEditSave(e: React.FormEvent) {
@@ -164,20 +259,25 @@ function PlanListModal({ button, canManage, onClose }: PlanModalProps) {
     setEditSaving(true)
     setSaveError("")
     try {
-      const res = await fetch(`${API_URL}/plans`, {
-        method: "POST",
+      const body = {
+        plan_name: editForm.plan_name.trim(),
+        price: priceNum,
+        company: editForm.company.trim(),
+        community: button.communityName,
+        type: editForm.type,
+        address: editForm.address.trim() || undefined,
+        sqft: editForm.sqft ? Number(editForm.sqft) : undefined,
+        beds: editForm.beds.trim() || undefined,
+        baths: editForm.baths.trim() || undefined,
+      }
+      const url = editForm.existingPlanId
+        ? `${API_URL}/plans/${editForm.existingPlanId}`
+        : `${API_URL}/plans`
+      const method = editForm.existingPlanId ? "PATCH" : "POST"
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          plan_name: editForm.plan_name.trim(),
-          price: priceNum,
-          company: editForm.company.trim(),
-          community: button.communityName,
-          type: editForm.type,
-          address: editForm.address.trim() || undefined,
-          sqft: editForm.sqft ? Number(editForm.sqft) : undefined,
-          beds: editForm.beds.trim() || undefined,
-          baths: editForm.baths.trim() || undefined,
-        }),
+        body: JSON.stringify(body),
       })
       if (!res.ok) {
         const d = await res.json().catch(() => ({}))
@@ -190,6 +290,170 @@ function PlanListModal({ button, canManage, onClose }: PlanModalProps) {
     } finally {
       setEditSaving(false)
     }
+  }
+
+  const colSpan = canManage ? 6 : 5
+
+  function renderPlanRow(
+    plan: AssistantPlanItem,
+    mode: "legacy" | "add" | "differs" | "only_in_db"
+  ) {
+    const isSaving = savingId === plan.id
+    const isSaved = savedIds.has(plan.id)
+    const oid = plan.existing_plan_id || plan.id
+    const isDeleting = deleteLoadingId === oid
+    return (
+      <tr key={`${mode}-${plan.id}`} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
+        <td className="px-6 py-2.5">
+          <div className="font-medium text-foreground leading-tight">{plan.display_label}</div>
+          {plan.comparison_bucket === "differs" && plan.existing_price != null && (
+              <div className="text-[11px] text-muted-foreground mt-1">
+                Database: {formatPrice(plan.existing_price)}
+                {plan.existing_sqft != null ? ` · ${Number(plan.existing_sqft).toLocaleString()} sqft` : ""}
+                {plan.existing_company ? ` · ${plan.existing_company}` : ""}
+              </div>
+            )}
+          <div className="text-[11px] mt-0.5 flex items-center gap-1">
+            {plan.type === "now" && (
+              <span className="inline-flex items-center rounded px-1 py-0 text-[10px] font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+                Spec
+              </span>
+            )}
+            {plan.type === "plan" && (
+              <span className="inline-flex items-center rounded px-1 py-0 text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">
+                Floor Plan
+              </span>
+            )}
+          </div>
+        </td>
+        <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{plan.company ?? "—"}</td>
+        <td className="px-3 py-2.5 text-right font-medium tabular-nums">{formatPrice(plan.price)}</td>
+        <td className="px-3 py-2.5 text-right text-muted-foreground tabular-nums hidden sm:table-cell">
+          {plan.sqft ? plan.sqft.toLocaleString() : "—"}
+        </td>
+        <td className="px-3 py-2.5 text-right text-muted-foreground tabular-nums hidden sm:table-cell">
+          {plan.beds || plan.baths ? `${plan.beds ?? "—"} / ${plan.baths ?? "—"}` : "—"}
+        </td>
+        {canManage && (
+          <td className="px-3 py-2.5">
+            <div className="flex flex-wrap gap-1 justify-end items-center">
+              {mode === "legacy" && (
+                <>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                    title="Edit before saving"
+                    onClick={() => openEdit(plan)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className={cn(
+                      "h-7 w-7",
+                      isSaved
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    title={isSaved ? "Saved to DB" : "Save to DB"}
+                    disabled={isSaving || isSaved}
+                    onClick={() => handleAdd(plan)}
+                  >
+                    {isSaving ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : isSaved ? (
+                      <Check className="h-3.5 w-3.5" />
+                    ) : (
+                      <Plus className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                </>
+              )}
+              {mode === "add" && (
+                <>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="h-7 px-2 text-xs"
+                    title="Edit before saving"
+                    onClick={() => openEdit(plan)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="default"
+                    className="h-7 px-2 text-xs"
+                    disabled={isSaving || isSaved}
+                    onClick={() => handleAdd(plan)}
+                  >
+                    {isSaving ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : isSaved ? (
+                      "Saved"
+                    ) : (
+                      "Add"
+                    )}
+                  </Button>
+                </>
+              )}
+              {mode === "differs" && (
+                <>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="h-7 px-2 text-xs"
+                    title="Edit values before updating"
+                    onClick={() => openEdit(plan)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="default"
+                    className="h-7 px-2 text-xs"
+                    disabled={isSaving || isSaved}
+                    onClick={() => handleApplyNew(plan)}
+                  >
+                    {isSaving ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : isSaved ? (
+                      "Updated"
+                    ) : (
+                      "New"
+                    )}
+                  </Button>
+                </>
+              )}
+              {mode === "only_in_db" && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  className="h-7 px-2 text-xs"
+                  disabled={isDeleting}
+                  onClick={() => handleDeletePlan(plan)}
+                >
+                  {isDeleting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    "Delete"
+                  )}
+                </Button>
+              )}
+            </div>
+          </td>
+        )}
+      </tr>
+    )
   }
 
   const inputCls =
@@ -297,8 +561,13 @@ function PlanListModal({ button, canManage, onClose }: PlanModalProps) {
               {button.communityName}
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {button.plans.length} plan{button.plans.length !== 1 ? "s" : ""} found
-              {filtered.length !== button.plans.length && ` · ${filtered.length} matching filter`}
+              {pc
+                ? "Live web source compared with MarketMap plans."
+                : `${button.plans.length} plan${button.plans.length !== 1 ? "s" : ""} found${
+                    filtered.length !== button.plans.length
+                      ? ` · ${filtered.length} matching filter`
+                      : ""
+                  }`}
             </p>
           </div>
           <Button type="button" variant="ghost" size="icon"
@@ -328,7 +597,83 @@ function PlanListModal({ button, canManage, onClose }: PlanModalProps) {
 
         {/* ── Plan rows ──────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto min-h-0">
-          {filtered.length === 0 ? (
+          {pc && showComparisonIdle ? (
+            <p className="px-6 py-10 text-center text-sm text-muted-foreground">
+              There are currently no data available for additions or changes to the data.
+            </p>
+          ) : pc && !showComparisonIdle ? (
+            <>
+              {filter.trim() && !hasAnyFiltered && (
+                <p className="px-6 py-10 text-center text-sm text-muted-foreground">
+                  No plans match your filter.
+                </p>
+              )}
+              {hasAnyFiltered && (
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-card z-10 border-b border-border">
+                    <tr>
+                      <th className="text-left px-6 py-2 text-xs font-medium text-muted-foreground">Plan</th>
+                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground hidden sm:table-cell">
+                        Company
+                      </th>
+                      <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground">Price</th>
+                      <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground hidden sm:table-cell">
+                        Sqft
+                      </th>
+                      <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground hidden sm:table-cell">
+                        Beds/Baths
+                      </th>
+                      {canManage && <th className="px-3 py-2" />}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAdded.length > 0 && (
+                      <>
+                        <tr className="bg-muted/50">
+                          <td
+                            colSpan={colSpan}
+                            className="px-6 py-2 text-xs font-semibold text-foreground uppercase tracking-wide"
+                          >
+                            Newly added data ({filteredAdded.length} item
+                            {filteredAdded.length !== 1 ? "s" : ""})
+                          </td>
+                        </tr>
+                        {filteredAdded.map((plan) => renderPlanRow(plan, "add"))}
+                      </>
+                    )}
+                    {filteredDiffers.length > 0 && (
+                      <>
+                        <tr className="bg-muted/50">
+                          <td
+                            colSpan={colSpan}
+                            className="px-6 py-2 text-xs font-semibold text-foreground uppercase tracking-wide"
+                          >
+                            Data differing from the existing data (fixing data) ({filteredDiffers.length}{" "}
+                            item{filteredDiffers.length !== 1 ? "s" : ""})
+                          </td>
+                        </tr>
+                        {filteredDiffers.map((plan) => renderPlanRow(plan, "differs"))}
+                      </>
+                    )}
+                    {filteredOnlyDb.length > 0 && (
+                      <>
+                        <tr className="bg-muted/50">
+                          <td
+                            colSpan={colSpan}
+                            className="px-6 py-2 text-xs font-semibold text-foreground uppercase tracking-wide"
+                          >
+                            Data missing from the new source ({filteredOnlyDb.length} item
+                            {filteredOnlyDb.length !== 1 ? "s" : ""})
+                          </td>
+                        </tr>
+                        {filteredOnlyDb.map((plan) => renderPlanRow(plan, "only_in_db"))}
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </>
+          ) : filtered.length === 0 ? (
             <p className="px-6 py-10 text-center text-sm text-muted-foreground">No plans match your filter.</p>
           ) : (
             <table className="w-full text-sm">
@@ -343,63 +688,7 @@ function PlanListModal({ button, canManage, onClose }: PlanModalProps) {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((plan: AssistantPlanItem) => {
-                  const isSaving = savingId === plan.id
-                  const isSaved = savedIds.has(plan.id)
-                  return (
-                    <tr key={plan.id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
-                      <td className="px-6 py-2.5">
-                        <div className="font-medium text-foreground leading-tight">{plan.display_label}</div>
-                        <div className="text-[11px] mt-0.5 flex items-center gap-1">
-                          {plan.type === "now" && (
-                            <span className="inline-flex items-center rounded px-1 py-0 text-[10px] font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">Spec</span>
-                          )}
-                          {plan.type === "plan" && (
-                            <span className="inline-flex items-center rounded px-1 py-0 text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">Floor Plan</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{plan.company ?? "—"}</td>
-                      <td className="px-3 py-2.5 text-right font-medium tabular-nums">{formatPrice(plan.price)}</td>
-                      <td className="px-3 py-2.5 text-right text-muted-foreground tabular-nums hidden sm:table-cell">
-                        {plan.sqft ? plan.sqft.toLocaleString() : "—"}
-                      </td>
-                      <td className="px-3 py-2.5 text-right text-muted-foreground tabular-nums hidden sm:table-cell">
-                        {plan.beds || plan.baths ? `${plan.beds ?? "—"} / ${plan.baths ?? "—"}` : "—"}
-                      </td>
-                      {canManage && (
-                        <td className="px-3 py-2.5">
-                          <div className="flex gap-1 justify-end">
-                            {/* Edit button */}
-                            <Button type="button" size="icon" variant="ghost"
-                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                              title="Edit before saving"
-                              onClick={() => openEdit(plan)}>
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            {/* Add (save) button */}
-                            <Button type="button" size="icon" variant="ghost"
-                              className={cn(
-                                "h-7 w-7",
-                                isSaved
-                                  ? "text-emerald-600 dark:text-emerald-400"
-                                  : "text-muted-foreground hover:text-foreground"
-                              )}
-                              title={isSaved ? "Saved to DB" : "Save to DB"}
-                              disabled={isSaving || isSaved}
-                              onClick={() => handleAdd(plan)}>
-                              {isSaving
-                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                : isSaved
-                                ? <Check className="h-3.5 w-3.5" />
-                                : <Plus className="h-3.5 w-3.5" />}
-                            </Button>
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  )
-                })}
+                {filtered.map((plan: AssistantPlanItem) => renderPlanRow(plan, "legacy"))}
               </tbody>
             </table>
           )}

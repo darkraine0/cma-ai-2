@@ -247,6 +247,158 @@ function pushPlanActionButtonsForFoundPlans(
   }
 }
 
+type LeanPlanDoc = {
+  _id: mongoose.Types.ObjectId;
+  plan_name: string;
+  price: number;
+  sqft?: number;
+  company?: { name?: string };
+  type?: string;
+  address?: string;
+  beds?: string;
+  baths?: string;
+};
+
+function normToken(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
+}
+
+function planMatchKey(p: {
+  type?: string;
+  plan_name?: string;
+  address?: string | null;
+  company?: string | null;
+  display_label?: string;
+}): string {
+  const t = p.type === 'now' ? 'now' : 'plan';
+  const addr = (p.address || '').trim();
+  if (t === 'now' && addr) return `now|${normToken(addr)}`;
+  const name = normToken((p.plan_name || p.display_label || '').trim());
+  const co = normToken((p.company || '').trim());
+  return `plan|${co}|${name}`;
+}
+
+function numbersClose(a: number | undefined, b: number | undefined): boolean {
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
+  const diff = Math.abs(a - b);
+  if (diff <= 1) return true;
+  const max = Math.max(Math.abs(a), Math.abs(b));
+  if (max === 0) return true;
+  return diff / max < 0.005;
+}
+
+function strLoose(a: string | null | undefined, b: string | null | undefined): boolean {
+  return normToken(a || '') === normToken(b || '');
+}
+
+function liveDiffersFromDb(live: AssistantPlanItem, db: LeanPlanDoc): boolean {
+  if (!strLoose(live.company, db.company?.name)) return true;
+  const lType = live.type === 'now' ? 'now' : 'plan';
+  const dType = db.type === 'now' ? 'now' : 'plan';
+  if (lType !== dType) return true;
+  if (!numbersClose(live.price, db.price)) return true;
+  const lsq = live.sqft != null ? Number(live.sqft) : undefined;
+  const dsq = db.sqft != null ? Number(db.sqft) : undefined;
+  if (!numbersClose(lsq, dsq)) return true;
+  if (!strLoose(live.beds, db.beds)) return true;
+  if (!strLoose(live.baths, db.baths)) return true;
+  if (lType === 'now') {
+    if (!strLoose(live.address, db.address)) return true;
+  } else {
+    if (!strLoose(live.plan_name || live.display_label, db.plan_name)) return true;
+  }
+  return false;
+}
+
+function leanPlanToAssistantItem(doc: LeanPlanDoc): AssistantPlanItem {
+  const id = String(doc._id);
+  const label = planButtonLabel({
+    plan_name: doc.plan_name,
+    address: doc.address ?? null,
+    type: doc.type,
+  });
+  return {
+    id,
+    display_label: label,
+    plan_name: doc.plan_name,
+    address: doc.address ?? null,
+    company: doc.company?.name ?? null,
+    price: doc.price,
+    sqft: doc.sqft ?? null,
+    beds: doc.beds ?? null,
+    baths: doc.baths ?? null,
+    type: doc.type || 'plan',
+    days_ago: null,
+    existing_plan_id: id,
+    comparison_bucket: 'only_in_db',
+  };
+}
+
+function compareLivePlansToDatabase(
+  livePlans: AssistantPlanItem[],
+  dbDocs: LeanPlanDoc[]
+): {
+  added: AssistantPlanItem[];
+  differs: AssistantPlanItem[];
+  onlyInDb: AssistantPlanItem[];
+} {
+  const buckets = new Map<string, LeanPlanDoc[]>();
+  for (const d of dbDocs) {
+    const k = planMatchKey({
+      type: d.type,
+      plan_name: d.plan_name,
+      address: d.address ?? null,
+      company: d.company?.name ?? null,
+    });
+    const arr = buckets.get(k) ?? [];
+    arr.push(d);
+    buckets.set(k, arr);
+  }
+
+  const added: AssistantPlanItem[] = [];
+  const differs: AssistantPlanItem[] = [];
+
+  for (const live of livePlans) {
+    const k = planMatchKey({
+      type: live.type,
+      plan_name: live.plan_name || live.display_label,
+      address: live.address,
+      company: live.company,
+      display_label: live.display_label,
+    });
+    const queue = buckets.get(k);
+    if (!queue || queue.length === 0) {
+      added.push({ ...live, comparison_bucket: 'added' });
+      continue;
+    }
+    const db = queue.shift()!;
+    if (queue.length === 0) buckets.delete(k);
+    else buckets.set(k, queue);
+
+    if (liveDiffersFromDb(live, db)) {
+      differs.push({
+        ...live,
+        comparison_bucket: 'differs',
+        existing_plan_id: String(db._id),
+        existing_price: db.price,
+        existing_sqft: db.sqft ?? null,
+        existing_company: db.company?.name ?? null,
+      });
+    }
+  }
+
+  const onlyInDb: AssistantPlanItem[] = [];
+  for (const [, queue] of buckets) {
+    for (const d of queue) {
+      onlyInDb.push(leanPlanToAssistantItem(d));
+    }
+  }
+
+  return { added, differs, onlyInDb };
+}
+
 export { dedupeButtons };
 
 export const ASSISTANT_TOOLS: ChatCompletionTool[] = [
@@ -351,7 +503,7 @@ export const ASSISTANT_TOOLS: ChatCompletionTool[] = [
     function: {
       name: 'analyze_community_changes',
       description:
-        'Search the web for current home plans and quick move-ins (spec homes) in a US community and show them in an in-chat modal. Use whenever the user asks to see, list, show, browse, analyze, or review plans for a community. Returns live data via web search — not the internal database.',
+        'Search the web for current home plans and quick move-ins (spec homes) in a US community and open an in-chat modal. When the community exists in MarketMap, the modal compares live web results to stored plans (additions, updates, rows only in DB). Use whenever the user asks to see, list, show, browse, analyze, or review plans for a community.',
       parameters: {
         type: 'object',
         properties: {
@@ -924,9 +1076,10 @@ export async function executeAssistantTool(
           ? args.community_name_or_query.trim()
           : '';
 
-      // Resolve community name/slug (DB lookup for canonical name only, not plan data)
+      // Resolve community name/slug (DB lookup for canonical name and plan comparison)
       let resolvedName: string | null = null;
       let resolvedSlug: string | null = null;
+      let resolvedCommunityId: string | null = null;
 
       if (rawCommQ) {
         const list = await findCommunitiesByNameSearch(rawCommQ, 8);
@@ -940,6 +1093,7 @@ export async function executeAssistantTool(
             ) || list[0];
           resolvedName = exact.name;
           resolvedSlug = communityNameToSlug(exact.name);
+          resolvedCommunityId = String(exact._id);
         }
       }
 
@@ -950,6 +1104,7 @@ export async function executeAssistantTool(
           if (comm) {
             resolvedName = comm.name;
             resolvedSlug = communityNameToSlug(comm.name);
+            resolvedCommunityId = String(comm.id);
           }
         }
       }
@@ -1029,12 +1184,30 @@ Return ONLY valid JSON, no additional text.`;
         console.error('analyze_community_changes web search failed:', err);
       }
 
+      const slicedLive = livePlans.slice(0, 60);
+      let planComparison:
+        | { added: AssistantPlanItem[]; differs: AssistantPlanItem[]; onlyInDb: AssistantPlanItem[] }
+        | undefined;
+      if (resolvedCommunityId) {
+        const dbDocs = await Plan.find({
+          'community._id': new mongoose.Types.ObjectId(resolvedCommunityId),
+        })
+          .select('plan_name price sqft company type address beds baths')
+          .lean();
+        planComparison = compareLivePlansToDatabase(slicedLive, dbDocs as unknown as LeanPlanDoc[]);
+      }
+
+      const showPlansLabel = resolvedCommunityId
+        ? `Compare source vs database — ${resolvedName}`
+        : `Show ${livePlans.length} plan${livePlans.length !== 1 ? 's' : ''} for ${resolvedName}`;
+
       ctx.buttons.push({
         kind: 'show_plans',
-        label: `Show ${livePlans.length} plan${livePlans.length !== 1 ? 's' : ''} for ${resolvedName}`,
+        label: showPlansLabel,
         communitySlug: resolvedSlug,
         communityName: resolvedName,
-        plans: livePlans.slice(0, 60),
+        plans: slicedLive,
+        ...(planComparison ? { planComparison } : {}),
       });
 
       if (ctx.canManagePlans) {
@@ -1045,11 +1218,24 @@ Return ONLY valid JSON, no additional text.`;
         });
       }
 
+      const comparisonSummary = planComparison
+        ? ` Comparison: ${planComparison.added.length} new from source, ${planComparison.differs.length} differ from DB, ${planComparison.onlyInDb.length} only in DB.`
+        : '';
+
       return JSON.stringify({
         community: resolvedName,
         total_plans: livePlans.length,
         source: 'live_web_search',
-        ui_buttons_added: `"Show Plans" button with ${livePlans.length} live plans.${ctx.canManagePlans ? ' "Add plan" button also added.' : ''}`,
+        ...(planComparison
+          ? {
+              comparison: {
+                added_from_source: planComparison.added.length,
+                differs_from_database: planComparison.differs.length,
+                only_in_database: planComparison.onlyInDb.length,
+              },
+            }
+          : {}),
+        ui_buttons_added: `"Show Plans" button with ${livePlans.length} live plans.${comparisonSummary}${ctx.canManagePlans ? ' "Add plan" button also added.' : ''}`,
       });
     }
 

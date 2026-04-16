@@ -11,6 +11,14 @@ export type AssistantPlanItem = {
   baths?: string | null;
   type?: string;
   days_ago?: number | null;
+  /** MongoDB plan id when this row maps to an existing record (update/delete). */
+  existing_plan_id?: string;
+  /** Set when `planComparison` groups source vs database rows. */
+  comparison_bucket?: 'added' | 'differs' | 'only_in_db';
+  /** DB snapshot for rows that differ from the live source (display only). */
+  existing_price?: number;
+  existing_sqft?: number | null;
+  existing_company?: string | null;
 };
 
 /** Action chips shown under an assistant reply; user clicks to navigate / open modals (no auto-redirect). */
@@ -35,4 +43,10 @@ export type AssistantChatButton =
       communitySlug: string;
       communityName: string;
       plans: AssistantPlanItem[];
+      /** When the community exists in the DB, live web source vs stored plans (add / update / delete). */
+      planComparison?: {
+        added: AssistantPlanItem[];
+        differs: AssistantPlanItem[];
+        onlyInDb: AssistantPlanItem[];
+      };
     };
