@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { Chart, LineElement, PointElement, LinearScale, Title, CategoryScale, Tooltip, Legend } from "chart.js";
 import zoomPlugin from "chartjs-plugin-zoom";
 import { Plan } from "../../../types";
-import { createChartOptions } from "../config/chartConfig";
+import { createChartOptions, crosshairPlugin } from "../config/chartConfig";
 import { useChartData } from "../hooks/useChartData";
 import ChartEmptyState from "./ChartEmptyState";
 import { Button } from "../../../../components/ui/button";
@@ -77,7 +77,7 @@ export default function PriceChart({
       </div>
       <div className="w-full flex-1 min-h-0">
         <div className="w-full h-full">
-          <Line ref={chartRef} data={chartData} options={options} />
+          <Line ref={chartRef} data={chartData} options={options} plugins={[crosshairPlugin]} />
         </div>
       </div>
     </div>
