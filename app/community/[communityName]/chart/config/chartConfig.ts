@@ -70,6 +70,17 @@ export const createChartOptions = (isMobile: boolean = false): ChartOptions<'lin
     tooltip: {
       mode: 'x',
       intersect: false,
+      backgroundColor: 'rgba(24, 24, 27, 0.95)',
+      titleColor: '#fbbf24',
+      titleFont: { weight: 'bold', size: isMobile ? 12 : 13 },
+      bodyColor: '#f4f4f5',
+      bodyFont: { size: isMobile ? 11 : 12 },
+      borderColor: '#f59e0b',
+      borderWidth: 1,
+      padding: 10,
+      cornerRadius: 6,
+      boxPadding: 4,
+      usePointStyle: true,
       callbacks: {
         title: function (tooltipItems: TooltipItem<'line'>[]) {
           const raw = tooltipItems[0]?.raw as { x: number } | undefined;
@@ -77,11 +88,37 @@ export const createChartOptions = (isMobile: boolean = false): ChartOptions<'lin
           return `${raw.x.toLocaleString()} sqft`;
         },
         label: function (context: TooltipItem<'line'>) {
-          const raw = context.raw as { x: number; y: number; planName?: string } | undefined;
+          const raw = context.raw as
+            | {
+                x: number;
+                y: number;
+                planName?: string;
+                company?: string;
+                address?: string;
+                stories?: string;
+                pricePerSqft?: number;
+                community?: string;
+                segmentLabel?: string;
+                lastUpdated?: string;
+              }
+            | undefined;
           const builder = context.dataset.label ?? "";
           if (!raw) return builder;
           const lines: string[] = [`${builder}: $${raw.y.toLocaleString()}`];
-          if (raw.planName) lines.push(`  ${raw.planName}`);
+          if (raw.planName) lines.push(`  Plan: ${raw.planName}`);
+          if (raw.address && raw.address !== raw.planName)
+            lines.push(`  Location: ${raw.address}`);
+          if (raw.community) lines.push(`  Community: ${raw.community}`);
+          if (raw.stories) lines.push(`  Stories: ${raw.stories}`);
+          if (raw.pricePerSqft)
+            lines.push(`  $/sqft: $${raw.pricePerSqft.toLocaleString()}`);
+          if (raw.segmentLabel)
+            lines.push(`  Product line: ${raw.segmentLabel}`);
+          if (raw.lastUpdated) {
+            const d = new Date(raw.lastUpdated);
+            if (!isNaN(d.getTime()))
+              lines.push(`  Updated: ${d.toLocaleDateString()}`);
+          }
           return lines;
         },
       },

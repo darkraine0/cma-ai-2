@@ -6,6 +6,13 @@ export interface ChartDataPoint {
   x: number;
   y: number;
   planName: string;
+  company: string;
+  address?: string;
+  stories?: string;
+  pricePerSqft?: number;
+  community?: string;
+  segmentLabel?: string;
+  lastUpdated?: string;
 }
 
 export interface ChartDataset {
@@ -45,11 +52,24 @@ export function prepareChartDatasets(
 
       return {
         label: company,
-        data: sortedPlans.map((plan) => ({
-          x: plan.sqft,
-          y: plan.price,
-          planName: plan.plan_name?.trim() || "Unnamed plan",
-        })),
+        data: sortedPlans.map((plan) => {
+          const communityName =
+            typeof plan.community === "string"
+              ? plan.community
+              : plan.community?.name;
+          return {
+            x: plan.sqft,
+            y: plan.price,
+            planName: plan.plan_name?.trim() || "Unnamed plan",
+            company,
+            address: plan.address?.trim() || undefined,
+            stories: plan.stories?.trim() || undefined,
+            pricePerSqft: plan.price_per_sqft || undefined,
+            community: communityName || undefined,
+            segmentLabel: plan.segment?.label || undefined,
+            lastUpdated: plan.last_updated || undefined,
+          };
+        }),
         borderColor: color,
         backgroundColor: `${color}40`,
         tension: 0.2,
