@@ -7,7 +7,7 @@ import { cn } from "../../utils/utils";
 import { SortKey, SortOrder } from "../types";
 import { Community } from "../types";
 import { ProductLineOption } from "../hooks/usePlansFilter";
-import { RefreshCw, Plus } from "lucide-react";
+import { RefreshCw, Plus, Search, X } from "lucide-react";
 
 /** Community or slug for header image; when object has imagePath, that is used for the header. */
 export type BannerImageSource = Community | { name?: string; _id?: string; hasImage?: boolean; imagePath?: string | null } | string;
@@ -47,6 +47,9 @@ interface CommunityHeaderProps {
   onSync?: () => void;
   isSyncing?: boolean;
   onAddPlan?: () => void;
+  /** Search query for plan name / address / builder. */
+  searchQuery?: string;
+  onSearchQueryChange?: (query: string) => void;
 }
 
 export default function CommunityHeader({
@@ -76,6 +79,8 @@ export default function CommunityHeader({
   onSync,
   isSyncing = false,
   onAddPlan,
+  searchQuery = "",
+  onSearchQueryChange,
 }: CommunityHeaderProps) {
   const router = useRouter();
   const [realImageLoaded, setRealImageLoaded] = React.useState(false);
@@ -249,8 +254,30 @@ export default function CommunityHeader({
             )}
           </div>
 
-          {/* Sort Controls */}
+          {/* Search + Sort Controls */}
           <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
+            {onSearchQueryChange && (
+              <div className="relative flex-1 sm:flex-initial min-w-[160px] sm:min-w-[200px]">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/70 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => onSearchQueryChange(e.target.value)}
+                  placeholder="Search plans..."
+                  className="w-full h-8 sm:h-10 pl-7 pr-7 text-xs sm:text-sm rounded-md bg-white/20 hover:bg-white/30 focus:bg-white/30 text-white placeholder:text-white/60 border border-white/20 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-white/40 transition-all duration-200"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => onSearchQueryChange("")}
+                    title="Clear search"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded-sm text-white/80 hover:text-white hover:bg-white/20 transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
             {hasSubcommunities && (
               <>
                 <span className="text-xs sm:text-sm font-medium text-white/90 hidden sm:inline">Subcommunity:</span>

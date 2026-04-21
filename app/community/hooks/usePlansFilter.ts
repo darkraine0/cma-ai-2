@@ -19,6 +19,8 @@ interface UsePlansFilterReturn {
   setSelectedType: (type: string) => void;
   selectedProductLineId: string;
   setSelectedProductLineId: (id: string) => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
   page: number;
   setPage: (page: number) => void;
   paginatedPlans: Plan[];
@@ -36,6 +38,7 @@ export function usePlansFilter(
   const [selectedCompany, setSelectedCompany] = useState<string>('All');
   const [selectedType, setSelectedType] = useState<string>('Now');
   const [selectedProductLineId, setSelectedProductLineId] = useState<string>('__all__');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [page, setPage] = useState(1);
 
   // Reset product line to All when options change (e.g. switching V1↔V2) and current selection is no longer valid
@@ -49,10 +52,11 @@ export function usePlansFilter(
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [sortKey, sortOrder, selectedCompany, selectedType, selectedProductLineId]);
+  }, [sortKey, sortOrder, selectedCompany, selectedType, selectedProductLineId, searchQuery]);
 
   // Filter plans
   const filteredPlans = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
     return plans.filter((plan) => {
       const planCompany = extractCompanyName(plan.company);
       const isCompanyInCommunity = isPlanCompanyInCommunity(planCompany, companyNames);
@@ -66,16 +70,23 @@ export function usePlansFilter(
         (isMergedSelection && mergedLabel !== null && planSegmentLabel === mergedLabel) ||
         (!isMergedSelection && planSegmentId === selectedProductLineId);
 
+      const matchSearch =
+        normalizedQuery === '' ||
+        (plan.plan_name ?? '').toLowerCase().includes(normalizedQuery) ||
+        (plan.address ?? '').toLowerCase().includes(normalizedQuery) ||
+        planCompany.toLowerCase().includes(normalizedQuery);
+
       return (
         isCompanyInCommunity &&
         (selectedCompany === 'All' || companyNamesMatch(planCompany, selectedCompany)) &&
         (selectedType === 'Plan' || selectedType === 'Now'
           ? plan.type === selectedType.toLowerCase()
           : true) &&
-        matchProductLine
+        matchProductLine &&
+        matchSearch
       );
     });
-  }, [plans, companyNames, selectedCompany, selectedType, selectedProductLineId]);
+  }, [plans, companyNames, selectedCompany, selectedType, selectedProductLineId, searchQuery]);
 
   // Sort plans
   const sortedPlans = useMemo(() => {
@@ -120,6 +131,8 @@ export function usePlansFilter(
     setSelectedType,
     selectedProductLineId,
     setSelectedProductLineId,
+    searchQuery,
+    setSearchQuery,
     page,
     setPage,
     paginatedPlans,

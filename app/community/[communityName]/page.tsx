@@ -536,6 +536,8 @@ export default function CommunityDetail() {
     setSelectedType,
     selectedProductLineId,
     setSelectedProductLineId,
+    searchQuery,
+    setSearchQuery,
     page,
     setPage,
     paginatedPlans,
@@ -659,6 +661,7 @@ export default function CommunityDetail() {
 
   // Handle CSV export (use display plans, respect product line filter)
   const handleExportCSV = () => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
     const filteredPlans = displayPlans.filter((plan) => {
       const planCompany = extractCompanyName(plan.company);
       const planSegmentId = plan.segment?._id ?? null;
@@ -670,13 +673,19 @@ export default function CommunityDetail() {
         (selectedProductLineId === '__none__' && !planSegmentId) ||
         (isMergedSelection && mergedLabel !== null && planSegmentLabel === mergedLabel) ||
         (!isMergedSelection && planSegmentId === selectedProductLineId);
+      const matchSearch =
+        normalizedQuery === '' ||
+        (plan.plan_name ?? '').toLowerCase().includes(normalizedQuery) ||
+        (plan.address ?? '').toLowerCase().includes(normalizedQuery) ||
+        planCompany.toLowerCase().includes(normalizedQuery);
       return (
         isPlanCompanyInCommunity(planCompany, companyNamesSet) &&
         (selectedCompany === 'All' || companyNamesMatch(planCompany, selectedCompany)) &&
         (selectedType === 'Plan' || selectedType === 'Now'
           ? plan.type === selectedType.toLowerCase()
           : true) &&
-        matchProductLine
+        matchProductLine &&
+        matchSearch
       );
     });
 
@@ -755,6 +764,8 @@ export default function CommunityDetail() {
               onSync={handleSync}
               isSyncing={isSyncing}
               onAddPlan={(user?.permission === "editor" || user?.role === "admin") ? () => setAddPlanOpen(true) : undefined}
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
             />
 
             {/* Main Content */}
