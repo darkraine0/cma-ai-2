@@ -79,14 +79,9 @@ function getOrCreateTooltip(chart: Chart<'line'>): HTMLDivElement {
 }
 
 function renderTooltipHtml(tooltip: TooltipModel<'line'>): string {
-  const titleLines = tooltip.title || [];
   const dataPoints = tooltip.dataPoints || [];
 
   let html = '';
-
-  for (const line of titleLines) {
-    html += `<div style="color: #fbbf24; font-weight: 700; font-size: 13px; margin-bottom: 4px;">${escapeHtml(line)}</div>`;
-  }
 
   dataPoints.forEach((dp, i) => {
     const raw = dp.raw as ChartRawPoint | undefined;
