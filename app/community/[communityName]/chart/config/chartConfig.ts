@@ -28,6 +28,7 @@ type ChartRawPoint = {
   y: number;
   planName?: string;
   company?: string;
+  type?: string;
   address?: string;
   stories?: string;
   pricePerSqft?: number;
@@ -101,8 +102,10 @@ function renderTooltipHtml(tooltip: TooltipModel<'line'>): string {
     // Price — highlighted in amber to stand out from the rest of the details.
     html += `<div style="margin-left:15px;color:#fbbf24;font-weight:600;">Price: $${raw.y.toLocaleString()}</div>`;
 
-    if (raw.planName)
-      html += `<div style="margin-left:15px;">Plan: ${escapeHtml(raw.planName)}</div>`;
+    if (raw.planName) {
+      const planLabel = raw.type === 'now' ? 'Spec' : 'Plan';
+      html += `<div style="margin-left:15px;">${planLabel}: ${escapeHtml(raw.planName)}</div>`;
+    }
     if (raw.address && raw.address !== raw.planName)
       html += `<div style="margin-left:15px;">Location: ${escapeHtml(raw.address)}</div>`;
     if (raw.community)

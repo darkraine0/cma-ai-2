@@ -7,6 +7,7 @@ export interface ChartDataPoint {
   y: number;
   planName: string;
   company: string;
+  type?: string;
   address?: string;
   stories?: string;
   pricePerSqft?: number;
@@ -57,12 +58,18 @@ export function prepareChartDatasets(
             typeof plan.community === "string"
               ? plan.community
               : plan.community?.name;
+          const type = plan.type?.toLowerCase();
+          const address = plan.address?.trim() || undefined;
+          const planName = plan.plan_name?.trim() || undefined;
+          // Match the table's Plan Name column: for Spec ("now") plans with an address, show the address.
+          const displayName = (type === "now" && address ? address : planName) || "Unnamed plan";
           return {
             x: plan.sqft,
             y: plan.price,
-            planName: plan.plan_name?.trim() || "Unnamed plan",
+            planName: displayName,
             company,
-            address: plan.address?.trim() || undefined,
+            type,
+            address,
             stories: plan.stories?.trim() || undefined,
             pricePerSqft: plan.price_per_sqft || undefined,
             community: communityName || undefined,
