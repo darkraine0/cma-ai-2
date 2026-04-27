@@ -38,6 +38,7 @@ import {
 } from "../components/ui/select";
 import API_URL from '../config';
 import { getCompanyColor } from '../utils/colors';
+import { extractCompanyName, normalizeCompanyNameForMatch } from '../community/utils/companyHelpers';
 
 interface Company {
   _id: string;
@@ -125,6 +126,8 @@ export default function ManagePage() {
   const [loadingSubcommunities, setLoadingSubcommunities] = useState(false);
   const [segments, setSegments] = useState<ProductSegment[]>([]);
   const [loadingSegments, setLoadingSegments] = useState(false);
+  const [v1CompanyNames, setV1CompanyNames] = useState<string[]>([]);
+  const [loadingV1Companies, setLoadingV1Companies] = useState(false);
   
   // Manage subcommunities modal states
   const [manageSubcommunitiesOpen, setManageSubcommunitiesOpen] = useState(false);
@@ -317,6 +320,74 @@ export default function ManagePage() {
   useEffect(() => {
     loadSegments();
   }, [loadSegments]);
+
+  // Fetch V1 builders for the selected community so the manage page reflects what
+  // the community detail page shows (which fetches V1 plans via /api/external/get-plans).
+  useEffect(() => {
+    const v1Name = selectedCommunity?.v1ExternalCommunityName ?? selectedCommunity?.name;
+    if (!v1Name) {
+      setV1CompanyNames([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingV1Companies(true);
+    fetch(`/api/external/get-plans?community=${encodeURIComponent(v1Name)}`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: unknown) => {
+        if (cancelled) return;
+        const list = Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
+        const seen = new Set<string>();
+        const names: string[] = [];
+        for (const item of list) {
+          const name = extractCompanyName(item.company as string | { name: string });
+          const key = normalizeCompanyNameForMatch(name);
+          if (name && key && !seen.has(key)) {
+            seen.add(key);
+            names.push(name);
+          }
+        }
+        setV1CompanyNames(names);
+      })
+      .catch(() => {
+        if (!cancelled) setV1CompanyNames([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingV1Companies(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCommunity?._id, selectedCommunity?.v1ExternalCommunityName, selectedCommunity?.name]);
+
+  // Merged V1/V2 builder list for the selected community, with a per-builder source tag.
+  // V2 entries keep their original CommunityCompany shape so existing UI (color, remove, edit) keeps working.
+  type BuilderEntry =
+    | { source: 'v2' | 'v1&v2'; v2: string | CommunityCompany; name: string; v1Name?: string }
+    | { source: 'v1'; name: string };
+  const buildersBuildingHere = React.useMemo<BuilderEntry[]>(() => {
+    const v2List = (selectedCommunity?.companies ?? []) as Array<string | CommunityCompany>;
+    const v1ByKey = new Map<string, string>();
+    for (const n of v1CompanyNames) {
+      const k = normalizeCompanyNameForMatch(n);
+      if (k && !v1ByKey.has(k)) v1ByKey.set(k, n);
+    }
+    const matchedV1Keys = new Set<string>();
+    const merged: BuilderEntry[] = v2List.map((c) => {
+      const name = typeof c === 'string' ? c : c.name;
+      const key = normalizeCompanyNameForMatch(name);
+      const v1Name = key ? v1ByKey.get(key) : undefined;
+      if (v1Name) matchedV1Keys.add(key);
+      return v1Name
+        ? { source: 'v1&v2' as const, v2: c, name, v1Name }
+        : { source: 'v2' as const, v2: c, name };
+    });
+    for (const [k, n] of v1ByKey.entries()) {
+      if (!matchedV1Keys.has(k)) merged.push({ source: 'v1', name: n });
+    }
+    return merged.sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    );
+  }, [selectedCommunity?.companies, v1CompanyNames]);
 
   // Fetch subcommunities when a community is selected (so we can show them in the detail card)
   useEffect(() => {
@@ -828,25 +899,64 @@ export default function ManagePage() {
                         <div>
                           <div className="flex items-center justify-between mb-3">
                             <h3 className="text-lg font-semibold">Companies Building Here</h3>
-                            <Badge variant="secondary" className="text-sm">{selectedCommunity.companies.length}</Badge>
+                            <div className="flex items-center gap-2">
+                              {loadingV1Companies && (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                              )}
+                              <Badge variant="secondary" className="text-sm">{buildersBuildingHere.length}</Badge>
+                            </div>
                           </div>
-                          
-                          {selectedCommunity.companies.length === 0 ? (
+
+                          {buildersBuildingHere.length === 0 ? (
                             <div className="text-center py-8 bg-muted rounded-lg">
                               <p className="text-sm text-muted-foreground">No companies yet. Add one below.</p>
                             </div>
                           ) : (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 mb-4">
-                              {selectedCommunity.companies.map((company) => {
-                                const companyName = typeof company === 'string' ? company : company.name;
+                              {buildersBuildingHere.map((entry) => {
+                                const versionLabel = entry.source === 'v1&v2' ? 'V1&V2' : entry.source === 'v1' ? 'V1' : 'V2';
+                                const versionClass = entry.source === 'v1&v2'
+                                  ? 'border-emerald-500/40 text-emerald-400'
+                                  : entry.source === 'v1'
+                                    ? 'border-amber-500/40 text-amber-400'
+                                    : 'border-blue-500/40 text-blue-400';
+
+                                if (entry.source === 'v1') {
+                                  // V1-only builder: not in V2 DB, so no edit/remove/subcommunity actions.
+                                  const fullCompany = companies.find((c) => c.name === entry.name);
+                                  const color = getCompanyColor(fullCompany ?? { name: entry.name });
+                                  return (
+                                    <div
+                                      key={`v1-${entry.name}`}
+                                      className="flex items-start justify-between p-3 bg-muted rounded-md"
+                                    >
+                                      <div className="flex flex-col gap-2 flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                          {color != null ? (
+                                            <span
+                                              className="inline-block w-3 h-3 rounded-full border flex-shrink-0"
+                                              style={{ backgroundColor: color, borderColor: color }}
+                                            />
+                                          ) : (
+                                            <span className="inline-block w-3 h-3 rounded-full border border-dashed border-muted-foreground/40 bg-muted/30 flex-shrink-0" />
+                                          )}
+                                          <span className="text-sm font-medium truncate">{entry.name}</span>
+                                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 shrink-0 ${versionClass}`}>{versionLabel}</Badge>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+
+                                const company = entry.v2;
+                                const companyName = entry.name;
                                 const companyKey = typeof company === 'string' ? company : company._id;
                                 const companyId = typeof company === 'string' ? companies.find(c => c.name === company)?._id : company._id;
-                                // Use full company from global list so color matches Companies page and charts
                                 const fullCompany = companies.find(c => c._id === companyId || c.name === companyName);
                                 const companyColorRaw = fullCompany?.color ?? (typeof company === 'object' ? (company as { color?: string }).color : undefined);
                                 const companyColor = (companyColorRaw && typeof companyColorRaw === 'string') ? companyColorRaw : null;
                                 const subcommunities = getCompanySubcommunities(companyId, companyName);
-                                
+
                                 return (
                                   <div
                                     key={companyKey}
@@ -866,6 +976,7 @@ export default function ManagePage() {
                                           );
                                         })()}
                                         <span className="text-sm font-medium truncate">{companyName}</span>
+                                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 shrink-0 ${versionClass}`}>{versionLabel}</Badge>
                                       </div>
                                       <CompanySubcommunityBadges
                                         companyName={companyName}
