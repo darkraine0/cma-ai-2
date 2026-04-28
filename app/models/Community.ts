@@ -29,6 +29,12 @@ export interface ICommunity extends Document {
   v1ExternalCommunityId?: number;
   /** V1 API integration: external community name (denormalized for display) */
   v1ExternalCommunityName?: string;
+  /** Sync coordination: when the most recent sync run started (set, then cleared via lastSyncCompletedAt). */
+  lastSyncStartedAt?: Date | null;
+  /** Sync coordination: when the most recent sync run finished successfully. */
+  lastSyncCompletedAt?: Date | null;
+  /** Sync coordination: error message from the most recent sync run, if any. */
+  lastSyncError?: string | null;
   createdBy?: Types.ObjectId;
   updatedBy?: Types.ObjectId;
   createdAt: Date;
@@ -103,6 +109,18 @@ const CommunitySchema = new Schema<ICommunity>(
       default: null,
     },
     v1ExternalCommunityName: {
+      type: String,
+      default: null,
+    },
+    lastSyncStartedAt: {
+      type: Date,
+      default: null,
+    },
+    lastSyncCompletedAt: {
+      type: Date,
+      default: null,
+    },
+    lastSyncError: {
       type: String,
       default: null,
     },

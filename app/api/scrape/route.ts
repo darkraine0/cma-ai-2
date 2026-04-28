@@ -36,6 +36,22 @@ interface ScrapeResult {
   errors: ErrorDetail[];
 }
 
+export interface ScrapeJobInput {
+  company: string;
+  community: string;
+  segmentId?: string;
+}
+
+export interface ScrapeJobResult {
+  saved: number;
+  errors: number;
+  errorDetails: ErrorDetail[];
+  breakdown: {
+    now: { saved: number; errors: number };
+    plan: { saved: number; errors: number };
+  };
+}
+
 async function scrapePlansForType(
   company: string,
   community: string,
@@ -282,16 +298,123 @@ Return ONLY valid JSON, no additional text.`;
   return { saved: savedPlans, errors };
 }
 
+/**
+ * Run a full scrape for one (company, community[, segment]) tuple. This is the unit
+ * of work shared between the manual /api/scrape POST endpoint and the daily cron job.
+ *
+ * Caller is responsible for opening the DB connection if needed (this function calls
+ * connectDB itself, which is idempotent).
+ */
+export async function runScrapeJob(input: ScrapeJobInput): Promise<ScrapeJobResult & {
+  savedPlans: (typeof Plan.prototype)[];
+}> {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OpenAI API key is not configured');
+  }
+
+  await connectDB();
+
+  const { company, community, segmentId } = input;
+  if (!company || !community) {
+    throw new Error('Company and community are required');
+  }
+
+  // Resolve alias: name this company uses for this community (for AI prompt)
+  const resolved = await identifyForScrape({
+    companyName: company,
+    communityName: community,
+    segmentId,
+  });
+  const companyForDb = resolved?.companyName ?? company.trim();
+  const communityForDb = resolved?.communityName ?? community.trim();
+  const communityNameForPrompt = resolved?.communityNameForScrape || communityForDb;
+
+  // Optional: resolve product segment (lot-size line) if provided
+  let segmentRef:
+    | { _id: mongoose.Types.ObjectId; name: string; label: string }
+    | undefined;
+
+  if (segmentId && mongoose.Types.ObjectId.isValid(segmentId)) {
+    const segmentDoc = await ProductSegment.findById(segmentId);
+    if (segmentDoc) {
+      segmentRef = {
+        _id: segmentDoc._id,
+        name: segmentDoc.name,
+        label: segmentDoc.label,
+      };
+    }
+  }
+
+  // Remove all existing plans for this company+community (and segment if scoped) BEFORE syncing
+  const communityDoc = await Community.findOne({ name: communityForDb }).select('_id').lean();
+  const companyDoc = await Company.findOne({ name: companyForDb }).select('_id').lean();
+  const communityId = communityDoc && '_id' in communityDoc ? (communityDoc as { _id: mongoose.Types.ObjectId })._id : null;
+  const companyId = companyDoc && '_id' in companyDoc ? (companyDoc as { _id: mongoose.Types.ObjectId })._id : null;
+  if (communityId && companyId) {
+    const deleteFilter: Record<string, unknown> = {
+      'community._id': communityId,
+      'company._id': companyId,
+    };
+    if (segmentRef) {
+      deleteFilter['segment._id'] = segmentRef._id;
+    }
+    const existingPlanIds = await Plan.find(deleteFilter).distinct('_id');
+    if (existingPlanIds.length > 0) {
+      await PriceHistory.deleteMany({ plan_id: { $in: existingPlanIds } });
+      await Plan.deleteMany({ _id: { $in: existingPlanIds } });
+    }
+  }
+
+  const [nowResults, planResults] = await Promise.allSettled([
+    scrapePlansForType(companyForDb, communityForDb, 'now', openai, segmentRef, communityNameForPrompt),
+    scrapePlansForType(companyForDb, communityForDb, 'plan', openai, segmentRef, communityNameForPrompt),
+  ]);
+
+  const allSavedPlans: (typeof Plan.prototype)[] = [];
+  const allErrors: ErrorDetail[] = [];
+  let nowSaved = 0;
+  let planSaved = 0;
+  let nowErrors = 0;
+  let planErrors = 0;
+
+  if (nowResults.status === 'fulfilled') {
+    allSavedPlans.push(...nowResults.value.saved);
+    allErrors.push(...nowResults.value.errors);
+    nowSaved = nowResults.value.saved.length;
+    nowErrors = nowResults.value.errors.length;
+  } else {
+    allErrors.push({
+      plan: 'now',
+      error: nowResults.reason?.message || 'Failed to scrape quick move-ins',
+    });
+  }
+
+  if (planResults.status === 'fulfilled') {
+    allSavedPlans.push(...planResults.value.saved);
+    allErrors.push(...planResults.value.errors);
+    planSaved = planResults.value.saved.length;
+    planErrors = planResults.value.errors.length;
+  } else {
+    allErrors.push({
+      plan: 'plan',
+      error: planResults.reason?.message || 'Failed to scrape home plans',
+    });
+  }
+
+  return {
+    saved: allSavedPlans.length,
+    errors: allErrors.length,
+    errorDetails: allErrors,
+    breakdown: {
+      now: { saved: nowSaved, errors: nowErrors },
+      plan: { saved: planSaved, errors: planErrors },
+    },
+    savedPlans: allSavedPlans,
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json(
-        { error: 'OpenAI API key is not configured' },
-        { status: 500 }
-      );
-    }
-
-    await connectDB();
     const body = await request.json();
     const { company, community, segmentId } = body;
 
@@ -302,105 +425,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Resolve alias: name this company uses for this community (for AI prompt)
-    const resolved = await identifyForScrape({
-      companyName: company,
-      communityName: community,
-      segmentId,
-    });
-    const companyForDb = resolved?.companyName ?? company.trim();
-    const communityForDb = resolved?.communityName ?? community.trim();
-    const communityNameForPrompt = resolved?.communityNameForScrape || communityForDb;
-
-    // Optional: resolve product segment (lot-size line) if provided
-    let segmentRef:
-      | { _id: mongoose.Types.ObjectId; name: string; label: string }
-      | undefined;
-
-    if (segmentId && mongoose.Types.ObjectId.isValid(segmentId)) {
-      const segmentDoc = await ProductSegment.findById(segmentId);
-      if (segmentDoc) {
-        segmentRef = {
-          _id: segmentDoc._id,
-          name: segmentDoc.name,
-          label: segmentDoc.label,
-        };
-      }
-    }
-
-    // Remove all existing plans for this company+community (and segment if scoped) BEFORE syncing
-    const communityDoc = await Community.findOne({ name: communityForDb }).select('_id').lean();
-    const companyDoc = await Company.findOne({ name: companyForDb }).select('_id').lean();
-    const communityId = communityDoc && '_id' in communityDoc ? (communityDoc as { _id: mongoose.Types.ObjectId })._id : null;
-    const companyId = companyDoc && '_id' in companyDoc ? (companyDoc as { _id: mongoose.Types.ObjectId })._id : null;
-    if (communityId && companyId) {
-      const deleteFilter: Record<string, unknown> = {
-        'community._id': communityId,
-        'company._id': companyId,
-      };
-      // When syncing a specific segment, only remove plans in that segment; otherwise remove all plans for this company+community
-      if (segmentRef) {
-        deleteFilter['segment._id'] = segmentRef._id;
-      }
-      const existingPlanIds = await Plan.find(deleteFilter).distinct('_id');
-      if (existingPlanIds.length > 0) {
-        await PriceHistory.deleteMany({ plan_id: { $in: existingPlanIds } });
-        await Plan.deleteMany({ _id: { $in: existingPlanIds } });
-      }
-    }
-
-    // Get data for both types in parallel (static or AI-powered)
-    const [nowResults, planResults] = await Promise.allSettled([
-      scrapePlansForType(companyForDb, communityForDb, 'now', openai, segmentRef, communityNameForPrompt),
-      scrapePlansForType(companyForDb, communityForDb, 'plan', openai, segmentRef, communityNameForPrompt),
-    ]);
-
-    // Combine results
-    const allSavedPlans = [];
-    const allErrors = [];
-    let nowSaved = 0;
-    let planSaved = 0;
-    let nowErrors = 0;
-    let planErrors = 0;
-
-    if (nowResults.status === 'fulfilled') {
-      allSavedPlans.push(...nowResults.value.saved);
-      allErrors.push(...nowResults.value.errors);
-      nowSaved = nowResults.value.saved.length;
-      nowErrors = nowResults.value.errors.length;
-    } else {
-      allErrors.push({
-        plan: 'now',
-        error: nowResults.reason?.message || 'Failed to scrape quick move-ins',
-      });
-    }
-
-    if (planResults.status === 'fulfilled') {
-      allSavedPlans.push(...planResults.value.saved);
-      allErrors.push(...planResults.value.errors);
-      planSaved = planResults.value.saved.length;
-      planErrors = planResults.value.errors.length;
-    } else {
-      allErrors.push({
-        plan: 'plan',
-        error: planResults.reason?.message || 'Failed to scrape home plans',
-      });
-    }
-
-    const totalSaved = allSavedPlans.length;
-    const totalErrors = allErrors.length;
+    const result = await runScrapeJob({ company, community, segmentId });
+    const { savedPlans, ...summary } = result;
 
     return NextResponse.json({
       success: true,
-      message: `Processed ${totalSaved} plans (${nowSaved} quick move-ins, ${planSaved} home plans)`,
-      saved: totalSaved,
-      errors: totalErrors,
-      errorDetails: totalErrors > 0 ? allErrors : undefined,
-      breakdown: {
-        now: { saved: nowSaved, errors: nowErrors },
-        plan: { saved: planSaved, errors: planErrors },
-      },
-      plans: allSavedPlans.map((p) => ({
+      message: `Processed ${summary.saved} plans (${summary.breakdown.now.saved} quick move-ins, ${summary.breakdown.plan.saved} home plans)`,
+      saved: summary.saved,
+      errors: summary.errors,
+      errorDetails: summary.errors > 0 ? summary.errorDetails : undefined,
+      breakdown: summary.breakdown,
+      plans: savedPlans.map((p) => ({
         id: p._id,
         plan_name: p.plan_name,
         price: p.price,
@@ -410,9 +445,8 @@ export async function POST(request: NextRequest) {
       })),
     });
   } catch (error) {
-    // Handle OpenAI API errors
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+
     if (error && typeof error === 'object' && 'response' in error) {
       const apiError = error as { response?: { data?: { error?: { message?: string } } } };
       return NextResponse.json(
