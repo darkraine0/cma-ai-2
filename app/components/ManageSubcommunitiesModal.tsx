@@ -52,23 +52,15 @@ export default function ManageSubcommunitiesModal({
   const [error, setError] = useState("");
   const { startBackgroundScraping } = useScrapingProgress();
 
-  // Map current subcommunity names to community IDs (parent + subs)
+  // Map current subcommunity names to community IDs. Parent assignment is managed
+  // outside this modal (Add Company flow), so this modal only lists subcommunities.
   const getCurrentIds = (data: Subcommunity[]) => {
     const ids = new Set<string>();
-    if (currentSubcommunities.length === 0) {
-      ids.add(parentCommunityId);
-      return ids;
-    }
     for (const name of currentSubcommunities) {
-      if (name === parentCommunityName) {
-        ids.add(parentCommunityId);
-      } else {
-        const sub = data.find((s) => s.name === name);
-        if (sub) ids.add(sub._id);
-      }
+      if (name === parentCommunityName) continue;
+      const sub = data.find((s) => s.name === name);
+      if (sub) ids.add(sub._id);
     }
-    // If no matches (e.g. names from another source), default to parent
-    if (ids.size === 0) ids.add(parentCommunityId);
     return ids;
   };
 
@@ -156,7 +148,6 @@ export default function ManageSubcommunitiesModal({
       }
 
       const selectedNames: string[] = [];
-      if (selectedCommunityIds.has(parentCommunityId)) selectedNames.push(parentCommunityName);
       for (const sub of subcommunities) {
         if (selectedCommunityIds.has(sub._id)) selectedNames.push(sub.name);
       }
@@ -204,36 +195,12 @@ export default function ManageSubcommunitiesModal({
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
+          ) : subcommunities.length === 0 ? (
+            <div className="text-center py-8 text-sm text-muted-foreground">
+              {parentCommunityName} has no subcommunities yet.
+            </div>
           ) : (
             <div className="space-y-2 max-h-[400px] overflow-y-auto py-2">
-              {/* Parent Community Option */}
-              <label
-                className={cn(
-                  "flex items-start gap-3 p-4 rounded-lg border-2 transition-all cursor-pointer",
-                  selectedCommunityIds.has(parentCommunityId)
-                    ? "border-primary bg-primary/10 shadow-sm"
-                    : "border-border hover:border-primary/50 hover:bg-muted/30"
-                )}
-              >
-                <Checkbox
-                  checked={selectedCommunityIds.has(parentCommunityId)}
-                  onCheckedChange={() => handleToggleCommunity(parentCommunityId)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="mt-0.5"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold">{parentCommunityName}</span>
-                    {(currentSubcommunities.length === 0 || currentSubcommunities.includes(parentCommunityName)) && (
-                      <Badge variant="secondary" className="text-xs">
-                        Current
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </label>
-
-              {/* Subcommunities */}
               {subcommunities.map((sub) => (
                 <label
                   key={sub._id}
