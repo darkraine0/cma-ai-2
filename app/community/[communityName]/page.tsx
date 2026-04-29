@@ -143,7 +143,18 @@ export default function CommunityDetail() {
       .then((data: unknown) => {
         if (cancelled) return;
         const list = Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
-        const normalized: Plan[] = list.map((item, i) => {
+        const normalized: Plan[] = list
+        .filter((item) => {
+          const price = Number(item.price ?? 0);
+          const sqft = Number(item.sqft ?? 0);
+      
+          if (price === sqft) {
+            return false; // remove duplicate
+          }
+      
+          return true;
+        })
+        .map((item, i) => {
           const price = Number(item.price ?? 0);
           const label = getV1ProductLineLabel(price);
           return {
