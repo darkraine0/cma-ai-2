@@ -1,18 +1,11 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Button } from "@/app/components/ui/button"
 import { Badge } from "@/app/components/ui/badge"
 import Loader from "@/app/components/Loader"
 import { Users, CheckCircle2, Clock, XCircle, Shield, RefreshCw, Database } from "lucide-react"
-
-interface V1SyncState {
-  v1LastRunAt: string | null
-  v1LastFetched: number
-  v1LastInserted: number
-  running: boolean
-}
 
 interface V1SyncSummary {
   totalCommunities: number
@@ -22,6 +15,18 @@ interface V1SyncSummary {
   totalSkippedInvalid: number
   totalErrors: number
   durationMs?: number
+  startedAt?: string
+  finishedAt?: string
+}
+
+interface V1SyncState {
+  running: boolean
+  v1RunningSince: string | null
+  v1LastRunAt: string | null
+  v1LastFetched: number
+  v1LastInserted: number
+  v1LastError: string | null
+  v1LastSummary: V1SyncSummary | null
 }
 
 function formatRelativeTime(iso: string | null): string {
@@ -40,6 +45,32 @@ function formatRelativeTime(iso: string | null): string {
   return `${day}d ${hr % 24}h ago`
 }
 
+function formatDuration(ms: number | undefined): string {
+  if (!ms || !Number.isFinite(ms)) return "—"
+  const sec = Math.round(ms / 1000)
+  if (sec < 60) return `${sec}s`
+  const min = Math.floor(sec / 60)
+  return `${min}m ${sec % 60}s`
+}
+
+/**
+ * Read a Response into JSON, but tolerate non-JSON bodies (HTML error pages,
+ * Next.js dev "An error occurred…" payloads, etc.). Returns either the parsed
+ * JSON object or `{ __nonJson: true, text }` so the caller can produce a
+ * useful message instead of crashing on `Unexpected token`.
+ */
+async function safeReadJson(
+  res: Response
+): Promise<{ ok: true; data: any } | { ok: false; text: string }> {
+  const text = await res.text()
+  if (!text) return { ok: false, text: "(empty response)" }
+  try {
+    return { ok: true, data: JSON.parse(text) }
+  } catch {
+    return { ok: false, text: text.slice(0, 300) }
+  }
+}
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -50,60 +81,111 @@ export default function AdminDashboard() {
   })
   const [loading, setLoading] = useState(true)
   const [v1State, setV1State] = useState<V1SyncState | null>(null)
-  const [v1Syncing, setV1Syncing] = useState(false)
   const [v1Message, setV1Message] = useState<string | null>(null)
-  const [v1LastSummary, setV1LastSummary] = useState<V1SyncSummary | null>(null)
+  const v1WasRunningRef = useRef<boolean>(false)
 
-  const fetchV1State = useCallback(async () => {
+  const fetchV1State = useCallback(async (): Promise<V1SyncState | null> => {
     try {
       const res = await fetch("/api/admin/sync-v1", { cache: "no-store" })
-      if (!res.ok) return
-      const data = (await res.json()) as V1SyncState
+      const parsed = await safeReadJson(res)
+      if (!parsed.ok) {
+        console.error("V1 sync state response was not JSON:", parsed.text)
+        return null
+      }
+      if (!res.ok) {
+        console.error("V1 sync state fetch failed:", parsed.data)
+        return null
+      }
+      const data = parsed.data as V1SyncState
       setV1State(data)
+      return data
     } catch (err) {
       console.error("Error fetching V1 sync state:", err)
+      return null
     }
   }, [])
 
-  const handleV1Sync = useCallback(async () => {
-    if (v1Syncing) return
-    setV1Syncing(true)
-    setV1Message("Syncing V1 plans… this can take a minute.")
-    setV1LastSummary(null)
-    try {
-      const res = await fetch("/api/admin/sync-v1", { method: "POST" })
-      const data = await res.json()
-      if (!res.ok || !data.success) {
-        setV1Message(`Sync failed: ${data.error || "unknown error"}`)
-      } else {
-        setV1LastSummary({
-          totalCommunities: data.totalCommunities,
-          totalFetched: data.totalFetched,
-          totalInserted: data.totalInserted,
-          totalSkippedExisting: data.totalSkippedExisting,
-          totalSkippedInvalid: data.totalSkippedInvalid,
-          totalErrors: data.totalErrors,
-          durationMs: data.durationMs,
-        })
-        const secs = Math.round((data.durationMs ?? 0) / 1000)
-        setV1Message(
-          `Sync complete in ${secs}s — inserted ${data.totalInserted} new plans (` +
-            `${data.totalFetched} fetched, ${data.totalSkippedExisting} already existed).`
-        )
-        await fetchV1State()
+  // While a sync is running (locally triggered or from another trigger like
+  // the scheduler / CLI), poll every 2s. Stop polling as soon as `running`
+  // flips to false, then surface a completion / error message based on the
+  // final persisted state.
+  useEffect(() => {
+    if (!v1State?.running) {
+      // Just finished — derive the right message from the persisted state.
+      if (v1WasRunningRef.current && v1State) {
+        v1WasRunningRef.current = false
+        if (v1State.v1LastError) {
+          setV1Message(`Sync failed: ${v1State.v1LastError}`)
+        } else if (v1State.v1LastSummary) {
+          const s = v1State.v1LastSummary
+          setV1Message(
+            `Sync complete in ${formatDuration(s.durationMs)} — inserted ` +
+              `${s.totalInserted} new plans ` +
+              `(${s.totalFetched} fetched, ${s.totalSkippedExisting} already existed` +
+              `${s.totalErrors > 0 ? `, ${s.totalErrors} errors` : ""}).`
+          )
+        }
       }
+      return
+    }
+
+    v1WasRunningRef.current = true
+    const intervalId = window.setInterval(() => {
+      void fetchV1State()
+    }, 2000)
+    return () => window.clearInterval(intervalId)
+  }, [v1State?.running, v1State, fetchV1State])
+
+  const handleV1Sync = useCallback(async () => {
+    if (v1State?.running) return
+    setV1Message("Sync started — polling for progress…")
+
+    let res: Response
+    try {
+      res = await fetch("/api/admin/sync-v1", { method: "POST" })
     } catch (err) {
       setV1Message(
-        `Sync failed: ${err instanceof Error ? err.message : "network error"}`
+        `Could not start sync: ${err instanceof Error ? err.message : "network error"}`
       )
-    } finally {
-      setV1Syncing(false)
+      return
     }
-  }, [v1Syncing, fetchV1State])
+
+    const parsed = await safeReadJson(res)
+    if (!parsed.ok) {
+      setV1Message(
+        `Could not start sync — server returned an unexpected response. ` +
+          `(HTTP ${res.status}). First bytes: "${parsed.text.slice(0, 80)}…"`
+      )
+      return
+    }
+
+    const data = parsed.data as {
+      accepted?: boolean
+      running?: boolean
+      message?: string
+      error?: string
+    }
+
+    if (res.status === 202 && data.accepted) {
+      // Kick off polling immediately so the spinner shows up right away.
+      await fetchV1State()
+      return
+    }
+
+    if (res.status === 409) {
+      setV1Message(data.message || "A V1 sync is already in progress.")
+      await fetchV1State()
+      return
+    }
+
+    setV1Message(
+      `Could not start sync: ${data.error || data.message || `HTTP ${res.status}`}`
+    )
+  }, [v1State?.running, fetchV1State])
 
   useEffect(() => {
     fetchStats()
-    fetchV1State()
+    void fetchV1State()
   }, [fetchV1State])
 
   const fetchStats = async () => {
@@ -202,6 +284,9 @@ export default function AdminDashboard() {
               <CardTitle className="text-lg md:text-xl flex items-center gap-2">
                 <Database className="w-5 h-5" />
                 V1 Plan Sync
+                {v1State?.running && (
+                  <Badge className="bg-blue-500 text-xs">Running</Badge>
+                )}
               </CardTitle>
               <CardDescription className="text-sm mt-1">
                 Pull V1 plan data from the upstream API into the database.
@@ -211,23 +296,31 @@ export default function AdminDashboard() {
             </div>
             <Button
               onClick={handleV1Sync}
-              disabled={v1Syncing}
+              disabled={v1State?.running}
               className="flex-shrink-0"
             >
-              <RefreshCw className={`w-4 h-4 mr-2 ${v1Syncing ? "animate-spin" : ""}`} />
-              {v1Syncing ? "Syncing…" : "Sync V1 now"}
+              <RefreshCw className={`w-4 h-4 mr-2 ${v1State?.running ? "animate-spin" : ""}`} />
+              {v1State?.running ? "Syncing…" : "Sync V1 now"}
             </Button>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
               <div className="rounded-md border border-border p-3">
-                <div className="text-xs text-muted-foreground">Last sync</div>
-                <div className="text-sm font-semibold mt-1">
-                  {formatRelativeTime(v1State?.v1LastRunAt ?? null)}
+                <div className="text-xs text-muted-foreground">
+                  {v1State?.running ? "Started" : "Last sync"}
                 </div>
-                {v1State?.v1LastRunAt && (
+                <div className="text-sm font-semibold mt-1">
+                  {v1State?.running
+                    ? formatRelativeTime(v1State?.v1RunningSince ?? null)
+                    : formatRelativeTime(v1State?.v1LastRunAt ?? null)}
+                </div>
+                {(v1State?.running ? v1State?.v1RunningSince : v1State?.v1LastRunAt) && (
                   <div className="text-xs text-muted-foreground mt-1">
-                    {new Date(v1State.v1LastRunAt).toLocaleString()}
+                    {new Date(
+                      (v1State?.running
+                        ? v1State?.v1RunningSince
+                        : v1State?.v1LastRunAt) as string
+                    ).toLocaleString()}
                   </div>
                 )}
               </div>
@@ -247,9 +340,14 @@ export default function AdminDashboard() {
                 {v1Message}
               </div>
             )}
-            {v1LastSummary && v1LastSummary.totalErrors > 0 && (
+            {v1State?.v1LastError && !v1State.running && (
+              <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md p-3 mt-3">
+                Last run error: {v1State.v1LastError}
+              </div>
+            )}
+            {v1State?.v1LastSummary && v1State.v1LastSummary.totalErrors > 0 && !v1State.running && (
               <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3 mt-3">
-                {v1LastSummary.totalErrors} community/communities reported errors
+                {v1State.v1LastSummary.totalErrors} community/communities reported errors
                 during the last sync. Check server logs for details.
               </div>
             )}

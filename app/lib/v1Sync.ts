@@ -1,18 +1,25 @@
 /**
- * V1 plan sync — single source of truth used by BOTH triggers:
+ * V1 plan sync — single source of truth used by ALL triggers:
  *  1. The daily scheduler (`app/lib/v1SyncScheduler.ts`)
- *  2. The manual admin trigger (`app/api/admin/sync-v1`)
+ *  2. The manual admin trigger (`app/api/admin/sync-v1`, runs in background)
+ *  3. The CLI script (`scripts/sync-v1.ts`)
  *
  * Behavior:
  *  - For each Community in DB, queries the upstream V1 API (`get_plans`) using
- *    `v1ExternalCommunityName` (or `name` as fallback).
+ *    `v1ExternalCommunityName` (or `name` as fallback) with a per-call timeout
+ *    so a single hung socket can't stall the whole run.
  *  - Every V1 row gets a stable `externalKey`. If a Plan with that key already
  *    exists -> skip (this is what protects manager edits).
  *  - Otherwise inserts a new Plan with `source: 'v1'`.
  *  - If a V1 plan references a Company not in DB, the Company is auto-created
  *    and added to the Community's `companies` array.
  *  - Communities not present in DB are skipped.
- *  - On completion, persists `v1LastRunAt` + counts on the AppState singleton.
+ *  - Persists running state, last summary, and last error on AppState so the
+ *    dashboard can render a live status without holding an HTTP connection.
+ *
+ * Concurrency: `syncAllV1Communities()` is self-deduping at the module level.
+ * A second concurrent call returns the same in-flight Promise instead of
+ * starting a new run.
  */
 
 import mongoose from 'mongoose';
@@ -20,10 +27,19 @@ import connectDB from './mongodb';
 import Community from '../models/Community';
 import Company from '../models/Company';
 import Plan from '../models/Plan';
-import AppState, { APP_STATE_KEY } from '../models/AppState';
+import AppState, { APP_STATE_KEY, IV1SyncSummary } from '../models/AppState';
 
 const EXTERNAL_PLANS_BASE =
   'https://light-settled-filly.ngrok-free.app/api/get_plans';
+
+/** Per-fetch timeout for upstream V1 calls. Prevents one hung socket from
+ *  stalling the whole sync; the V1 ngrok upstream is known to be flaky. */
+const V1_FETCH_TIMEOUT_MS = 20_000;
+
+/** A `v1RunningSince` older than this is treated as stale (e.g. process
+ *  crashed mid-run) and overwritten by the next call. Keeps the dashboard
+ *  from being permanently stuck in "Running…". */
+const RUNNING_STALE_AFTER_MS = 30 * 60 * 1000;
 
 interface RawV1Plan {
   plan_name?: unknown;
@@ -285,13 +301,36 @@ export async function syncV1Community(
   return result;
 }
 
+/** Module-level in-flight Promise used to dedupe concurrent runs. */
+let inFlight: Promise<V1SyncSummary> | null = null;
+
 /**
  * Sync V1 plans for every community we know about. Communities are processed
- * serially to avoid hammering the V1 API. Persists v1LastRunAt + counts on
- * AppState so callers and the scheduler stay in sync.
+ * serially to avoid hammering the V1 API. Persists running state, last
+ * summary, and last error on AppState.
+ *
+ * Self-deduping: if called while a previous call is still running, returns
+ * the same in-flight Promise. This is what makes it safe for the manual
+ * admin trigger and the scheduler to call it concurrently.
  */
-export async function syncAllV1Communities(): Promise<V1SyncSummary> {
+export function syncAllV1Communities(): Promise<V1SyncSummary> {
+  if (inFlight) return inFlight;
+  inFlight = doSyncAll().finally(() => {
+    inFlight = null;
+  });
+  return inFlight;
+}
+
+/** True if a V1 sync is in progress in this Node process. */
+export function isV1SyncRunningLocal(): boolean {
+  return inFlight !== null;
+}
+
+async function doSyncAll(): Promise<V1SyncSummary> {
   await connectDB();
+
+  const startedAt = new Date();
+  await markRunningStarted(startedAt);
 
   const communities = await Community.find({}).select('_id name').lean();
 
@@ -305,76 +344,147 @@ export async function syncAllV1Communities(): Promise<V1SyncSummary> {
     results: [],
   };
 
-  for (const c of communities as unknown as Array<{
-    _id: mongoose.Types.ObjectId;
-    name: string;
-  }>) {
-    try {
-      const r = await syncV1Community(String(c._id));
-      summary.results.push(r);
-      summary.totalFetched += r.fetched;
-      summary.totalInserted += r.inserted;
-      summary.totalSkippedExisting += r.skippedExisting;
-      summary.totalSkippedInvalid += r.skippedInvalid;
-      summary.totalErrors += r.errors.length;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      summary.results.push({
-        communityId: String(c._id),
-        communityName: c.name,
-        v1QueryName: '',
-        fetched: 0,
-        inserted: 0,
-        skippedExisting: 0,
-        skippedInvalid: 0,
-        errors: [message],
-      });
-      summary.totalErrors += 1;
+  let topLevelError: string | null = null;
+  try {
+    for (const c of communities as unknown as Array<{
+      _id: mongoose.Types.ObjectId;
+      name: string;
+    }>) {
+      try {
+        const r = await syncV1Community(String(c._id));
+        summary.results.push(r);
+        summary.totalFetched += r.fetched;
+        summary.totalInserted += r.inserted;
+        summary.totalSkippedExisting += r.skippedExisting;
+        summary.totalSkippedInvalid += r.skippedInvalid;
+        summary.totalErrors += r.errors.length;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        summary.results.push({
+          communityId: String(c._id),
+          communityName: c.name,
+          v1QueryName: '',
+          fetched: 0,
+          inserted: 0,
+          skippedExisting: 0,
+          skippedInvalid: 0,
+          errors: [message],
+        });
+        summary.totalErrors += 1;
+      }
     }
+  } catch (err) {
+    // Should be rare — the per-community try/catch covers most cases — but
+    // any unexpected throw (e.g. Mongo disconnect) lands here.
+    topLevelError = err instanceof Error ? err.message : String(err);
   }
 
-  // Record completion. Do this even on partial failures so a flaky upstream
-  // doesn't cause the scheduler to retry every minute.
+  const finishedAt = new Date();
+  await markRunningFinished({
+    startedAt,
+    finishedAt,
+    summary,
+    topLevelError,
+  });
+
+  return summary;
+}
+
+async function markRunningStarted(startedAt: Date): Promise<void> {
   try {
     await AppState.findOneAndUpdate(
       { key: APP_STATE_KEY },
       {
         $set: {
-          v1LastRunAt: new Date(),
-          v1LastFetched: summary.totalFetched,
-          v1LastInserted: summary.totalInserted,
+          v1RunningSince: startedAt,
+          v1LastError: null,
         },
       },
       { upsert: true, new: true }
     );
   } catch (err) {
     console.warn(
-      '[v1Sync] Failed to persist AppState:',
+      '[v1Sync] Failed to persist running state:',
       err instanceof Error ? err.message : err
     );
   }
-
-  return summary;
 }
 
-/** Read the persisted state used by the scheduler and the dashboard. */
-export async function getV1SyncState(): Promise<{
+async function markRunningFinished(args: {
+  startedAt: Date;
+  finishedAt: Date;
+  summary: V1SyncSummary;
+  topLevelError: string | null;
+}): Promise<void> {
+  const persistedSummary: IV1SyncSummary = {
+    ...args.summary,
+    startedAt: args.startedAt,
+    finishedAt: args.finishedAt,
+    durationMs: args.finishedAt.getTime() - args.startedAt.getTime(),
+  };
+  try {
+    await AppState.findOneAndUpdate(
+      { key: APP_STATE_KEY },
+      {
+        $set: {
+          v1RunningSince: null,
+          v1LastRunAt: args.finishedAt,
+          v1LastFetched: args.summary.totalFetched,
+          v1LastInserted: args.summary.totalInserted,
+          v1LastError: args.topLevelError,
+          v1LastSummary: persistedSummary,
+        },
+      },
+      { upsert: true, new: true }
+    );
+  } catch (err) {
+    console.warn(
+      '[v1Sync] Failed to persist completion state:',
+      err instanceof Error ? err.message : err
+    );
+  }
+}
+
+export interface V1SyncState {
+  running: boolean;
+  v1RunningSince: Date | null;
   v1LastRunAt: Date | null;
   v1LastFetched: number;
   v1LastInserted: number;
-}> {
+  v1LastError: string | null;
+  v1LastSummary: IV1SyncSummary | null;
+}
+
+/** Read the persisted state used by the scheduler and the dashboard. */
+export async function getV1SyncState(): Promise<V1SyncState> {
   await connectDB();
   const doc = await AppState.findOne({ key: APP_STATE_KEY })
-    .select('v1LastRunAt v1LastFetched v1LastInserted')
+    .select(
+      'v1RunningSince v1LastRunAt v1LastFetched v1LastInserted v1LastError v1LastSummary'
+    )
     .lean();
   const d = doc as {
+    v1RunningSince?: Date | null;
     v1LastRunAt?: Date | null;
     v1LastFetched?: number;
     v1LastInserted?: number;
+    v1LastError?: string | null;
+    v1LastSummary?: IV1SyncSummary | null;
   } | null;
+
+  // Treat a stale `v1RunningSince` (process crashed mid-run) as not running
+  // so the dashboard isn't permanently stuck on "Running…".
+  const since = d?.v1RunningSince ?? null;
+  const running =
+    since != null && Date.now() - since.getTime() < RUNNING_STALE_AFTER_MS;
+
   return {
+    running,
+    v1RunningSince: since,
     v1LastRunAt: d?.v1LastRunAt ?? null,
     v1LastFetched: d?.v1LastFetched ?? 0,
     v1LastInserted: d?.v1LastInserted ?? 0,
+    v1LastError: d?.v1LastError ?? null,
+    v1LastSummary: d?.v1LastSummary ?? null,
   };
 }

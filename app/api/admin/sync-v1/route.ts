@@ -1,24 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/lib/admin';
-import { syncAllV1Communities, getV1SyncState } from '@/app/lib/v1Sync';
+import { syncAllV1Communities, getV1SyncState, isV1SyncRunningLocal} from '@/app/lib/v1Sync';
 
 /**
  * Manual V1 plan sync — Method 2 (admin-triggered).
  *
- *  - GET  /api/admin/sync-v1   -> returns last-run state for the dashboard
- *  - POST /api/admin/sync-v1   -> runs a full V1 sync and returns the summary
+ *   GET  /api/admin/sync-v1  -> returns running flag + last-run state
+ *   POST /api/admin/sync-v1  -> kicks off a sync IN THE BACKGROUND and
+ *                               returns 202 Accepted immediately
+ *
+ * Why background?
+ *   A full V1 sync iterates ~60 communities and can take 30-90 seconds. Doing
+ *   it inside the HTTP request lifecycle is fragile: any HMR reload, browser
+ *   timeout, or upstream socket close turns the response body into a non-JSON
+ *   error page (the symptom that motivated this design). Decoupling the sync
+ *   from the request also means the dashboard can survive a refresh mid-run
+ *   without losing visibility — it just polls GET.
  *
  * Both verbs are admin-only (validated against the database, not just the
- * token). The POST path can be slow (one HTTP call per community) so the
- * route runs on the Node runtime with a long maxDuration.
+ * token).
  */
 
 export const runtime = 'nodejs';
-export const maxDuration = 300;
+export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
-
-/** Concurrency guard: prevents two admin clicks from running the sync twice. */
-let manualRunInFlight = false;
 
 export async function GET(request: NextRequest) {
   const adminCheck = await requireAdmin(request);
@@ -27,10 +32,13 @@ export async function GET(request: NextRequest) {
   try {
     const state = await getV1SyncState();
     return NextResponse.json({
+      running: state.running || isV1SyncRunningLocal(),
+      v1RunningSince: state.v1RunningSince,
       v1LastRunAt: state.v1LastRunAt,
       v1LastFetched: state.v1LastFetched,
       v1LastInserted: state.v1LastInserted,
-      running: manualRunInFlight,
+      v1LastError: state.v1LastError,
+      v1LastSummary: state.v1LastSummary,
     });
   } catch (err) {
     return NextResponse.json(
@@ -47,36 +55,50 @@ export async function POST(request: NextRequest) {
   const adminCheck = await requireAdmin(request);
   if (adminCheck instanceof NextResponse) return adminCheck;
 
-  if (manualRunInFlight) {
-    return NextResponse.json(
-      { error: 'A V1 sync is already in progress. Please wait.' },
-      { status: 409 }
-    );
-  }
-
-  manualRunInFlight = true;
-  const startedAt = new Date();
   try {
-    const summary = await syncAllV1Communities();
-    const finishedAt = new Date();
-    return NextResponse.json({
-      success: true,
-      startedAt: startedAt.toISOString(),
-      finishedAt: finishedAt.toISOString(),
-      durationMs: finishedAt.getTime() - startedAt.getTime(),
-      ...summary,
-    });
+    const state = await getV1SyncState();
+    if (state.running || isV1SyncRunningLocal()) {
+      return NextResponse.json(
+        {
+          accepted: false,
+          running: true,
+          message: 'A V1 sync is already in progress.',
+          v1RunningSince: state.v1RunningSince,
+        },
+        { status: 409 }
+      );
+    }
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
       {
-        success: false,
-        startedAt: startedAt.toISOString(),
-        error: message,
+        accepted: false,
+        error: 'Failed to read V1 sync state',
+        message: err instanceof Error ? err.message : String(err),
       },
       { status: 500 }
     );
-  } finally {
-    manualRunInFlight = false;
   }
+
+  // Kick off the sync in the background. We deliberately do NOT await it.
+  // syncAllV1Communities is self-deduping and persists its own state to
+  // AppState, so the GET endpoint can report progress and final results.
+  // Errors are swallowed here because they're already persisted on AppState
+  // as v1LastError; this also prevents an unhandled-rejection warning.
+  void syncAllV1Communities().catch((err) => {
+    console.error(
+      '[admin/sync-v1] Background sync failed:',
+      err instanceof Error ? err.message : err
+    );
+  });
+
+  return NextResponse.json(
+    {
+      accepted: true,
+      running: true,
+      startedAt: new Date().toISOString(),
+      message:
+        'V1 sync started. Poll GET /api/admin/sync-v1 for progress.',
+    },
+    { status: 202 }
+  );
 }
