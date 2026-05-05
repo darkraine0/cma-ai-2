@@ -20,6 +20,15 @@ interface IProductSegmentReference {
   label: string;  // display label, e.g. "40' Lots"
 }
 
+/**
+ * Origin of a Plan document.
+ * - 'manual': created via the app UI / scrape pipeline (the original "V2" data).
+ * - 'v1':     imported by the V1 sync (scheduler or manual admin trigger).
+ *
+ * Default is 'manual' so all pre-existing plans implicitly remain V2.
+ */
+export type PlanSource = 'manual' | 'v1';
+
 export interface IPlan extends Document {
   plan_name: string;
   price: number;
@@ -36,6 +45,14 @@ export interface IPlan extends Document {
   address?: string;
   design_number?: string;
   price_changed_recently?: boolean;
+  /** Origin of this Plan. See PlanSource. */
+  source?: PlanSource;
+  /**
+   * Stable dedupe key for V1-imported plans. Built from
+   * `v1::<community>::<company>::<type>::<plan_name>::<address>` (normalized).
+   * Sparse + unique so it only constrains rows that have it (i.e. V1 rows).
+   */
+  externalKey?: string;
   createdBy?: Types.ObjectId;
   updatedBy?: Types.ObjectId;
   createdAt: Date;
@@ -146,6 +163,16 @@ const PlanSchema = new Schema<IPlan>(
       type: Boolean,
       default: false,
     },
+    source: {
+      type: String,
+      enum: ['manual', 'v1'],
+      default: 'manual',
+      index: true,
+    },
+    externalKey: {
+      // Indexed via the explicit sparse-unique PlanSchema.index() below.
+      type: String,
+    },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: 'User',
@@ -171,10 +198,20 @@ PlanSchema.index({ 'community._id': 1, type: 1 });
 PlanSchema.index({ price: 1 });
 PlanSchema.index({ last_updated: -1 });
 
-// Compound index for uniqueness (using embedded names + segment where present)
+// Compound index for uniqueness (using embedded names + segment where present).
+// Includes `source` so V1-imported plans can coexist with V2 plans that happen
+// to share plan_name + company + community + segment + type. The migration
+// `20260505000000_v1_plan_indexes` drops the previous (source-less) unique index.
 PlanSchema.index(
-  { plan_name: 1, 'company.name': 1, 'community.name': 1, 'segment.name': 1, type: 1 },
+  { plan_name: 1, 'company.name': 1, 'community.name': 1, 'segment.name': 1, type: 1, source: 1 },
   { unique: true }
+);
+
+// Sparse-unique key for V1-imported plans only. Manual / V2 rows have no
+// `externalKey` and are skipped by this index.
+PlanSchema.index(
+  { externalKey: 1 },
+  { unique: true, sparse: true }
 );
 
 export default mongoose.models.Plan || mongoose.model<IPlan>('Plan', PlanSchema);

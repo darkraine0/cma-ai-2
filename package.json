@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "migrate": "tsx scripts/run-migrations.ts"
+    "migrate": "tsx scripts/run-migrations.ts",
+    "sync:v1": "tsx scripts/sync-v1.ts"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.3",
