@@ -18,7 +18,13 @@ export interface Plan {
   segment?: PlanSegment | null;
   type: string;
   address?: string;
-  /** When set (e.g. "V1&V2"), shown in Version column instead of inferring from _id. Used when "All" shows deduplicated row. */
+  /**
+   * Plan provenance. 1 = pristine V1 import, 3 = V1 import then user-modified,
+   * 2 = manual / V2, 4 = V2 then user-modified. {1, 3} render as the V1 badge,
+   * {2, 4} render as V2.
+   */
+  version?: number | null;
+  /** @deprecated Used by the chart page's V1/V2 dedupe; new code should use `version`. */
   versionDisplay?: string;
 }
 

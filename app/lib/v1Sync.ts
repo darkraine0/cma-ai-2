@@ -10,7 +10,7 @@
  *    so a single hung socket can't stall the whole run.
  *  - Every V1 row gets a stable `externalKey`. If a Plan with that key already
  *    exists -> skip (this is what protects manager edits).
- *  - Otherwise inserts a new Plan with `source: 'v1'`.
+ *  - Otherwise inserts a new Plan with `version: 1` (V1, untouched).
  *  - If a V1 plan references a Company not in DB, the Company is auto-created
  *    and added to the Community's `companies` array.
  *  - Communities not present in DB are skipped.
@@ -279,7 +279,7 @@ export async function syncV1Community(
             name: community.name,
             location: community.location,
           },
-          source: 'v1',
+          version: 1,
           externalKey,
         });
         result.inserted += 1;

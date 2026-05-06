@@ -126,8 +126,13 @@ export default function ManagePage() {
   const [loadingSubcommunities, setLoadingSubcommunities] = useState(false);
   const [segments, setSegments] = useState<ProductSegment[]>([]);
   const [loadingSegments, setLoadingSegments] = useState(false);
-  const [v1CompanyNames, setV1CompanyNames] = useState<string[]>([]);
-  const [loadingV1Companies, setLoadingV1Companies] = useState(false);
+  // Map of normalized company name -> source ('V1' or 'V2'), derived from
+  // plans in the selected community. A builder is tagged 'V1' when it has at
+  // least one plan with version 1 or 3 in this community; otherwise 'V2'.
+  const [communityBuildersByName, setCommunityBuildersByName] = useState<
+    Map<string, { source: "V1" | "V2"; displayName: string }>
+  >(new Map());
+  const [loadingCommunityBuilders, setLoadingCommunityBuilders] = useState(false);
   
   // Manage subcommunities modal states
   const [manageSubcommunitiesOpen, setManageSubcommunitiesOpen] = useState(false);
@@ -321,73 +326,101 @@ export default function ManagePage() {
     loadSegments();
   }, [loadSegments]);
 
-  // Fetch V1 builders for the selected community so the manage page reflects what
-  // the community detail page shows (which fetches V1 plans via /api/external/get-plans).
+  // Fetch all plans (V1 + V2) for the selected community from MongoDB and
+  // group them by company. Each company is then tagged 'V1' or 'V2' based on
+  // the version of its plans:
+  //   version 1 (pristine V1 import)  -> V1
+  //   version 3 (V1 import, modified) -> V1
+  //   version 2 (manual / V2)         -> V2
+  //   version 4 (V2, modified)        -> V2
+  // If a company has plans in BOTH origins (rare), V1 wins so the badge
+  // reflects upstream provenance.
   useEffect(() => {
-    const v1Name = selectedCommunity?.v1ExternalCommunityName ?? selectedCommunity?.name;
-    if (!v1Name) {
-      setV1CompanyNames([]);
+    if (!selectedCommunity?._id) {
+      setCommunityBuildersByName(new Map());
+      setLoadingCommunityBuilders(false);
       return;
     }
     let cancelled = false;
-    setLoadingV1Companies(true);
-    fetch(`/api/external/get-plans?community=${encodeURIComponent(v1Name)}`)
+    setLoadingCommunityBuilders(true);
+    fetch(`${API_URL}/plans?communityId=${selectedCommunity._id}`)
       .then((res) => (res.ok ? res.json() : []))
       .then((data: unknown) => {
         if (cancelled) return;
         const list = Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
-        const seen = new Set<string>();
-        const names: string[] = [];
-        for (const item of list) {
-          const name = extractCompanyName(item.company as string | { name: string });
-          const key = normalizeCompanyNameForMatch(name);
-          if (name && key && !seen.has(key)) {
-            seen.add(key);
-            names.push(name);
+        const byKey = new Map<string, { source: "V1" | "V2"; displayName: string }>();
+        for (const plan of list) {
+          const companyName = extractCompanyName(plan.company as string | { name: string });
+          const key = normalizeCompanyNameForMatch(companyName);
+          if (!companyName || !key) continue;
+
+          const version = typeof plan.version === "number" ? plan.version : undefined;
+          const isV1 = version === 1 || version === 3;
+          const planSource: "V1" | "V2" = isV1 ? "V1" : "V2";
+
+          const existing = byKey.get(key);
+          if (!existing) {
+            byKey.set(key, { source: planSource, displayName: companyName });
+          } else if (existing.source === "V2" && planSource === "V1") {
+            existing.source = "V1";
           }
         }
-        setV1CompanyNames(names);
+        setCommunityBuildersByName(byKey);
       })
       .catch(() => {
-        if (!cancelled) setV1CompanyNames([]);
+        if (!cancelled) setCommunityBuildersByName(new Map());
       })
       .finally(() => {
-        if (!cancelled) setLoadingV1Companies(false);
+        if (!cancelled) setLoadingCommunityBuilders(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [selectedCommunity?._id, selectedCommunity?.v1ExternalCommunityName, selectedCommunity?.name]);
+  }, [selectedCommunity?._id]);
 
-  // Merged V1/V2 builder list for the selected community, with a per-builder source tag.
-  // V2 entries keep their original CommunityCompany shape so existing UI (color, remove, edit) keeps working.
-  type BuilderEntry =
-    | { source: 'v2' | 'v1&v2'; v2: string | CommunityCompany; name: string; v1Name?: string }
-    | { source: 'v1'; name: string };
+  // Merged builder list for the selected community.
+  //
+  // Two inputs:
+  //   1. `selectedCommunity.companies` — V2 attachment records that drive the
+  //      per-builder controls (edit color, remove, manage subcommunities).
+  //   2. `communityBuildersByName` — companies derived from this community's
+  //      plans in MongoDB, already tagged 'V1' or 'V2' based on plan versions.
+  //
+  // For each attached company we look up its source by name; if it has no
+  // plans yet, we default to 'V2' so newly-added attachments still appear.
+  // Companies that have plans here but are NOT attached (e.g. V1 sync added
+  // them via the plans collection) are appended without a `v2` reference,
+  // which the UI uses to hide attachment-only controls.
+  type BuilderEntry = {
+    source: 'V1' | 'V2';
+    name: string;
+    v2?: string | CommunityCompany;
+  };
   const buildersBuildingHere = React.useMemo<BuilderEntry[]>(() => {
     const v2List = (selectedCommunity?.companies ?? []) as Array<string | CommunityCompany>;
-    const v1ByKey = new Map<string, string>();
-    for (const n of v1CompanyNames) {
-      const k = normalizeCompanyNameForMatch(n);
-      if (k && !v1ByKey.has(k)) v1ByKey.set(k, n);
-    }
-    const matchedV1Keys = new Set<string>();
+    const usedKeys = new Set<string>();
+
     const merged: BuilderEntry[] = v2List.map((c) => {
       const name = typeof c === 'string' ? c : c.name;
       const key = normalizeCompanyNameForMatch(name);
-      const v1Name = key ? v1ByKey.get(key) : undefined;
-      if (v1Name) matchedV1Keys.add(key);
-      return v1Name
-        ? { source: 'v1&v2' as const, v2: c, name, v1Name }
-        : { source: 'v2' as const, v2: c, name };
+      if (key) usedKeys.add(key);
+      const fromPlans = key ? communityBuildersByName.get(key) : undefined;
+      return {
+        source: fromPlans?.source ?? 'V2',
+        name,
+        v2: c,
+      };
     });
-    for (const [k, n] of v1ByKey.entries()) {
-      if (!matchedV1Keys.has(k)) merged.push({ source: 'v1', name: n });
+
+    for (const [key, info] of communityBuildersByName.entries()) {
+      if (usedKeys.has(key)) continue;
+      merged.push({ source: info.source, name: info.displayName });
     }
+
     return merged.sort((a, b) =>
       a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
     );
-  }, [selectedCommunity?.companies, v1CompanyNames]);
+  }, [selectedCommunity?.companies, communityBuildersByName]);
 
   // Fetch subcommunities when a community is selected (so we can show them in the detail card)
   useEffect(() => {
@@ -900,7 +933,7 @@ export default function ManagePage() {
                           <div className="flex items-center justify-between mb-3">
                             <h3 className="text-lg font-semibold">Companies Building Here</h3>
                             <div className="flex items-center gap-2">
-                              {loadingV1Companies && (
+                              {loadingCommunityBuilders && (
                                 <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
                               )}
                               <Badge variant="secondary" className="text-sm">{buildersBuildingHere.length}</Badge>
@@ -914,20 +947,21 @@ export default function ManagePage() {
                           ) : (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 mb-4">
                               {buildersBuildingHere.map((entry) => {
-                                const versionLabel = entry.source === 'v1&v2' ? 'V1&V2' : entry.source === 'v1' ? 'V1' : 'V2';
-                                const versionClass = entry.source === 'v1&v2'
-                                  ? 'border-emerald-500/40 text-emerald-400'
-                                  : entry.source === 'v1'
-                                    ? 'border-amber-500/40 text-amber-400'
-                                    : 'border-blue-500/40 text-blue-400';
+                                const versionLabel = entry.source;
+                                const versionClass = entry.source === 'V1'
+                                  ? 'border-amber-500/40 text-amber-400'
+                                  : 'border-blue-500/40 text-blue-400';
 
-                                if (entry.source === 'v1') {
-                                  // V1-only builder: not in V2 DB, so no edit/remove/subcommunity actions.
+                                // No V2 attachment record => the builder only
+                                // appears via plans (e.g. imported by V1 sync
+                                // but not yet linked to this community).
+                                // Show name + badge with no controls.
+                                if (!entry.v2) {
                                   const fullCompany = companies.find((c) => c.name === entry.name);
                                   const color = getCompanyColor(fullCompany ?? { name: entry.name });
                                   return (
                                     <div
-                                      key={`v1-${entry.name}`}
+                                      key={`unattached-${entry.name}`}
                                       className="flex items-start justify-between p-3 bg-muted rounded-md"
                                     >
                                       <div className="flex flex-col gap-2 flex-1 min-w-0">
@@ -972,7 +1006,7 @@ export default function ManagePage() {
                                               style={{ backgroundColor: color, borderColor: color }}
                                             />
                                           ) : (
-                                            <span className="inline-block w-3 h-3 rounded-full border border-dashed border-muted-foreground/40 bg-muted/30 flex-shrink-0 w-3 h-3" />
+                                            <span className="inline-block w-3 h-3 rounded-full border border-dashed border-muted-foreground/40 bg-muted/30 flex-shrink-0" />
                                           );
                                         })()}
                                         <span className="text-sm font-medium truncate">{companyName}</span>

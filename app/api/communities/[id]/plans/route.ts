@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import mongoose, { Types } from 'mongoose';
 import connectDB from '@/app/lib/mongodb';
-import Plan from '@/app/models/Plan';
+import Plan, { IPlan } from '@/app/models/Plan';
 import PriceHistory from '@/app/models/PriceHistory';
 import Community from '@/app/models/Community';
-import mongoose from 'mongoose';
 import { requirePermission } from '@/app/lib/admin';
+
+type LeanPlan = Omit<IPlan, '_id'> & { _id: Types.ObjectId };
 
 export async function GET(
   request: NextRequest,
@@ -51,8 +53,11 @@ export async function GET(
       'community.name': { $exists: true, $ne: null },
     };
 
-    // Get plans for this community
-    const plans = await Plan.find(queryFilter).sort({ last_updated: -1 });
+    // Get plans for this community.
+    // .lean() returns plain JS objects straight from MongoDB; this bypasses
+    // any stale Mongoose model cache (a known Next.js dev-server issue) so
+    // newer schema fields like `version` always come through.
+    const plans = await Plan.find(queryFilter).sort({ last_updated: -1 }).lean<LeanPlan[]>();
 
     // Get recent price changes for these plans
     const planIds = plans.map(p => p._id);
@@ -83,6 +88,8 @@ export async function GET(
       type: plan.type,
       address: plan.address || null,
       price_changed_recently: changedPlanIds.has(plan._id.toString()),
+      // 1 / 3 = V1 origin (pristine / modified). 2 / 4 = V2 origin (manual / modified).
+      version: plan.version ?? null,
     }));
 
     return NextResponse.json(result);

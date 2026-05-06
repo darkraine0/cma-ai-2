@@ -416,6 +416,10 @@ export default function CommunitiesPage() {
   const isEditor = user?.permission === "editor" || user?.role === "admin";
   const isPending = user?.status === "pending";
 
+  console.log('isEditor:', isEditor);
+  console.log('isPending:', isPending);
+  console.log('user:', user);
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-4">

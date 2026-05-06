@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import mongoose, { Types } from 'mongoose';
 import connectDB from '@/app/lib/mongodb';
-import Plan from '@/app/models/Plan';
+import Plan, { IPlan } from '@/app/models/Plan';
 import PriceHistory from '@/app/models/PriceHistory';
 import Company from '@/app/models/Company';
 import Community from '@/app/models/Community';
 import ProductSegment from '@/app/models/ProductSegment';
-import mongoose from 'mongoose';
 import { requirePermission } from '@/app/lib/admin';
+
+type LeanPlan = Omit<IPlan, '_id'> & { _id: Types.ObjectId };
 
 export async function GET(request: NextRequest) {
   try {
@@ -41,8 +43,11 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // Get plans (filtered by community if communityId provided)
-    const plans = await Plan.find(queryFilter).sort({ last_updated: -1 });
+    // Get plans (filtered by community if communityId provided).
+    // .lean() returns plain JS objects straight from MongoDB; this bypasses
+    // any stale Mongoose model cache (a known Next.js dev-server issue) so
+    // newer schema fields like `version` always come through.
+    const plans = await Plan.find(queryFilter).sort({ last_updated: -1 }).lean<LeanPlan[]>();
 
     // Get recent price changes
     const recentChanges = await PriceHistory.find({
@@ -71,6 +76,8 @@ export async function GET(request: NextRequest) {
       type: plan.type,
       address: plan.address || null,
       price_changed_recently: changedPlanIds.has(plan._id.toString()),
+      // 1 / 3 = V1 origin (pristine / modified). 2 / 4 = V2 origin (manual / modified).
+      version: plan.version ?? null,
     }));
 
     return NextResponse.json(result);
@@ -185,6 +192,13 @@ export async function POST(request: NextRequest) {
         // Update embedded references in case company/community metadata changed
         existingPlan.company = companyRef;
         existingPlan.community = communityRef;
+
+        // Bump version 1 (pristine V1 import) -> 3 (V1 modified) so we can
+        // distinguish pristine V1 rows from those a manager / scrape has
+        // touched. Versions 2 (manual) and 3 (already modified) stay put.
+        if (existingPlan.version === 1 || existingPlan.version === 2) {
+          existingPlan.version += 2;
+        }
 
         await existingPlan.save();
         results.push(existingPlan);

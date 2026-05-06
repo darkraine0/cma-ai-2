@@ -56,9 +56,6 @@ export default function CommunityDetail() {
   const assistantDeleteHandledRef = React.useRef<string | null>(null);
   /** Version filter: All (V1 + V2), V1 only, or V2 only. Only used when viewing main community (no subcommunity). */
   const [versionFilter, setVersionFilter] = useState<"all" | "v1" | "v2">("all");
-  const [v1Plans, setV1Plans] = useState<Plan[]>([]);
-  const [loadingV1, setLoadingV1] = useState(false);
-  const [isV1FetchCompleted, setIsV1FetchCompleted] = useState(false);
   const { user } = useAuth();
 
   // Fetch community, plans, and child communities
@@ -127,110 +124,24 @@ export default function CommunityDetail() {
     };
   }, [selectedSubcommunity?._id]);
 
-  // Fetch V1 plans from external API when viewing main community (no subcommunity)
-  const v1CommunityName = community?.v1ExternalCommunityName ?? community?.name;
-  React.useEffect(() => {
-    if (selectedSubcommunity || !v1CommunityName) {
-      setV1Plans([]);
-      setIsV1FetchCompleted(true);
-      return;
-    }
-    let cancelled = false;
-    setIsV1FetchCompleted(false);
-    setLoadingV1(true);
-    fetch(`/api/external/get-plans?community=${encodeURIComponent(v1CommunityName)}`)
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: unknown) => {
-        if (cancelled) return;
-        const list = Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
-        const normalized: Plan[] = list
-        .filter((item) => {
-          const price = Number(item.price ?? 0);
-          const sqft = Number(item.sqft ?? 0);
-      
-          if (price === sqft) {
-            return false; // remove duplicate
-          }
-      
-          return true;
-        })
-        .map((item, i) => {
-          const price = Number(item.price ?? 0);
-          const label = getV1ProductLineLabel(price);
-          return {
-            _id: `v1-${i}`,
-            plan_name: String(item.plan_name ?? ""),
-            price,
-            sqft: Number(item.sqft ?? 0),
-            stories: String(item.stories ?? ""),
-            price_per_sqft: Number(item.price_per_sqft ?? 0),
-            last_updated: String(item.last_updated ?? ""),
-            price_changed_recently: Boolean(item.price_changed_recently),
-            company: String(item.company ?? ""),
-            community: String(item.community ?? community?.name ?? ""),
-            type: String(item.type ?? "now"),
-            address: item.address != null ? String(item.address) : undefined,
-            segment: label ? { _id: `v1-price-${label}`, name: label, label } : undefined,
-          };
-        });
-        setV1Plans(normalized);
-      })
-      .catch(() => {
-        if (!cancelled) setV1Plans([]);
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoadingV1(false);
-          setIsV1FetchCompleted(true);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [v1CommunityName, selectedSubcommunity]);
 
-  const normalizeAddressLike = (value: string) => {
-    const raw = String(value ?? "")
-      .trim()
-      // "332Sugarview" -> "332 Sugarview"
-      .replace(/(\d)([a-zA-Z])/g, "$1 $2")
-      // "RoadSugar" -> "Road Sugar"
-      .replace(/([a-z])([A-Z])/g, "$1 $2")
-      .toLowerCase()
-      // "roadsugar" -> "road sugar" (for malformed concatenated V1 text)
-      .replace(
-        /\b(st|street|ave|avenue|blvd|boulevard|dr|drive|rd|road|ct|court|ln|lane|trl|trail|way|pkwy|parkway|cir|circle|pl|place|ter|terrace|hwy|highway)(?=[a-z])/g,
-        "$1 "
-      )
-      .replace(/[^a-z0-9\s]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+  // version 1 or 3 = V1 (pristine / user-edited V1 import)
+  // version 2 or 4 = V2 (manual / user-edited V2), null treated as V2
+  const isV1Version = (v: number | null | undefined) => v === 1 || v === 3;
+  const isV2Version = (v: number | null | undefined) => v === 2 || v === 4 || v == null;
 
-    if (!raw) return "";
-
-    const tokens = raw.split(" ").filter(Boolean);
-    // User rule: same number + next 2 words means same plan.
-    if (/^\d+$/.test(tokens[0] || "") && tokens.length >= 3) {
-      return `${tokens[0]}${tokens[1]}${tokens[2]}`;
-    }
-
-    return raw.replace(/\s+/g, "");
-  };
-
-  const getFirstThreeWords = (value: string) => {
-    return String(value ?? "")
-      .trim()
-      .replace(/(\d)([a-zA-Z])/g, "$1 $2")
-      .replace(/([a-z])([A-Z])/g, "$1 $2")
-      .toLowerCase()
-      .replace(/[.,]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 3)
-      .join("");
-  };
+  // Synthesize a price-tier segment for V1 plans that have no real segment
+  // (e.g. price 425 000 → "40s") so the product-line filter works for V1 rows.
+  const allPlansEnriched = useMemo(() =>
+    plans.map((p) => {
+      if (isV1Version(p.version) && !p.segment) {
+        const label = getV1ProductLineLabel(Number(p.price ?? 0));
+        if (label) return { ...p, segment: { _id: `v1-price-${label}`, name: label, label } };
+      }
+      return p;
+    }),
+    [plans]
+  );
 
   const hiddenPlanNameSignatures = new Set([
     "exterioroptionavailable",
@@ -238,68 +149,22 @@ export default function CommunityDetail() {
   ]);
 
   const normalizePlanSignature = (value: string) =>
-    String(value ?? "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "");
+    String(value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
   const shouldShowPlan = (plan: Plan) => {
     const displayName = (plan.type === "now" && plan.address ? plan.address : plan.plan_name) || "";
     return !hiddenPlanNameSignatures.has(normalizePlanSignature(displayName));
   };
 
-  // Dedupe V1/V2 by normalized street/name. For address rows, ignore company mismatches.
-  const getPlanDedupeKey = (plan: Plan) => {
-    const nameOrAddress = (plan.address || plan.plan_name || "").trim();
-    const normalizedAddress = normalizeAddressLike(nameOrAddress);
-    const firstPart = nameOrAddress.split(",")[0].trim().toLowerCase();
-    const baseName = normalizedAddress || getFirstThreeWords(firstPart);
-    const company = normalizeCompanyNameForMatch(extractCompanyName(plan.company));
-    const isAddressLike = /^\d/.test(firstPart);
-    return isAddressLike ? baseName : `${baseName}|${company}`;
-  };
-
-  // Display: subcommunity plans, or main community plans by version (V1, V2, or both).
-  // When "All": deduplicate by plan name + company. When both V1 and V2 exist for same plan, prefer V1; otherwise keep most recent.
+  // Display: subcommunity plans, or main community plans filtered by version.
   const displayPlans = useMemo(() => {
     if (selectedSubcommunity) return subcommunityPlans.filter(shouldShowPlan);
-    if (!isV1FetchCompleted) return plans.filter(shouldShowPlan);
-    if (versionFilter === "v1") {
-      const v2Keys = new Set(plans.map((p) => getPlanDedupeKey(p)));
-      return v1Plans.map((p) => ({
-        ...p,
-        versionDisplay: v2Keys.has(getPlanDedupeKey(p)) ? "V1&V2" : "V1",
-      })).filter(shouldShowPlan);
-    }
-    if (versionFilter === "v2") return plans.filter(shouldShowPlan);
-    // "All" — merge V1 and V2, dedupe by normalized plan name + company; prefer V1 when duplicates exist
-    const combined: { plan: Plan; source: "v1" | "v2" }[] = [
-      ...v1Plans.map((p) => ({ plan: p, source: "v1" as const })),
-      ...plans.map((p) => ({ plan: p, source: "v2" as const })),
-    ];
-    const byKey = new Map<string, { plan: Plan; source: "v1" | "v2" }[]>();
-    for (const { plan, source } of combined) {
-      const key = getPlanDedupeKey(plan);
-      if (!byKey.has(key)) byKey.set(key, []);
-      byKey.get(key)!.push({ plan, source });
-    }
-    const result: Plan[] = [];
-    for (const group of byKey.values()) {
-      const hasV1 = group.some((g) => g.source === "v1");
-      const candidates = hasV1 ? group.filter((g) => g.source === "v1") : group;
-      const sorted = [...candidates].sort((a, b) => {
-        const tA = new Date(a.plan.last_updated || 0).getTime();
-        const tB = new Date(b.plan.last_updated || 0).getTime();
-        return tB - tA;
-      });
-      const chosen = sorted[0].plan;
-      const hasBoth = new Set(group.map((g) => g.source)).size > 1;
-      result.push({
-        ...chosen,
-        versionDisplay: hasBoth ? "V1&V2" : undefined,
-      });
-    }
-    return result.filter(shouldShowPlan);
-  }, [selectedSubcommunity, subcommunityPlans, versionFilter, isV1FetchCompleted, v1Plans, plans]);
+    return allPlansEnriched.filter((p) => {
+      if (versionFilter === "v1") return isV1Version(p.version) && shouldShowPlan(p);
+      if (versionFilter === "v2") return isV2Version(p.version) && shouldShowPlan(p);
+      return shouldShowPlan(p);
+    });
+  }, [selectedSubcommunity, subcommunityPlans, versionFilter, allPlansEnriched]);
 
   const applyAssistantSessionForSlug = React.useCallback(() => {
     if (typeof window === "undefined") return;
@@ -402,14 +267,6 @@ export default function CommunityDetail() {
       setAssistantDeletePlanId(null);
       return;
     }
-    if (p._id?.startsWith("v1-")) {
-      toast({
-        title: "Cannot delete here",
-        description: "V1 plans are managed via sync.",
-      });
-      setAssistantDeletePlanId(null);
-      return;
-    }
     assistantDeleteHandledRef.current = assistantDeletePlanId;
     setAssistantDeleteDialogOpen(true);
   }, [
@@ -439,8 +296,10 @@ export default function CommunityDetail() {
 
   // When viewing main community: only show V1/V2 in version dropdown if that version has data
   // V1: at least one V1 plan. V2: at least one registered company for this community.
-  const hasV1Plans = !selectedSubcommunity && v1Plans.length > 0;
-  const hasV2Plans = !selectedSubcommunity && communityCompanies.length > 0;
+  const hasV1Plans = !selectedSubcommunity && allPlansEnriched.some((p) => isV1Version(p.version));
+  const hasV2Plans = !selectedSubcommunity && (
+    allPlansEnriched.some((p) => isV2Version(p.version)) || communityCompanies.length > 0
+  );
 
   // If selected version has no plans, reset to "all" so the user isn’t stuck on an empty view
   React.useEffect(() => {
@@ -449,36 +308,35 @@ export default function CommunityDetail() {
     if (versionFilter === "v1" && !hasV1Plans) setVersionFilter("all");
   }, [selectedSubcommunity, versionFilter, hasV1Plans, hasV2Plans]);
 
-  // Builder list for sidebar: when V1 selected show companies from V1 plans; when V2 show community companies; when All show union
+  // Sidebar company list: union of registered community companies (V2) and companies
+  // extracted from DB plans, gated by the active version filter.
   const companies = useMemo(() => {
     if (selectedSubcommunity) return communityCompanies;
-    if (versionFilter === "v1") {
-      const fromPlans = new Set<string>();
-      v1Plans.forEach((p) => {
-        const rawName = extractCompanyName(p.company);
-        if (!rawName) return;
-        const key = normalizeCompanyNameForMatch(rawName);
-        fromPlans.add((key && canonicalCommunityCompanyByKey.get(key)) || rawName);
-      });
-      return Array.from(fromPlans).sort((a, b) => a.localeCompare(b));
-    }
-    if (versionFilter === "v2") return communityCompanies;
-    // "all": union of V2 companies + V1 companies, canonicalized to V2 names when matched.
+
     const byKey = new Map<string, string>();
-    for (const name of communityCompanies) {
-      const key = normalizeCompanyNameForMatch(name);
-      if (key && !byKey.has(key)) byKey.set(key, name);
-    }
-    v1Plans.forEach((p) => {
-      const rawName = extractCompanyName(p.company);
+    const addName = (rawName: string) => {
       if (!rawName) return;
       const key = normalizeCompanyNameForMatch(rawName);
-      if (key && !byKey.has(key)) {
-        byKey.set(key, rawName);
-      }
-    });
+      const display = (key && canonicalCommunityCompanyByKey.get(key)) || rawName;
+      const mapKey = key || display.toLowerCase();
+      if (!byKey.has(mapKey)) byKey.set(mapKey, display);
+    };
+
+    // Registered community companies are V2 — include unless viewing V1-only
+    if (versionFilter !== "v1") {
+      for (const name of communityCompanies) addName(name);
+    }
+
+    // Add companies from DB plans that match the active version filter
+    for (const p of allPlansEnriched) {
+      const matches =
+        versionFilter === "v1" ? isV1Version(p.version) :
+        versionFilter === "v2" ? isV2Version(p.version) : true;
+      if (matches) addName(extractCompanyName(p.company));
+    }
+
     return Array.from(byKey.values()).sort((a, b) => a.localeCompare(b));
-  }, [selectedSubcommunity, versionFilter, v1Plans, communityCompanies, canonicalCommunityCompanyByKey]);
+  }, [selectedSubcommunity, versionFilter, allPlansEnriched, communityCompanies, canonicalCommunityCompanyByKey]);
 
   // Stored company colors so builder sidebar matches Companies page and charts
   const companyColorMap = useMemo(() => {
@@ -502,11 +360,12 @@ export default function CommunityDetail() {
 
   const companyNamesSet = useMemo(() => new Set(companies), [companies]);
 
-  // V1 product line options derived from price levels (20s, 30s, 70s, etc.) for the All|20s|30s filter when viewing V1. Exclude "0s".
+  // V1 product line options: price-tier segments synthesized from V1 plans in the DB.
   const v1ProductLineOptions = useMemo(() => {
     const seen = new Set<string>();
     const out: { _id: string; name: string; label: string }[] = [];
-    for (const p of v1Plans) {
+    for (const p of allPlansEnriched) {
+      if (!isV1Version(p.version)) continue;
       const seg = p.segment;
       if (seg?.label && seg.label !== "0s" && !seen.has(seg._id)) {
         seen.add(seg._id);
@@ -514,7 +373,7 @@ export default function CommunityDetail() {
       }
     }
     return out.sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
-  }, [v1Plans]);
+  }, [allPlansEnriched]);
 
   // When "All" (V1+V2): merge V2 and V1 product lines by label, no duplicates. Use merged-<label> id so filter matches both.
   const displayProductLines = useMemo(() => {
@@ -766,7 +625,7 @@ export default function CommunityDetail() {
               showVersionFilter={!selectedSubcommunity}
               hasV1Plans={hasV1Plans}
               hasV2Plans={hasV2Plans}
-              loadingV1={loadingV1}
+              loadingV1={loading}
               sortKey={sortKey}
               onSortKeyChange={setSortKey}
               sortOrder={sortOrder}

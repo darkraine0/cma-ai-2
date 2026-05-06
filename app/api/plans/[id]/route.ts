@@ -121,6 +121,15 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     }
 
     plan.last_updated = new Date();
+
+    // If this plan was originally imported by the V1 sync (version === 1) and
+    // a user has just edited any field, mark it as "modified by user" (3) so
+    // the system can distinguish pristine V1 rows from manager-edited ones.
+    // Versions 2 (manual) and 3 (already modified) are left as-is.
+    if (plan.version === 1 || plan.version === 2) {
+      plan.version += 2;
+    }
+
     await plan.save();
 
     return NextResponse.json({
@@ -136,6 +145,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       segment: plan.segment ? { _id: plan.segment._id.toString(), name: plan.segment.name, label: plan.segment.label } : null,
       type: plan.type,
       address: plan.address ?? null,
+      version: plan.version,
     });
   } catch (error: any) {
     return NextResponse.json(

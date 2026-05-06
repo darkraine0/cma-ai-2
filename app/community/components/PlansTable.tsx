@@ -72,7 +72,7 @@ export default function PlansTable({
     if (!match && planLookupFallback) {
       match = planLookupFallback.find((p) => p._id === assistantOpenPlanId);
     }
-    if (match && match._id && !match._id.startsWith("v1-") && onPlanUpdated != null) {
+    if (match && match._id && onPlanUpdated != null) {
       setEditingPlan(match);
       setEditOpen(true);
       assistantHandledRef.current = assistantOpenPlanId;
@@ -174,7 +174,7 @@ export default function PlansTable({
                   {plan.type === 'now' && plan.address ? plan.address : plan.plan_name}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
-                  {plan.versionDisplay ?? (plan._id?.startsWith("v1-") ? "V1" : "V2")}
+                  {plan.versionDisplay ?? (plan.version === 1 || plan.version === 3 ? "V1" : "V2")}
                 </TableCell>
                 <TableCell className="font-semibold text-primary">
                   ${plan.price.toLocaleString()}
@@ -201,7 +201,7 @@ export default function PlansTable({
                   {planCompany}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground text-center">
-                  {(onPlanUpdated != null || onProductLineUpdated != null) && productLines.length > 0 && plan._id && !plan._id.startsWith("v1-") ? (
+                  {(onPlanUpdated != null || onProductLineUpdated != null) && productLines.length > 0 && plan._id ? (
                     <div className="flex justify-center">
                       <Select
                         value={plan.segment?._id ?? "__none__"}

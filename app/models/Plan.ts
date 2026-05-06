@@ -21,13 +21,16 @@ interface IProductSegmentReference {
 }
 
 /**
- * Origin of a Plan document.
- * - 'manual': created via the app UI / scrape pipeline (the original "V2" data).
- * - 'v1':     imported by the V1 sync (scheduler or manual admin trigger).
- *
- * Default is 'manual' so all pre-existing plans implicitly remain V2.
+ * Plan version tag.
+ *  1 = imported by V1 sync, untouched.
+ *  2 = manual / V2 — created via the app UI, scrape pipeline, or AI assistant.
+ *      This is the schema default, so all pre-existing plans implicitly become 2.
+ *  3 = was imported as V1 (started as 1) but has since been edited by a user.
+ *      The PATCH /api/plans/[id] handler auto-flips 1 -> 3 on any user edit;
+ *      the V1 sync never resets this back because it dedupes on `externalKey`
+ *      and skips plans that already exist.
  */
-export type PlanSource = 'manual' | 'v1';
+export type PlanVersion = 1 | 2 | 3 | 4;
 
 export interface IPlan extends Document {
   plan_name: string;
@@ -45,8 +48,8 @@ export interface IPlan extends Document {
   address?: string;
   design_number?: string;
   price_changed_recently?: boolean;
-  /** Origin of this Plan. See PlanSource. */
-  source?: PlanSource;
+  /** Origin / mutation status of this Plan. See PlanVersion. */
+  version?: PlanVersion;
   /**
    * Stable dedupe key for V1-imported plans. Built from
    * `v1::<community>::<company>::<type>::<plan_name>::<address>` (normalized).
@@ -163,10 +166,10 @@ const PlanSchema = new Schema<IPlan>(
       type: Boolean,
       default: false,
     },
-    source: {
-      type: String,
-      enum: ['manual', 'v1'],
-      default: 'manual',
+    version: {
+      type: Number,
+      enum: [1, 2, 3, 4],
+      default: 2,
       index: true,
     },
     externalKey: {
@@ -199,11 +202,12 @@ PlanSchema.index({ price: 1 });
 PlanSchema.index({ last_updated: -1 });
 
 // Compound index for uniqueness (using embedded names + segment where present).
-// Includes `source` so V1-imported plans can coexist with V2 plans that happen
-// to share plan_name + company + community + segment + type. The migration
-// `20260505000000_v1_plan_indexes` drops the previous (source-less) unique index.
+// Includes `version` so V1-imported plans (version=1) can coexist with V2 plans
+// (version=2) that happen to share plan_name + company + community + segment + type.
+// Migration `20260506000000_plan_source_to_version` drops the previous
+// `source`-inclusive index and replaces it with this one.
 PlanSchema.index(
-  { plan_name: 1, 'company.name': 1, 'community.name': 1, 'segment.name': 1, type: 1, source: 1 },
+  { plan_name: 1, 'company.name': 1, 'community.name': 1, 'segment.name': 1, type: 1, version: 1 },
   { unique: true }
 );
 
