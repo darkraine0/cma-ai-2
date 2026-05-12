@@ -32,7 +32,10 @@ type ChartRawPoint = {
   address?: string;
   stories?: string;
   pricePerSqft?: number;
+  /** Selected community context (parent when “All”, or the chosen sub-community). */
   community?: string;
+  /** Plan’s own community name from data (sub-community / phase when distinct). */
+  subCommunity?: string;
   segmentLabel?: string;
   lastUpdated?: string;
 };
@@ -110,6 +113,8 @@ function renderTooltipHtml(tooltip: TooltipModel<'line'>): string {
       html += `<div style="margin-left:15px;">Location: ${escapeHtml(raw.address)}</div>`;
     if (raw.community)
       html += `<div style="margin-left:15px;">Community: ${escapeHtml(raw.community)}</div>`;
+    if (raw.subCommunity && raw.subCommunity !== raw.community)
+      html += `<div style="margin-left:15px;">SubCommunity: ${escapeHtml(raw.subCommunity)}</div>`;
     if (raw.stories)
       html += `<div style="margin-left:15px;">Stories: ${escapeHtml(raw.stories)}</div>`;
     if (raw.pricePerSqft)

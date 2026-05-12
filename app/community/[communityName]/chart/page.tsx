@@ -13,6 +13,7 @@ import { formatCommunitySlug } from "../../utils/formatCommunityName";
 import { getCompanyNames, extractCompanyName, normalizeCompanyNameForMatch } from "../../utils/companyHelpers";
 import { useChartFilters } from "./hooks/useChartFilters";
 import { getV1ProductLineLabel } from "../../utils/v1ProductLine";
+import { isV1Version } from "../../utils/planVersion";
 import API_URL from '../../../config';
 import type { Community, CommunityCompany, Plan } from "../../types";
 
@@ -23,9 +24,6 @@ export default function ChartPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [productLines, setProductLines] = useState<{ _id: string; name: string; label: string }[]>([]);
   const [productLinesLoading, setProductLinesLoading] = useState(false);
-  const [v1Plans, setV1Plans] = useState<Plan[]>([]);
-  const [loadingV1, setLoadingV1] = useState(false);
-  const [isV1FetchCompleted, setIsV1FetchCompleted] = useState(false);
   const [selectedSubcommunityId, setSelectedSubcommunityId] = useState<string>("__all__");
   const [subcommunityPlansById, setSubcommunityPlansById] = useState<Record<string, Plan[]>>({});
   const [subcommunityPlansLoading, setSubcommunityPlansLoading] = useState(false);
@@ -90,77 +88,6 @@ export default function ChartPage() {
       setStableSubcommunityId(selectedSubcommunityId);
     }
   }, [selectedSubcommunityId, allChildPlansLoaded, subcommunityPlansById]);
-
-  // Fetch V1 plans from external API (same as community page)
-  const v1CommunityName = community?.v1ExternalCommunityName ?? community?.name;
-  useEffect(() => {
-    if (!v1CommunityName) {
-      setV1Plans([]);
-      setIsV1FetchCompleted(true);
-      return;
-    }
-
-    // When showing a single child subcommunity, exclude V1 data:
-    // the external API isn't reliably subcommunity-level.
-    if (effectiveSubcommunityId !== "__all__") {
-      setV1Plans([]);
-      setIsV1FetchCompleted(true);
-      return;
-    }
-
-    let cancelled = false;
-    setIsV1FetchCompleted(false);
-    setLoadingV1(true);
-    fetch(`/api/external/get-plans?community=${encodeURIComponent(v1CommunityName)}`)
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: unknown) => {
-        if (cancelled) return;
-        const list = Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
-        const normalized: Plan[] = list
-        .filter((item) => {
-          const price = Number(item.price ?? 0);
-          const sqft = Number(item.sqft ?? 0);
-      
-          if (price === sqft) {
-            return false; // remove duplicate
-          }
-      
-          return true;
-        })
-        .map((item, i) => {
-          const price = Number(item.price ?? 0);
-          const label = getV1ProductLineLabel(price);
-          return {
-            _id: `v1-${i}`,
-            plan_name: String(item.plan_name ?? ""),
-            price,
-            sqft: Number(item.sqft ?? 0),
-            stories: String(item.stories ?? ""),
-            price_per_sqft: Number(item.price_per_sqft ?? 0),
-            last_updated: String(item.last_updated ?? ""),
-            price_changed_recently: Boolean(item.price_changed_recently),
-            company: String(item.company ?? ""),
-            community: String(item.community ?? community?.name ?? ""),
-            type: String(item.type ?? "now"),
-            address: item.address != null ? String(item.address) : undefined,
-            segment: label ? { _id: `v1-price-${label}`, name: label, label } : undefined,
-          };
-        });
-        setV1Plans(normalized);
-      })
-      .catch(() => {
-        if (!cancelled) setV1Plans([]);
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoadingV1(false);
-          setIsV1FetchCompleted(true);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [v1CommunityName, community?.name, effectiveSubcommunityId]);
 
   // Fetch V2 plans for child communities (so we can render builder lines split by subcommunity).
   useEffect(() => {
@@ -299,12 +226,29 @@ export default function ChartPage() {
     const isAddressLike = /^\d/.test(firstPart);
     return isAddressLike ? baseName : `${baseName}|${company}`;
   };
-  const displayPlans = useMemo(() => {
-    // Only run V1/V2 string-match dedupe after V1 API completes.
-    if (!isV1FetchCompleted) {
-      return plans;
-    }
 
+  const plansForChartScope = useMemo((): Plan[] => {
+    if (effectiveSubcommunityId === "__all__") {
+      const childIds = (childCommunities ?? []).map((c) => c._id);
+      const childPlans = childIds.flatMap((id) => subcommunityPlansById[id] ?? []);
+      return [...plans, ...childPlans];
+    }
+    return subcommunityPlansById[effectiveSubcommunityId] ?? [];
+  }, [effectiveSubcommunityId, childCommunities, subcommunityPlansById, plans]);
+
+  /** V1 rows in DB may lack segment; add price-tier segment so product-line filter matches community page. */
+  const enrichedChartPlans = useMemo(() => {
+    return plansForChartScope.map((p) => {
+      if (isV1Version(p.version) && !p.segment) {
+        const label = getV1ProductLineLabel(Number(p.price ?? 0));
+        if (label) return { ...p, segment: { _id: `v1-price-${label}`, name: label, label } };
+      }
+      return p;
+    });
+  }, [plansForChartScope]);
+
+  // Merge V1 + V2 plans from DB; for duplicates prefer V1 and set versionDisplay to V1&V2
+  const displayPlans = useMemo(() => {
     type AggregatedGroup = {
       hasV1: boolean;
       hasV2: boolean;
@@ -349,17 +293,9 @@ export default function ChartPage() {
       }
     };
 
-    const v2PlansForChart: Plan[] = (() => {
-      if (effectiveSubcommunityId === "__all__") {
-        const childIds = (childCommunities ?? []).map((c) => c._id);
-        const childPlans = childIds.flatMap((id) => subcommunityPlansById[id] ?? []);
-        return [...plans, ...childPlans];
-      }
-      return subcommunityPlansById[effectiveSubcommunityId] ?? [];
-    })();
-
-    for (const p of v1Plans) addToGroup(p, "v1");
-    for (const p of v2PlansForChart) addToGroup(p, "v2");
+    for (const p of enrichedChartPlans) {
+      addToGroup(p, isV1Version(p.version) ? "v1" : "v2");
+    }
 
     const result: Plan[] = [];
     for (const group of byKey.values()) {
@@ -373,14 +309,7 @@ export default function ChartPage() {
     }
 
     return result;
-  }, [
-    isV1FetchCompleted,
-    v1Plans,
-    plans,
-    effectiveSubcommunityId,
-    childCommunities,
-    subcommunityPlansById,
-  ]);
+  }, [enrichedChartPlans]);
 
   // Fetch product lines (segments) for the selected display community (V2).
   // When a subcommunity has no segments, fall back to parent community segments.
@@ -425,11 +354,12 @@ export default function ChartPage() {
     };
   }, [displayCommunityId, community?._id, effectiveSubcommunityId]);
 
-  // V1 product line options from V1 plans (price tiers: 20s, 30s, etc.)
+  // V1 product line options from DB V1 plans (price tiers when segment synthesized)
   const v1ProductLineOptions = useMemo(() => {
     const seen = new Set<string>();
     const out: { _id: string; name: string; label: string }[] = [];
-    for (const p of v1Plans) {
+    for (const p of enrichedChartPlans) {
+      if (!isV1Version(p.version)) continue;
       const seg = p.segment;
       if (seg?.label && seg.label !== "0s" && !seen.has(seg._id)) {
         seen.add(seg._id);
@@ -437,7 +367,7 @@ export default function ChartPage() {
       }
     }
     return out.sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
-  }, [v1Plans]);
+  }, [enrichedChartPlans]);
 
   // Merged product lines: V2 segments + V1 price tiers (by label); use merged-<label> so one filter matches both
   const displayProductLines = useMemo(() => {
@@ -469,13 +399,14 @@ export default function ChartPage() {
       selectedCommunitiesForCompanies.flatMap((c) => c?.companies ?? [])
     );
     const fromV1 = new Set<string>();
-    v1Plans.forEach((p) => {
+    enrichedChartPlans.forEach((p) => {
+      if (!isV1Version(p.version)) return;
       const name = extractCompanyName(p.company);
       if (name) fromV1.add(name);
     });
     const union = new Set([...fromV2, ...fromV1]);
     return Array.from(union).sort((a, b) => a.localeCompare(b));
-  }, [selectedCommunitiesForCompanies, v1Plans]);
+  }, [selectedCommunitiesForCompanies, enrichedChartPlans]);
 
   // Map company name -> stored color for distinct graph lines (avoids similar/black lines)
   const companyColorMap = useMemo(() => {
@@ -502,6 +433,14 @@ export default function ChartPage() {
     [companies]
   );
 
+  /** Tooltip “Community” line: matches sub-community filter (parent when All, else selected child). */
+  const chartSelectedCommunityName = useMemo(() => {
+    if (!community) return null;
+    if (effectiveSubcommunityId === "__all__") return community.name;
+    const child = (childCommunities ?? []).find((c) => c._id === effectiveSubcommunityId);
+    return child?.name ?? community.name;
+  }, [community, childCommunities, effectiveSubcommunityId]);
+
   // Filter plans by type, version (All/V1/V2), and product line (use merged V1+V2 displayPlans and displayProductLines)
   const {
     selectedType,
@@ -513,7 +452,7 @@ export default function ChartPage() {
     filteredPlans,
   } = useChartFilters(displayPlans, companyNamesSet, urlType, displayProductLines);
 
-  // Sync only V2 (registered) companies — V1 data comes from external API
+  // Sync only V2 (registered) companies — V1 lives in DB like V2
   const syncableCompanies = useMemo(
     () => {
       if (!community) return [];
@@ -676,6 +615,7 @@ export default function ChartPage() {
                   companies={companies}
                   selectedType={selectedType}
                   companyColorMap={companyColorMap}
+                  selectedCommunityName={chartSelectedCommunityName}
                 />
               )}
             </div>

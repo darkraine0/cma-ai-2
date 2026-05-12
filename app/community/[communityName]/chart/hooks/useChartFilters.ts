@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Plan } from "../../../types";
 import { extractCompanyName, isPlanCompanyInCommunity } from "../../../utils/companyHelpers";
+import { isV1Plan } from "../../../utils/planVersion";
 
 export interface ProductLineOption {
   _id: string;
@@ -9,10 +10,6 @@ export interface ProductLineOption {
 }
 
 export type VersionFilter = "all" | "v1" | "v2";
-
-function isV1Plan(plan: Plan): boolean {
-  return Boolean(plan._id?.toString().startsWith("v1-"));
-}
 
 interface UseChartFiltersReturn {
   selectedType: string;

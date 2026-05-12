@@ -11,7 +11,10 @@ export interface ChartDataPoint {
   address?: string;
   stories?: string;
   pricePerSqft?: number;
+  /** Selected community / filter context shown in tooltip. */
   community?: string;
+  /** Plan’s stored community name (shown as Sub-community when different from `community`). */
+  subCommunity?: string;
   segmentLabel?: string;
   lastUpdated?: string;
 }
@@ -35,7 +38,9 @@ export interface ChartDataset {
 export function prepareChartDatasets(
   plans: Plan[],
   companies: string[],
-  companyColorMap?: Record<string, string> | null
+  companyColorMap?: Record<string, string> | null,
+  /** Name for the community filter selection (parent when “All”, or selected sub-community). */
+  selectedCommunityName?: string | null
 ): ChartDataset[] {
   return companies
     .map((company) => {
@@ -54,10 +59,12 @@ export function prepareChartDatasets(
       return {
         label: company,
         data: sortedPlans.map((plan) => {
-          const communityName =
+          const planCommunityName =
             typeof plan.community === "string"
               ? plan.community
               : plan.community?.name;
+          const planCommunity = planCommunityName?.trim() || undefined;
+          const selected = selectedCommunityName?.trim();
           const type = plan.type?.toLowerCase();
           const address = plan.address?.trim() || undefined;
           const planName = plan.plan_name?.trim() || undefined;
@@ -72,7 +79,8 @@ export function prepareChartDatasets(
             address,
             stories: plan.stories?.trim() || undefined,
             pricePerSqft: plan.price_per_sqft || undefined,
-            community: communityName || undefined,
+            community: selected || planCommunity,
+            subCommunity: planCommunity,
             segmentLabel: plan.segment?.label || undefined,
             lastUpdated: plan.last_updated || undefined,
           };

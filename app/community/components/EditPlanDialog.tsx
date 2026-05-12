@@ -60,6 +60,7 @@ export default function EditPlanDialog({
   const [beds, setBeds] = useState("");
   const [baths, setBaths] = useState("");
   const [design_number, setDesign_number] = useState("");
+  const [version, setVersion] = useState(2);
 
   useEffect(() => {
     if (plan && open) {
@@ -76,6 +77,7 @@ export default function EditPlanDialog({
       setBeds((plan as any).beds ?? "");
       setBaths((plan as any).baths ?? "");
       setDesign_number((plan as any).design_number ?? "");
+      setVersion((plan as any).version ?? 2);
       setError("");
     }
   }, [plan, open]);
@@ -115,6 +117,7 @@ export default function EditPlanDialog({
           beds: beds.trim() || undefined,
           baths: baths.trim() || undefined,
           design_number: design_number.trim() || undefined,
+          version: (version === 1 ? 3 : version === 2 ? 4 : version),
         }),
       });
       const data = await res.json();

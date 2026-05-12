@@ -13,11 +13,12 @@ interface UseChartDataReturn {
 export function useChartData(
   plans: Plan[],
   companies: string[],
-  companyColorMap?: Record<string, string> | null
+  companyColorMap?: Record<string, string> | null,
+  selectedCommunityName?: string | null
 ): UseChartDataReturn {
   const datasets = useMemo(
-    () => prepareChartDatasets(plans, companies, companyColorMap),
-    [plans, companies, companyColorMap]
+    () => prepareChartDatasets(plans, companies, companyColorMap, selectedCommunityName),
+    [plans, companies, companyColorMap, selectedCommunityName]
   );
 
   const labels = useMemo(

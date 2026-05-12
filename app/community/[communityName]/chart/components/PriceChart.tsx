@@ -27,6 +27,8 @@ interface PriceChartProps {
   selectedType: string;
   /** Optional map of company name -> hex color for distinct graph lines (from Company.color). */
   companyColorMap?: Record<string, string> | null;
+  /** Community filter label: parent when “All”, or selected sub-community name (tooltip “Community”). */
+  selectedCommunityName?: string | null;
 }
 
 export default function PriceChart({
@@ -34,8 +36,14 @@ export default function PriceChart({
   companies,
   selectedType,
   companyColorMap,
+  selectedCommunityName,
 }: PriceChartProps) {
-  const { chartData, isEmpty } = useChartData(plans, companies, companyColorMap);
+  const { chartData, isEmpty } = useChartData(
+    plans,
+    companies,
+    companyColorMap,
+    selectedCommunityName
+  );
   const [isMobile, setIsMobile] = useState(false);
   const chartRef = useRef<Chart<"line"> | null>(null);
 
