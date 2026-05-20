@@ -120,7 +120,7 @@ function scheduleTick(delayMs: number): void {
  * Should be invoked once at server startup (see instrumentation.ts).
  */
 export async function startV1SyncScheduler(): Promise<void> {
-  if (process.env.V1_SYNC_AUTO_DISABLED === '1') {
+   if (process.env.V1_SYNC_AUTO_DISABLED === '1' || 1 === 1) {
     console.log(
       '[v1Sync/scheduler] Disabled via V1_SYNC_AUTO_DISABLED=1'
     );
