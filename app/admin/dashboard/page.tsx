@@ -11,6 +11,7 @@ interface V1SyncSummary {
   totalCommunities: number
   totalFetched: number
   totalInserted: number
+  totalUpdated: number
   totalSkippedExisting: number
   totalSkippedInvalid: number
   totalErrors: number
@@ -25,6 +26,7 @@ interface V1SyncState {
   v1LastRunAt: string | null
   v1LastFetched: number
   v1LastInserted: number
+  v1LastUpdated: number
   v1LastError: string | null
   v1LastSummary: V1SyncSummary | null
 }
@@ -118,10 +120,13 @@ export default function AdminDashboard() {
           setV1Message(`Sync failed: ${v1State.v1LastError}`)
         } else if (v1State.v1LastSummary) {
           const s = v1State.v1LastSummary
+          const updated = s.totalUpdated ?? v1State.v1LastUpdated ?? 0
           setV1Message(
-            `Sync complete in ${formatDuration(s.durationMs)} — inserted ` +
-              `${s.totalInserted} new plans ` +
-              `(${s.totalFetched} fetched, ${s.totalSkippedExisting} already existed` +
+            `Sync complete in ${formatDuration(s.durationMs)} — ` +
+              `${s.totalInserted} inserted, ${updated} updated, ` +
+              `${s.totalSkippedExisting} unchanged, ` +
+              `${s.totalSkippedInvalid} invalid` +
+              ` (${s.totalFetched} fetched` +
               `${s.totalErrors > 0 ? `, ${s.totalErrors} errors` : ""}).`
           )
         }
@@ -304,7 +309,7 @@ export default function AdminDashboard() {
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-1 lg:grid-cols-4 sm:grid-cols-4 gap-4 mb-4">
               <div className="rounded-md border border-border p-3">
                 <div className="text-xs text-muted-foreground">
                   {v1State?.running ? "Started" : "Last sync"}
@@ -332,6 +337,12 @@ export default function AdminDashboard() {
                 <div className="text-xs text-muted-foreground">Plans inserted (last run)</div>
                 <div className="text-lg font-bold mt-1 text-emerald-600">
                   {v1State?.v1LastInserted ?? 0}
+                </div>
+              </div>
+              <div className="rounded-md border border-border p-3">
+                <div className="text-xs text-muted-foreground">Plans updated (last run)</div>
+                <div className="text-lg font-bold mt-1 text-amber-600">
+                  {v1State?.v1LastUpdated ?? 0}
                 </div>
               </div>
             </div>

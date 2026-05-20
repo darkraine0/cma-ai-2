@@ -28,6 +28,7 @@ import Community from '../models/Community';
 import Company from '../models/Company';
 import Plan from '../models/Plan';
 import AppState, { APP_STATE_KEY, IV1SyncSummary } from '../models/AppState';
+import { sendV1ChangedDigestEmail, type V1PlanChangePayload } from '@/app/lib/email';
 
 const EXTERNAL_PLANS_BASE =
   'https://light-settled-filly.ngrok-free.app/api/get_plans';
@@ -64,6 +65,7 @@ export interface V1SyncCommunityResult {
   v1QueryName: string;
   fetched: number;
   inserted: number;
+  updated: number;
   skippedExisting: number;
   skippedInvalid: number;
   errors: string[];
@@ -73,6 +75,7 @@ export interface V1SyncSummary {
   totalCommunities: number;
   totalFetched: number;
   totalInserted: number;
+  totalUpdated: number;
   totalSkippedExisting: number;
   totalSkippedInvalid: number;
   totalErrors: number;
@@ -170,11 +173,13 @@ async function fetchV1Plans(communityName: string): Promise<RawV1Plan[]> {
 }
 
 /**
- * Sync V1 plans for a single community. Inserts new V1 rows; never updates
- * or deletes existing rows.
+ * Sync V1 plans for a single community: insert new rows; refresh existing
+ * rows when upstream data changes.
  */
 export async function syncV1Community(
-  communityId: string
+  communityId: string,
+  /** When provided, each upstream field change is appended for a post-sync digest email. */
+  planChangesOut?: V1PlanChangePayload[]
 ): Promise<V1SyncCommunityResult> {
   await connectDB();
 
@@ -190,6 +195,7 @@ export async function syncV1Community(
     v1QueryName,
     fetched: 0,
     inserted: 0,
+    updated: 0,
     skippedExisting: 0,
     skippedInvalid: 0,
     errors: [],
@@ -245,11 +251,58 @@ export async function syncV1Community(
         address,
       });
 
-      const existing = await Plan.findOne({ externalKey })
-        .select('_id')
-        .lean();
+      const existing = await Plan.findOne({ externalKey });
+
       if (existing) {
-        result.skippedExisting += 1;
+        const previousPrice = existing.price;
+        const nextPriceChangedRecently = Boolean(item.price_changed_recently);
+
+        const dataChanged =
+          existing.price !== price ||
+          (existing.sqft ?? 0) !== (sqft || 0) ||
+          existing.price_changed_recently !== nextPriceChangedRecently ||
+          (existing.stories ?? '') !== (coerceString(item.stories) || '') ||
+          (existing.beds ?? '') !== (coerceString(item.beds) || '') ||
+          (existing.baths ?? '') !== (coerceString(item.baths) || '') ||
+          (existing.address ?? '') !== (address || '');
+
+        if (!dataChanged) {
+          result.skippedExisting += 1;
+          continue;
+        }
+
+        result.updated += 1;
+
+        existing.price = price;
+        existing.sqft = sqft || undefined;
+        existing.stories = coerceString(item.stories) || undefined;
+        existing.price_per_sqft = coerceNumber(item.price_per_sqft) || undefined;
+        existing.last_updated = coerceDate(item.last_updated);
+        existing.price_changed_recently = nextPriceChangedRecently;
+        existing.beds = coerceString(item.beds) || undefined;
+        existing.baths = coerceString(item.baths) || undefined;
+        existing.design_number = coerceString(item.design_number) || undefined;
+        if (typeof existing.version === 'number' && existing.version <= 2) {
+          existing.version += 2;
+        }
+        await existing.save();
+
+        if (planChangesOut) {
+          planChangesOut.push({
+            planId: String(existing._id),
+            planName: existing.plan_name,
+            communityName: existing.community?.name ?? community.name,
+            companyName: existing.company?.name ?? companyName,
+            type: existing.type,
+            price: existing.price,
+            previousPrice: previousPrice !== price ? previousPrice : undefined,
+            sqft: existing.sqft,
+            address: existing.address,
+            priceChangedRecently: existing.price_changed_recently,
+            lastUpdated: existing.last_updated,
+          });
+        }
+
         continue;
       }
 
@@ -338,12 +391,14 @@ async function doSyncAll(): Promise<V1SyncSummary> {
     totalCommunities: communities.length,
     totalFetched: 0,
     totalInserted: 0,
+    totalUpdated: 0,
     totalSkippedExisting: 0,
     totalSkippedInvalid: 0,
     totalErrors: 0,
     results: [],
   };
 
+  const planChanges: V1PlanChangePayload[] = [];
   let topLevelError: string | null = null;
   try {
     for (const c of communities as unknown as Array<{
@@ -351,10 +406,11 @@ async function doSyncAll(): Promise<V1SyncSummary> {
       name: string;
     }>) {
       try {
-        const r = await syncV1Community(String(c._id));
+        const r = await syncV1Community(String(c._id), planChanges);
         summary.results.push(r);
         summary.totalFetched += r.fetched;
         summary.totalInserted += r.inserted;
+        summary.totalUpdated += r.updated;
         summary.totalSkippedExisting += r.skippedExisting;
         summary.totalSkippedInvalid += r.skippedInvalid;
         summary.totalErrors += r.errors.length;
@@ -366,6 +422,7 @@ async function doSyncAll(): Promise<V1SyncSummary> {
           v1QueryName: '',
           fetched: 0,
           inserted: 0,
+          updated: 0,
           skippedExisting: 0,
           skippedInvalid: 0,
           errors: [message],
@@ -386,6 +443,12 @@ async function doSyncAll(): Promise<V1SyncSummary> {
     summary,
     topLevelError,
   });
+
+  if (planChanges.length > 0) {
+    void sendV1ChangedDigestEmail(planChanges, { finishedAt }).catch((err) => {
+      console.error('[v1Sync] V1 changed digest email failed:', err);
+    });
+  }
 
   return summary;
 }
@@ -431,6 +494,7 @@ async function markRunningFinished(args: {
           v1LastRunAt: args.finishedAt,
           v1LastFetched: args.summary.totalFetched,
           v1LastInserted: args.summary.totalInserted,
+          v1LastUpdated: args.summary.totalUpdated,
           v1LastError: args.topLevelError,
           v1LastSummary: persistedSummary,
         },
@@ -451,6 +515,7 @@ export interface V1SyncState {
   v1LastRunAt: Date | null;
   v1LastFetched: number;
   v1LastInserted: number;
+  v1LastUpdated: number;
   v1LastError: string | null;
   v1LastSummary: IV1SyncSummary | null;
 }
@@ -460,7 +525,7 @@ export async function getV1SyncState(): Promise<V1SyncState> {
   await connectDB();
   const doc = await AppState.findOne({ key: APP_STATE_KEY })
     .select(
-      'v1RunningSince v1LastRunAt v1LastFetched v1LastInserted v1LastError v1LastSummary'
+      'v1RunningSince v1LastRunAt v1LastFetched v1LastInserted v1LastUpdated v1LastError v1LastSummary'
     )
     .lean();
   const d = doc as {
@@ -468,6 +533,7 @@ export async function getV1SyncState(): Promise<V1SyncState> {
     v1LastRunAt?: Date | null;
     v1LastFetched?: number;
     v1LastInserted?: number;
+    v1LastUpdated?: number;
     v1LastError?: string | null;
     v1LastSummary?: IV1SyncSummary | null;
   } | null;
@@ -484,6 +550,7 @@ export async function getV1SyncState(): Promise<V1SyncState> {
     v1LastRunAt: d?.v1LastRunAt ?? null,
     v1LastFetched: d?.v1LastFetched ?? 0,
     v1LastInserted: d?.v1LastInserted ?? 0,
+    v1LastUpdated: d?.v1LastUpdated ?? 0,
     v1LastError: d?.v1LastError ?? null,
     v1LastSummary: d?.v1LastSummary ?? null,
   };

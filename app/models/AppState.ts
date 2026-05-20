@@ -17,6 +17,7 @@ export interface IV1SyncCommunityResult {
   v1QueryName: string;
   fetched: number;
   inserted: number;
+  updated: number;
   skippedExisting: number;
   skippedInvalid: number;
   errors: string[];
@@ -26,6 +27,7 @@ export interface IV1SyncSummary {
   totalCommunities: number;
   totalFetched: number;
   totalInserted: number;
+  totalUpdated: number;
   totalSkippedExisting: number;
   totalSkippedInvalid: number;
   totalErrors: number;
@@ -52,6 +54,9 @@ export interface IAppState extends Document {
   /** Total plans inserted on the most recent run. */
   v1LastInserted?: number;
 
+  /** Total plans updated on the most recent run. */
+  v1LastUpdated?: number;
+
   /** Top-level error message from the most recent run (null on success). */
   v1LastError?: string | null;
 
@@ -75,6 +80,7 @@ const AppStateSchema = new Schema<IAppState>(
     v1LastRunAt: { type: Date, default: null },
     v1LastFetched: { type: Number, default: 0 },
     v1LastInserted: { type: Number, default: 0 },
+    v1LastUpdated: { type: Number, default: 0 },
     v1LastError: { type: String, default: null },
     // Stored as Mixed because the per-community array can be large and is
     // only ever read whole. Mongoose's strict typing isn't useful here.

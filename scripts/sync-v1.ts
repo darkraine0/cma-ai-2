@@ -71,6 +71,7 @@ async function main() {
   console.log('  Communities processed:', summary.totalCommunities);
   console.log('  Plans fetched:        ', summary.totalFetched);
   console.log('  Plans inserted:       ', summary.totalInserted);
+  console.log('  Plans updated:       ', summary.totalUpdated);
   console.log('  Skipped (existing):   ', summary.totalSkippedExisting);
   console.log('  Skipped (invalid):    ', summary.totalSkippedInvalid);
   console.log('  Errors:               ', summary.totalErrors);

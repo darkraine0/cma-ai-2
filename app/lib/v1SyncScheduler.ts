@@ -59,6 +59,7 @@ async function runOnce(): Promise<void> {
       totalCommunities: summary.totalCommunities,
       totalFetched: summary.totalFetched,
       totalInserted: summary.totalInserted,
+      totalUpdated: summary.totalUpdated,
       totalSkippedExisting: summary.totalSkippedExisting,
       totalSkippedInvalid: summary.totalSkippedInvalid,
       totalErrors: summary.totalErrors,

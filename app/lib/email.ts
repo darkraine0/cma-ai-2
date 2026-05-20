@@ -1,4 +1,6 @@
 import nodemailer from 'nodemailer';
+import connectDB from '@/app/lib/mongodb';
+import User from '@/app/models/User';
 
 /**
  * Email service configuration
@@ -35,6 +37,55 @@ const createTransporter = () => {
     // IONOS works better with minimal configuration
   });
 };
+
+type ReminderSmtpConfig = {
+  transporter: nodemailer.Transporter;
+  /** Must match authenticated user — IONOS rejects mismatched MAIL FROM / From. */
+  from: string;
+};
+
+/**
+ * SMTP for V1 admin reminders (REMINDER_SMTP_*). Separate from auth emails (SMTP_*)
+ * so From and login use the same mailbox (required by IONOS and similar hosts).
+ */
+function createReminderTransporter(): ReminderSmtpConfig {
+  const smtpHost = process.env.SMTP_HOST?.trim();
+  const smtpPort = parseInt(
+    process.env.SMTP_PORT?.trim() || '587',
+    10
+  );
+  const smtpUser = process.env.SMTP_USER?.trim();
+  const smtpPassword =
+    process.env.SMTP_PASSWORD?.trim();
+
+  if (!smtpHost || !smtpUser || !smtpPassword) {
+    throw new Error(
+      'Reminder SMTP missing. Set SMTP_USER and SMTP_PASSWORD (and optionally SMTP_HOST / SMTP_PORT).'
+    );
+  }
+
+  const useSSL = smtpPort === 465;
+  const from = process.env.SMTP_FROM?.trim() || smtpUser;
+
+  if (from.toLowerCase() !== smtpUser.toLowerCase()) {
+    console.warn(
+      `[email] SMTP_FROM (${from}) differs from SMTP_USER (${smtpUser}); using ${smtpUser} as From for IONOS compatibility.`
+    );
+  }
+
+  return {
+    from: smtpUser,
+    transporter: nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: useSSL,
+      auth: {
+        user: smtpUser,
+        pass: smtpPassword,
+      },
+    }),
+  };
+}
 
 /**
  * Wrapper to add timeout to email sending
@@ -218,4 +269,229 @@ This is an automated message, please do not reply.
     }
     throw new Error(`Failed to send password reset email: ${error.message}`);
   }
+}
+
+export type V1PlanChangePayload = {
+  planId: string;
+  planName: string;
+  communityName: string;
+  companyName: string;
+  type: 'plan' | 'now';
+  price: number;
+  previousPrice?: number;
+  sqft?: number;
+  address?: string;
+  priceChangedRecently?: boolean;
+  lastUpdated?: Date;
+};
+
+function formatUsd(amount: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function formatPlanType(type: 'plan' | 'now'): string {
+  return type === 'now' ? 'Quick move-in (spec)' : 'Floor plan';
+}
+
+/** All registered user emails for V1 change reminders. */
+async function resolveAdminNotifyEmails(): Promise<string[]> {
+  await connectDB();
+  const users = await User.find({}).select('email').lean();
+  const seen = new Set<string>();
+  const emails: string[] = [];
+  for (const u of users) {
+    const email = typeof u.email === 'string' ? u.email.trim().toLowerCase() : '';
+    if (!email || seen.has(email)) continue;
+    seen.add(email);
+    emails.push(email);
+  }
+  return emails;
+}
+
+const V1_DIGEST_EMAIL_MAX_ROWS = 150;
+
+function formatV1ChangePriceLine(payload: V1PlanChangePayload): string {
+  return payload.previousPrice != null && payload.previousPrice !== payload.price
+    ? `${formatUsd(payload.previousPrice)} → ${formatUsd(payload.price)}`
+    : formatUsd(payload.price);
+}
+
+function buildV1DigestChangeText(payload: V1PlanChangePayload, index: number): string {
+  const lines = [
+    `${index + 1}. ${payload.planName} (${payload.communityName})`,
+    `   Builder: ${payload.companyName}`,
+    `   Type: ${formatPlanType(payload.type)}`,
+    `   Price: ${formatV1ChangePriceLine(payload)}`,
+  ];
+  if (payload.sqft) lines.push(`   Sq ft: ${payload.sqft.toLocaleString()}`);
+  if (payload.address) lines.push(`   Address: ${payload.address}`);
+  if (payload.priceChangedRecently) {
+    lines.push('   Upstream: price changed recently');
+  }
+  return lines.join('\n');
+}
+
+function buildV1DigestChangeRowHtml(payload: V1PlanChangePayload): string {
+  const priceLine = formatV1ChangePriceLine(payload);
+  const flag = payload.priceChangedRecently
+    ? '<span style="color: #b45309;">Yes</span>'
+    : '—';
+  return `
+    <tr style="border-bottom: 1px solid #eee;">
+      <td style="padding: 10px 8px; vertical-align: top;">${escapeHtml(payload.communityName)}</td>
+      <td style="padding: 10px 8px; vertical-align: top;">${escapeHtml(payload.companyName)}</td>
+      <td style="padding: 10px 8px; vertical-align: top;"><strong>${escapeHtml(payload.planName)}</strong></td>
+      <td style="padding: 10px 8px; vertical-align: top;">${escapeHtml(formatPlanType(payload.type))}</td>
+      <td style="padding: 10px 8px; vertical-align: top;"><strong>${escapeHtml(priceLine)}</strong></td>
+      <td style="padding: 10px 8px; vertical-align: top;">${payload.sqft ? payload.sqft.toLocaleString() : '—'}</td>
+      <td style="padding: 10px 8px; vertical-align: top;">${payload.address ? escapeHtml(payload.address) : '—'}</td>
+      <td style="padding: 10px 8px; vertical-align: top;">${flag}</td>
+    </tr>`;
+}
+
+export type V1ChangedDigestMeta = {
+  finishedAt?: Date;
+};
+
+/**
+ * One digest email per V1 sync run listing every plan that changed upstream.
+ * Fire-and-forget from V1 sync; does not throw when SMTP is missing or send fails.
+ */
+export async function sendV1ChangedDigestEmail(
+  changes: V1PlanChangePayload[],
+  meta?: V1ChangedDigestMeta
+): Promise<void> {
+  if (changes.length === 0) return;
+
+  let transporter: nodemailer.Transporter | null = null;
+
+  try {
+    const recipients = await resolveAdminNotifyEmails();
+    if (recipients.length === 0) {
+      console.warn('[sendV1ChangedDigestEmail] No recipients — no users found in the database.');
+      return;
+    }
+
+    const { transporter: reminderTransport, from: smtpFrom } = createReminderTransporter();
+    transporter = reminderTransport;
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(
+      /\/$/,
+      ''
+    );
+    const communitiesUrl = `${appUrl}/communities`;
+
+    const total = changes.length;
+    const shown = changes.slice(0, V1_DIGEST_EMAIL_MAX_ROWS);
+    const omitted = total - shown.length;
+
+    const finishedLabel = meta?.finishedAt
+      ? meta.finishedAt.toLocaleString('en-US', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        })
+      : null;
+
+    const subject =
+      total === 1
+        ? `[UnionMainHomes] 1 plan changed`
+        : `[UnionMainHomes] ${total} plans changed`;
+
+    const tableRows = shown.map((p) => buildV1DigestChangeRowHtml(p)).join('');
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 900px; margin: 0 auto; padding: 40px 20px;">
+        <div style="background-color: #818254; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 22px;">Plan Data Updated</h1>
+        </div>
+        <div style="background-color: #ffffff; padding: 32px 28px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
+          <p style="margin: 0 0 16px 0; font-size: 15px;">
+            <strong>${total}</strong> plan${total === 1 ? '' : 's'} ${total === 1 ? 'was' : 'were'} changed with latest sync.
+            ${finishedLabel ? ` Completed ${escapeHtml(finishedLabel)}.` : ''}
+          </p>
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin: 16px 0;">
+              <thead>
+                <tr style="background-color: #f5f5f0; text-align: left;">
+                  <th style="padding: 10px 8px;">Community</th>
+                  <th style="padding: 10px 8px;">Builder</th>
+                  <th style="padding: 10px 8px;">Plan / home</th>
+                  <th style="padding: 10px 8px;">Type</th>
+                  <th style="padding: 10px 8px;">Price</th>
+                  <th style="padding: 10px 8px;">Sq ft</th>
+                  <th style="padding: 10px 8px;">Address</th>
+                  <th style="padding: 10px 8px;">V1 flag</th>
+                </tr>
+              </thead>
+              <tbody>${tableRows}</tbody>
+            </table>
+          </div>
+          ${
+            omitted > 0
+              ? `<p style="font-size: 13px; color: #666;">…and ${omitted} more change${omitted === 1 ? '' : 's'} not shown in this email.</p>`
+              : ''
+          }
+          <p style="margin: 24px 0 0 0; text-align: center;">
+            <a href="${communitiesUrl}" style="display: inline-block; background-color: #818254; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold;">Open MarketMap</a>
+          </p>
+        </div>
+        <p style="text-align: center; font-size: 12px; color: #999; margin-top: 16px;">Automated V1 sync reminder — do not reply.</p>
+      </body>
+      </html>
+    `;
+
+    const textParts = [
+      'V1 Plan Data Updated',
+      '',
+      `${total} plan(s) changed during the latest V1 sync.`,
+      finishedLabel ? `Completed: ${finishedLabel}` : '',
+      '',
+      ...shown.map((p, i) => buildV1DigestChangeText(p, i)),
+    ];
+    if (omitted > 0) {
+      textParts.push('', `…and ${omitted} more change(s) not listed.`);
+    }
+    textParts.push('', `Open MarketMap: ${communitiesUrl}`);
+    const text = textParts.filter((line) => line !== '').join('\n');
+
+    await transporter.sendMail({
+      from: smtpFrom,
+      to: recipients.join(', '),
+      subject,
+      html,
+      text,
+    });
+
+    console.log(
+      `[sendV1ChangedDigestEmail] Sent digest (${total} change(s)) to ${recipients.length} user(s).`
+    );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('[sendV1ChangedDigestEmail] Failed:', message);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('=== V1 PLAN CHANGED DIGEST (email failed) ===', changes);
+    }
+  } finally {
+    if (transporter) {
+      try {
+        transporter.close();
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }

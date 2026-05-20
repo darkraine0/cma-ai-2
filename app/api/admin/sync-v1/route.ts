@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
       v1LastRunAt: state.v1LastRunAt,
       v1LastFetched: state.v1LastFetched,
       v1LastInserted: state.v1LastInserted,
+      v1LastUpdated: state.v1LastUpdated,
       v1LastError: state.v1LastError,
       v1LastSummary: state.v1LastSummary,
     });
