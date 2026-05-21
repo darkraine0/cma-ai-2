@@ -35,6 +35,10 @@ export type PlanVersion = 1 | 2 | 3 | 4;
 export interface IPlan extends Document {
   plan_name: string;
   price: number;
+  /** User-adjusted price from chart drag; chart plots prediction_price ?? price. */
+  prediction_price?: number | null;
+  prediction_updated_at?: Date | null;
+  prediction_updated_by?: Types.ObjectId | null;
   sqft?: number;
   stories?: string;
   price_per_sqft?: number;
@@ -117,6 +121,19 @@ const PlanSchema = new Schema<IPlan>(
     price: {
       type: Number,
       required: true,
+    },
+    prediction_price: {
+      type: Number,
+      default: null,
+    },
+    prediction_updated_at: {
+      type: Date,
+      default: null,
+    },
+    prediction_updated_by: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
     },
     sqft: {
       type: Number,

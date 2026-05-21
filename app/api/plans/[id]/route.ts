@@ -7,6 +7,7 @@ import Community from '@/app/models/Community';
 import ProductSegment from '@/app/models/ProductSegment';
 import mongoose from 'mongoose';
 import { requirePermission } from '@/app/lib/admin';
+import { bumpPlanVersionOnUserEdit } from '@/app/lib/planVersion';
 
 type Params = { params: Promise<{ id: string }> | { id: string } };
 
@@ -40,6 +41,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const {
       plan_name,
       price,
+      prediction_price: predictionPriceBody,
       sqft,
       stories,
       price_per_sqft,
@@ -53,8 +55,44 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       segmentId,
     } = body;
 
-    if (plan_name !== undefined) plan.plan_name = String(plan_name).trim();
+    let predictionOnlyEdit = predictionPriceBody !== undefined;
+
+    if (plan_name !== undefined) {
+      predictionOnlyEdit = false;
+      plan.plan_name = String(plan_name).trim();
+    }
+    if (predictionPriceBody !== undefined) {
+      if (predictionPriceBody === null || predictionPriceBody === '') {
+        plan.set('prediction_price', null);
+        plan.set('prediction_updated_at', null);
+        plan.set('prediction_updated_by', null);
+      } else {
+        const next = Number(predictionPriceBody);
+        if (!Number.isFinite(next) || next < 0) {
+          return NextResponse.json(
+            { error: 'prediction_price must be a non-negative number' },
+            { status: 400 }
+          );
+        }
+        plan.prediction_price = next;
+        plan.prediction_updated_at = new Date();
+        plan.prediction_updated_by = permissionCheck.user._id;
+      }
+    }
+    if (sqft !== undefined) predictionOnlyEdit = false;
+    if (stories !== undefined) predictionOnlyEdit = false;
+    if (price_per_sqft !== undefined) predictionOnlyEdit = false;
+    if (beds !== undefined) predictionOnlyEdit = false;
+    if (baths !== undefined) predictionOnlyEdit = false;
+    if (address !== undefined) predictionOnlyEdit = false;
+    if (design_number !== undefined) predictionOnlyEdit = false;
+    if (type !== undefined) predictionOnlyEdit = false;
+    if (company !== undefined) predictionOnlyEdit = false;
+    if (community !== undefined) predictionOnlyEdit = false;
+    if (segmentId !== undefined) predictionOnlyEdit = false;
+
     if (price !== undefined) {
+      predictionOnlyEdit = false;
       const newPrice = Number(price);
       if (plan.price !== newPrice) {
         const priceHistory = new PriceHistory({
@@ -68,7 +106,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         plan.price_changed_recently = true;
       }
     }
-    if (sqft !== undefined) plan.sqft = sqft === null || sqft === '' ? undefined : Number(sqft);
+    if (sqft !== undefined) {
+      plan.sqft = sqft === null || sqft === '' ? undefined : Number(sqft);
+    }
     if (stories !== undefined) plan.stories = stories === null || stories === '' ? undefined : String(stories);
     if (price_per_sqft !== undefined) plan.price_per_sqft = price_per_sqft === null || price_per_sqft === '' ? undefined : Number(price_per_sqft);
     if (beds !== undefined) plan.beds = beds === null || beds === '' ? undefined : String(beds);
@@ -120,14 +160,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       }
     }
 
-    plan.last_updated = new Date();
+    if (!predictionOnlyEdit) {
+      plan.last_updated = new Date();
+    }
 
-    // If this plan was originally imported by the V1 sync (version === 1) and
-    // a user has just edited any field, mark it as "modified by user" (3) so
-    // the system can distinguish pristine V1 rows from manager-edited ones.
-    // Versions 2 (manual) and 3 (already modified) are left as-is.
-    if (plan.version === 1 || plan.version === 2) {
-      plan.version += 2;
+    if (predictionPriceBody !== undefined || !predictionOnlyEdit) {
+      plan.version = bumpPlanVersionOnUserEdit(plan.version);
     }
 
     await plan.save();
@@ -136,6 +174,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       _id: plan._id.toString(),
       plan_name: plan.plan_name,
       price: plan.price,
+      prediction_price: plan.prediction_price ?? null,
+      prediction_updated_at: plan.prediction_updated_at ?? null,
       sqft: plan.sqft ?? null,
       stories: plan.stories ?? null,
       price_per_sqft: plan.price_per_sqft ?? null,

@@ -7,6 +7,7 @@ import Company from '@/app/models/Company';
 import Community from '@/app/models/Community';
 import ProductSegment from '@/app/models/ProductSegment';
 import { requirePermission } from '@/app/lib/admin';
+import { bumpPlanVersionOnUserEdit } from '@/app/lib/planVersion';
 
 type LeanPlan = Omit<IPlan, '_id'> & { _id: Types.ObjectId };
 
@@ -193,12 +194,7 @@ export async function POST(request: NextRequest) {
         existingPlan.company = companyRef;
         existingPlan.community = communityRef;
 
-        // Bump version 1 (pristine V1 import) -> 3 (V1 modified) so we can
-        // distinguish pristine V1 rows from those a manager / scrape has
-        // touched. Versions 2 (manual) and 3 (already modified) stay put.
-        if (existingPlan.version === 1 || existingPlan.version === 2) {
-          existingPlan.version += 2;
-        }
+        existingPlan.version = bumpPlanVersionOnUserEdit(existingPlan.version);
 
         await existingPlan.save();
         results.push(existingPlan);

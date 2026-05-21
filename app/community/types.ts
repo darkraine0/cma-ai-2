@@ -8,6 +8,9 @@ export interface Plan {
   _id?: string;
   plan_name: string;
   price: number;
+  /** Chart drag overlay; when set, chart Y uses this instead of price. */
+  prediction_price?: number | null;
+  prediction_updated_at?: string | null;
   sqft: number;
   stories: string;
   price_per_sqft: number;

@@ -266,7 +266,7 @@ export async function syncV1Community(
           (existing.baths ?? '') !== (coerceString(item.baths) || '') ||
           (existing.address ?? '') !== (address || '');
 
-        if (!dataChanged) {
+        if (!dataChanged || existing.version === 3) {
           result.skippedExisting += 1;
           continue;
         }
@@ -282,9 +282,6 @@ export async function syncV1Community(
         existing.beds = coerceString(item.beds) || undefined;
         existing.baths = coerceString(item.baths) || undefined;
         existing.design_number = coerceString(item.design_number) || undefined;
-        if (typeof existing.version === 'number' && existing.version <= 2) {
-          existing.version += 2;
-        }
         await existing.save();
 
         if (planChangesOut) {

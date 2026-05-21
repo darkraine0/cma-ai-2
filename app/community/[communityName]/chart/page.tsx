@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Card, CardContent } from "../../../components/ui/card";
 import { useToast } from "../../../components/ui/use-toast";
@@ -16,11 +16,16 @@ import { getV1ProductLineLabel } from "../../utils/v1ProductLine";
 import { isV1Version } from "../../utils/planVersion";
 import API_URL from '../../../config';
 import type { Community, CommunityCompany, Plan } from "../../types";
+import { useAuth } from "../../../contexts/AuthContext";
 
 export default function ChartPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const canEdit =
+    user?.permission === "editor" || user?.role === "admin";
+  const [predictionEditMode, setPredictionEditMode] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [productLines, setProductLines] = useState<{ _id: string; name: string; label: string }[]>([]);
   const [productLinesLoading, setProductLinesLoading] = useState(false);
@@ -36,7 +41,8 @@ export default function ChartPage() {
   const urlType = searchParams?.get('type');
 
   // Fetch community and plans data (V2)
-  const { community, plans, childCommunities, loading, error, refetch } = useCommunityData(communitySlug);
+  const { community, plans, childCommunities, loading, error, refetch, updatePlan } =
+    useCommunityData(communitySlug);
 
   const subcommunityOptions = useMemo(
     () =>
@@ -452,6 +458,63 @@ export default function ChartPage() {
     filteredPlans,
   } = useChartFilters(displayPlans, companyNamesSet, urlType, displayProductLines);
 
+  const applyPlanPrediction = useCallback(
+    (planId: string, prediction_price: number | null, version?: number | null) => {
+      const updatedAt =
+        prediction_price != null ? new Date().toISOString() : undefined;
+      const patch: Partial<Plan> = {
+        prediction_price: prediction_price ?? undefined,
+        prediction_updated_at: updatedAt,
+      };
+      if (version != null) patch.version = version;
+      updatePlan(planId, patch);
+      setSubcommunityPlansById((prev) => {
+        const next: Record<string, Plan[]> = {};
+        for (const [id, list] of Object.entries(prev)) {
+          next[id] = list.map((p) =>
+            p._id === planId ? { ...p, ...patch } : p
+          );
+        }
+        return next;
+      });
+    },
+    [updatePlan]
+  );
+
+  const handlePredictionSave = useCallback(
+    async (planId: string, predictionPrice: number | null, basePrice: number) => {
+      const res = await fetch(`${API_URL}/plans/${planId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ prediction_price: predictionPrice }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          typeof data.error === "string" ? data.error : "Failed to save prediction"
+        );
+      }
+      const saved =
+        data.prediction_price === null || data.prediction_price === undefined
+          ? null
+          : Number(data.prediction_price);
+      applyPlanPrediction(
+        planId,
+        Number.isFinite(saved) ? saved : predictionPrice,
+        typeof data.version === "number" ? data.version : null
+      );
+      toast({
+        title: predictionPrice == null ? "Prediction cleared" : "Prediction saved",
+        description:
+          predictionPrice == null
+            ? "Chart uses the actual price again."
+            : `Predicted $${predictionPrice.toLocaleString()} (actual $${basePrice.toLocaleString()}).`,
+      });
+    },
+    [applyPlanPrediction, toast]
+  );
+
   // Sync only V2 (registered) companies — V1 lives in DB like V2
   const syncableCompanies = useMemo(
     () => {
@@ -616,6 +679,10 @@ export default function ChartPage() {
                   selectedType={selectedType}
                   companyColorMap={companyColorMap}
                   selectedCommunityName={chartSelectedCommunityName}
+                  canEdit={canEdit}
+                  predictionEditMode={predictionEditMode}
+                  onPredictionEditModeChange={setPredictionEditMode}
+                  onPredictionSave={handlePredictionSave}
                 />
               )}
             </div>

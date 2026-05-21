@@ -75,6 +75,8 @@ export async function GET(
       _id: plan._id.toString(),
       plan_name: plan.plan_name,
       price: plan.price,
+      prediction_price: plan.prediction_price ?? null,
+      prediction_updated_at: plan.prediction_updated_at ?? null,
       sqft: plan.sqft || null,
       stories: plan.stories || null,
       price_per_sqft: plan.price_per_sqft || null,

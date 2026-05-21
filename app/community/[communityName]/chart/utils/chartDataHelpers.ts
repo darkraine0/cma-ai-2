@@ -2,9 +2,24 @@ import { Plan } from "../../../types";
 import { getCompanyColor } from "../../../../utils/colors";
 import { extractCompanyName } from "../../../utils/companyHelpers";
 
+export function chartDisplayPrice(plan: { price: number; prediction_price?: number | null }): number {
+  const pred = plan.prediction_price;
+  if (typeof pred === 'number' && Number.isFinite(pred)) return pred;
+  return plan.price;
+}
+
+export function hasChartPrediction(plan: { price: number; prediction_price?: number | null }): boolean {
+  const pred = plan.prediction_price;
+  return typeof pred === 'number' && Number.isFinite(pred) && pred !== plan.price;
+}
+
 export interface ChartDataPoint {
   x: number;
   y: number;
+  planId: string;
+  basePrice: number;
+  predictionPrice?: number | null;
+  hasPrediction: boolean;
   planName: string;
   company: string;
   type?: string;
@@ -46,7 +61,12 @@ export function prepareChartDatasets(
     .map((company) => {
       const companyPlans = plans.filter((plan) => {
         const planCompany = extractCompanyName(plan.company);
-        return planCompany === company && plan.sqft && plan.price;
+        return (
+          plan._id &&
+          planCompany === company &&
+          plan.sqft &&
+          plan.price
+        );
       });
 
       // Sort by square footage for smooth line rendering
@@ -55,6 +75,11 @@ export function prepareChartDatasets(
       const resolvedColor = (companyColorMap && companyColorMap[company]) || getCompanyColor(company);
       // Chart requires a string color; use a neutral fallback when company has no color set
       const color = resolvedColor ?? "#94a3b8";
+
+      const pointColors = sortedPlans.map((plan) =>
+        hasChartPrediction(plan) ? '#f59e0b' : color
+      );
+      const pointRadii = sortedPlans.map((plan) => (hasChartPrediction(plan) ? 6 : 4));
 
       return {
         label: company,
@@ -70,9 +95,15 @@ export function prepareChartDatasets(
           const planName = plan.plan_name?.trim() || undefined;
           // Match the table's Plan Name column: for Spec ("now") plans with an address, show the address.
           const displayName = (type === "now" && address ? address : planName) || "Unnamed plan";
+          const basePrice = plan.price;
+          const displayY = chartDisplayPrice(plan);
           return {
             x: plan.sqft,
-            y: plan.price,
+            y: displayY,
+            planId: String(plan._id ?? ''),
+            basePrice,
+            predictionPrice: plan.prediction_price ?? null,
+            hasPrediction: hasChartPrediction(plan),
             planName: displayName,
             company,
             type,
@@ -88,8 +119,10 @@ export function prepareChartDatasets(
         borderColor: color,
         backgroundColor: `${color}40`,
         tension: 0.2,
-        pointRadius: 4,
-        pointHoverRadius: 6,
+        pointRadius: pointRadii,
+        pointHoverRadius: 8,
+        pointBackgroundColor: pointColors,
+        pointBorderColor: pointColors,
         fill: false,
       };
     })

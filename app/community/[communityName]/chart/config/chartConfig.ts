@@ -26,6 +26,10 @@ export const crosshairPlugin: Plugin<'line'> = {
 type ChartRawPoint = {
   x: number;
   y: number;
+  planId?: string;
+  basePrice?: number;
+  predictionPrice?: number | null;
+  hasPrediction?: boolean;
   planName?: string;
   company?: string;
   type?: string;
@@ -102,8 +106,11 @@ function renderTooltipHtml(tooltip: TooltipModel<'line'>): string {
         <span style="font-weight: 600;">${escapeHtml(builder)}</span>
       </div>`;
 
-    // Price — highlighted in amber to stand out from the rest of the details.
-    html += `<div style="margin-left:15px;color:#fbbf24;font-weight:600;">Price: $${raw.y.toLocaleString()}</div>`;
+    const actual = raw.basePrice ?? raw.y;
+    html += `<div style="margin-left:15px;">Price: $${raw.y.toLocaleString()}</div>`;
+    if (raw.hasPrediction && raw.predictionPrice != null) {
+      html += `<div style="margin-left:15px;color:#fbbf24;font-weight:600;">Prediction: $${raw.predictionPrice.toLocaleString()}</div>`;
+    }
 
     if (raw.planName) {
       const planLabel = raw.type === 'now' ? 'Spec' : 'Plan';
@@ -173,7 +180,13 @@ function externalTooltipHandler(context: {
  * Chart configuration for price vs square footage chart.
  * Includes zoom (wheel, pinch, drag box), pan (e.g. Ctrl+drag), and limits.
  */
-export const createChartOptions = (isMobile: boolean = false): ChartOptions<'line'> => ({
+export type ChartOptionsConfig = {
+  isMobile?: boolean;
+};
+
+export const createChartOptions = ({
+  isMobile = false,
+}: ChartOptionsConfig = {}): ChartOptions<'line'> => ({
   responsive: true,
   // Let the chart fill the parent container height instead of shrinking to a fixed aspect ratio.
   maintainAspectRatio: false,
